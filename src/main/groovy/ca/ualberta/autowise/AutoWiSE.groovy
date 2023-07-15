@@ -1,6 +1,6 @@
 package ca.ualberta.autowise
 
-import com.google.api.services.drive.model.FileList
+import ca.ualberta.autowise.model.Event
 import com.google.api.services.drive.model.File
 import io.vertx.config.ConfigRetriever
 import io.vertx.config.ConfigRetrieverOptions
@@ -12,17 +12,13 @@ import org.slf4j.LoggerFactory;
 
 import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.*
 import static ca.ualberta.autowise.scripts.google.GetFilesInFolder.getFiles
+import static ca.ualberta.autowise.scripts.google.EventSlurper.slurpSheet
 
 /**
  * @Author Alexandru Ianta
  * This verticle is responsible for bootstrapping all of AutoWiSE's functionality.
  */
 
-/**
- * GLOBAL VARIABLES
- */
-//TICK = 600000 // 600,000 milliseconds, or 10 min ticks.
-//TICK = 1000
 log = LoggerFactory.getLogger(getClass())
 
 void vertxStart(Promise<Void> promise){
@@ -115,10 +111,26 @@ void vertxStart(Promise<Void> promise){
             def db = setup.result().resultAt(2)
             def server = setup.result().resultAt(3)
 
-            sendSlackMessage(slackApi, "#auto-wise", "Greetings from the script!")
+            //sendSlackMessage(slackApi, "#auto-wise", "Greetings from the script!")
 
             List<File> files = getFiles(googleApi, config.getString("autowise_drive_folder_id"), "application/vnd.google-apps.spreadsheet")
-            files.forEach {f->log.info "${f.getName()} - ${f.getMimeType()} - ${f.getId()}"}
+            files.forEach {f->
+                log.info "${f.getName()} - ${f.getMimeType()} - ${f.getId()}"
+                if (f.getName().startsWith(config.getString("autowise_event_prefix"))){
+
+                    vertx.executeBlocking(blocking->blocking.complete(slurpSheet(googleApi, f.getId()))){
+                        res->
+                            if(res){
+                                Event event = res.result()
+                                log.info "Successfully slurped event! ${event}"
+                            }else{
+                                log.error res.cause().getMessage(), res.cause()
+                            }
+                    }
+
+
+                }
+            }
 
             /**
              * Once all setup is complete start the main loop of the system.
