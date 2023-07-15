@@ -77,7 +77,7 @@ class GoogleAPI {
         this.credentials = credentials
     }
 
-    def drive(){
+    Drive drive(){
         if (_drive == null) {
             _drive = new Drive.Builder(HTTP_TRANSPORT, JSON_FACTORY, credentials)
                     .setApplicationName(APPLICATION_NAME).build()
@@ -85,7 +85,7 @@ class GoogleAPI {
         return _drive
     }
 
-    def sheets(){
+    Sheets sheets(){
         if(_sheets == null){
             _sheets = new Sheets.Builder(HTTP_TRANSPORT, JSON_FACTORY, credentials)
                     .setApplicationName(APPLICATION_NAME).build()
@@ -93,7 +93,7 @@ class GoogleAPI {
         return _sheets
     }
 
-    def gmail(){
+    Gmail gmail(){
         if(_gmail == null){
             _gmail = new Gmail.Builder(HTTP_TRANSPORT, JSON_FACTORY, credentials)
                     .setApplicationName(APPLICATION_NAME).build()
@@ -101,7 +101,7 @@ class GoogleAPI {
         return _gmail
     }
 
-    def docs(){
+    Docs docs(){
         if(_docs == null){
             _docs = new Docs.Builder(HTTP_TRANSPORT, JSON_FACTORY, credentials)
                     .setApplicationName(APPLICATION_NAME).build()

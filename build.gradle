@@ -16,7 +16,6 @@ def vertxVersion = "4.4.4"
 
 vertx{
     mainVerticle = "src/main/groovy/ca/ualberta/autowise/AutoWiSE.groovy"
-    //launcher = "ca.ualberta.autowise.AutoWiSELauncher"
     vertxVersion = "4.4.4"
     redeploy = false
 }
@@ -41,9 +40,15 @@ dependencies {
     // Disable this dependency, it seems vertx-lang-groovy requires groovy 3.0.8
     //implementation 'org.apache.groovy:groovy:4.0.2'
 
+    // https://mvnrepository.com/artifact/org.xerial/sqlite-jdbc
+    implementation 'org.xerial:sqlite-jdbc:3.42.0.0'
+
+
     // https://mvnrepository.com/artifact/org.slf4j/slf4j-api
     implementation 'org.slf4j:slf4j-api:2.0.7'
-// https://mvnrepository.com/artifact/org.slf4j/slf4j-simple
+
+    //Replace with Log4J before deployment
+    // https://mvnrepository.com/artifact/org.slf4j/slf4j-simple
     implementation 'org.slf4j:slf4j-simple:2.0.7'
 
 

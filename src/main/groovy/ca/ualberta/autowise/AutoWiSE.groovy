@@ -2,11 +2,12 @@ package ca.ualberta.autowise
 
 import com.google.api.services.drive.model.FileList
 import com.google.api.services.drive.model.File
-import com.slack.api.methods.request.chat.ChatPostMessageRequest
-import com.slack.api.methods.response.chat.ChatPostMessageResponse
 import io.vertx.core.CompositeFuture
 import io.vertx.core.Promise;
 import org.slf4j.LoggerFactory;
+
+import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.*
+import static ca.ualberta.autowise.scripts.google.GetFilesInFolder.getFiles
 
 /**
  * @Author Alexandru Ianta
@@ -28,79 +29,70 @@ void vertxStart(Promise<Void> promise){
      */
     Promise<GoogleAPI> googleAPIInit = Promise.promise();
     Promise<SlackAPI> slackAPIInit = Promise.promise();
+    Promise<SQLite> databaseInit = Promise.promise();
+    Promise<AutoWiSEServer> serverInit = Promise.promise();
 
-    //TODO: Initialize Authentication for Google API
+    //Initialize Authentication for Google API
     vertx.executeBlocking(blocking->blocking.complete(GoogleAPI.createInstance())){
         res->
             if(res){
-                googleApi = res.result()
-                googleAPIInit.complete(googleApi)
+                googleAPIInit.complete(res.result())
             }else{
                 googleAPIInit.fail(res.cause())
             }
     }
 
+    //Initialize Authentication for Slack API
     vertx.executeBlocking(blocking->blocking.complete(SlackAPI.createInstance())){
         res->
             if(res){
-                slackApi = res.result()
-                slackAPIInit.complete(slackApi)
+                slackAPIInit.complete(res.result())
             }else{
-                log.info "Woah"
                 log.error res.cause().getMessage(), res.cause()
                 slackAPIInit.fail(res.cause())
             }
     }
 
-
-
-    //TODO: Initialize Authentication for Slack API
-
     //TODO: Setup HTTP Server to handle webhooks
+    vertx.executeBlocking(blocking->blocking.complete(AutoWiSEServer.createInstance(vertx))){
+        res->
+            if(res){
+                serverInit.complete(res.result())
+            }else{
+                log.error res.cause().getMessage(), res.cause()
+                serverInit.fail(res.cause())
+            }
+    }
 
-    //TODO: Load active work from SQLite
+    //TODO: Establish connection to load active work from SQLite
+    vertx.executeBlocking(blocking->blocking.complete(SQLite.createInstance())){
+        res ->
+            if (res){
+                databaseInit.complete(res.result())
+            }else{
+                log.error res.cause().getMessage(), res.cause()
+                databaseInit.fail(res.cause())
+            }
+    }
+
+
 
     CompositeFuture.all([
             googleAPIInit.future(),
-            slackAPIInit.future()
+            slackAPIInit.future(),
+            databaseInit.future(),
+            serverInit.future()
     ]).onComplete { setup->
 
         def googleApi = setup.result().resultAt(0)
         def slackApi = setup.result().resultAt(1)
+        def db = setup.result().resultAt(2)
+        def server = setup.result().resultAt(3)
 
-        log.info "Sending a slack message"
-        try{
-            ChatPostMessageRequest chatPostMessageRequest = ChatPostMessageRequest.builder()
-                    .channel("#auto-wise")
-                    .text(":exploding_head: bro...")
-                    .build();
+        //sendSlackMessage(slackApi, "#auto-wise", "Greetings from the script!")
 
-            ChatPostMessageResponse response = slackApi.methods().chatPostMessage(chatPostMessageRequest)
-            log.error response.error
-            log.info "Slack message OK? ${response.ok}"
-
-            if (response.errors != null && response.errors.size() > 0){
-                response.errors.forEach {err-> log.error err}
-            }
-
-        }catch (Exception e){
-
-            log.error e.getMessage(), e
-        }
-
-
-        log.info "hitting the google drive api"
-
-        FileList fileList = googleApi.drive().files().list().setPageSize(10).execute()
-        List<File> files = fileList.getFiles();
-        if (files == null || files.isEmpty()){
-            log.info "No files found."
-        }else{
-            log.info "Files:"
-            files.forEach {file->
-                log.info "${file.getName()} ${file.getId()}"
-            }
-        }
+        List<File> files = getFiles(googleApi, "14kqs83NGNJYOtzhx6iG2sJoR9MTi6f4N", "application/vnd.google-apps.spreadsheet")
+        files.forEach {f->log.info "${f.getName()} - ${f.getMimeType()} - ${f.getId()}"}
 
         /**
          * Once all setup is complete start the main loop of the system.
