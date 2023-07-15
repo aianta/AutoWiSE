@@ -17,6 +17,8 @@ class Event {
     List<String> volunteerCoordinators
     ZonedDateTime startTime
     ZonedDateTime endTime
+    String eventbriteLink
+    String eventSlackChannel
 
     //Recruitment campaign info
     double executiveRatio
