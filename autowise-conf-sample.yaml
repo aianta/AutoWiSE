@@ -1,0 +1,24 @@
+---
+# General
+tick_rate: 600000 # How often does AutoWiSE execute its main loop
+
+# SQLite Config
+db_connection_string: 'jdbc:sqlite:autowise.db'
+
+# Web Server Config
+host: 0.0.0.0
+port: 8080
+
+# Google API Configs
+application_name: AutoWiSE
+credentials_path: credentials.json
+auth_tokens_directory_path: tokens
+auth_server_receiver_port: 8888
+
+# Google Drive Configs
+autowise_drive_folder_id: <autowise folder id>
+
+# Slack Config
+slack_token: <slack app/bot token>
+
+...

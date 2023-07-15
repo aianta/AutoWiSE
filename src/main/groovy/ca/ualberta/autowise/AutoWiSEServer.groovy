@@ -15,8 +15,9 @@ class AutoWiSEServer {
 
     static final log = LoggerFactory.getLogger(AutoWiSEServer.class)
 
-    def PORT = 8080;
-    def HOST = '0.0.0.0'
+    //Some default values, they are overwritten in createInstance()
+    static PORT = 8080;
+    static HOST = '0.0.0.0'
 
     Vertx vertx;
     HttpServer server;
@@ -24,15 +25,16 @@ class AutoWiSEServer {
 
     static instance;
 
-    static createInstance(vertx){
+    static createInstance(vertx, host, port){
+        HOST = host
+        PORT = port
         instance = new AutoWiSEServer(vertx);
         return instance
     }
 
     static getInstance(){
         if(instance == null){
-            log.error "Cannot retrieve instance as it has not been created"
-            return null
+            throw new RuntimeException("Cannot retrieve AutoWiSEServer instance as it has not been created")
         }
         return instance;
     }

@@ -11,14 +11,14 @@ class SlackAPI {
 
     static instance;
 
-    static createInstance(){
-        instance = new SlackAPI()
+    static createInstance(token){
+        instance = new SlackAPI(token)
         return instance
     }
 
     static getInstance(){
         if(instance == null){
-            createInstance()
+            throw RuntimeException("Cannot get SlackAPI instance as it was not created")
         }
         return instance
     }
@@ -27,8 +27,8 @@ class SlackAPI {
     MethodsClient methods;
     Slack slack = Slack.getInstance();
 
-    private SlackAPI(){
-        authToken = System.getenv("SLACK_TOKEN")
+    private SlackAPI(token){
+        authToken = token
         methods = slack.methods(authToken)
     }
 

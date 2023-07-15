@@ -14,25 +14,26 @@ import java.sql.SQLException
 class SQLite {
 
     def log = LoggerFactory.getLogger(SQLite.class)
-    def dbName = "jdbc:sqlite:autowise.db"
+    static DB_CONNECTION_STRING = "jdbc:sqlite:autowise.db"
 
 
     static instance;
 
-    static createInstance(){
+    static createInstance(dbString){
+        DB_CONNECTION_STRING = dbString
         instance = new SQLite()
         return instance
     }
 
     static getInstance(){
         if(instance == null){
-            createInstance()
+            throw RuntimeException("Cannot retrieve SQLite as it has not been created!")
         }
         return instance
     }
 
     def getConnection(){
-        try(Connection conn = DriverManager.getConnection(dbName)){
+        try(Connection conn = DriverManager.getConnection(DB_CONNECTION_STRING)){
             log.info "Connection established to database."
             return conn;
 

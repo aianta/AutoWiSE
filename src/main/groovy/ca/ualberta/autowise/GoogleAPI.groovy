@@ -36,6 +36,8 @@ class GoogleAPI {
             DocsScopes.DRIVE_FILE,
             GmailScopes.GMAIL_SEND
     ]
+
+    //Some default values, these are overwritten in createInstance()
     static CREDENTIALS_PATH = "credentials.json"
     static APPLICATION_NAME = "AutoWiSE"
     static AUTH_SERVER_PORT = 8888
@@ -48,7 +50,12 @@ class GoogleAPI {
     def _sheets
     def _gmail
 
-    static GoogleAPI createInstance(){
+    static GoogleAPI createInstance(applicationName, credentialsPath, tokensDirPath, authServerPort){
+        APPLICATION_NAME = applicationName
+        CREDENTIALS_PATH = credentialsPath
+        TOKENS_DIRECTORY_PATH = tokensDirPath
+        AUTH_SERVER_PORT = authServerPort
+
         def credentialsStream = new FileInputStream(new java.io.File(CREDENTIALS_PATH))
         def clientSecrets = GoogleClientSecrets.load JSON_FACTORY, new InputStreamReader(credentialsStream)
         def authFlow = new GoogleAuthorizationCodeFlow.Builder(
@@ -68,7 +75,7 @@ class GoogleAPI {
 
     static GoogleAPI getInstance(){
         if (instance == null){
-            createInstance()
+            throw new RuntimeException("Cannot get GoogleAPI instance because it was not created!")
         }
         return instance
     }
