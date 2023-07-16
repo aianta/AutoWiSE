@@ -17,6 +17,7 @@ import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.*
 import static ca.ualberta.autowise.scripts.google.GetFilesInFolder.getFiles
 import static ca.ualberta.autowise.scripts.google.EventSlurper.slurpSheet
 import static ca.ualberta.autowise.JsonUtils.getEventGenerator
+import static ca.ualberta.autowise.scripts.google.ProcessAutoWiSEEventSheet.processEventSheet
 
 /**
  * @Author Alexandru Ianta
@@ -93,7 +94,7 @@ void vertxStart(Promise<Void> promise){
         }
 
         //TODO: Establish connection to load active work from SQLite
-        vertx.executeBlocking(blocking->blocking.complete(SQLite.createInstance(config.getString("db_connection_string")))){
+        vertx.executeBlocking(blocking->blocking.complete(SQLite.createInstance(vertx, config.getString("db_connection_string")))){
             res ->
                 if (res){
                     databaseInit.complete(res.result())
@@ -115,27 +116,38 @@ void vertxStart(Promise<Void> promise){
             def db = setup.result().resultAt(2)
             def server = setup.result().resultAt(3)
 
+            //Package all the services into a map for easy passing to scripts
+            def services = [
+                    googleAPI: googleApi,
+                    slackAPI: slackApi,
+                    db: db,
+                    server: server
+            ]
+
             //sendSlackMessage(slackApi, "#auto-wise", "Greetings from the script!")
 
+            /**
+             * Start going through all the google sheets in the autowise folder on google drive.
+             */
             List<File> files = getFiles(googleApi, config.getString("autowise_drive_folder_id"), "application/vnd.google-apps.spreadsheet")
+
             files.forEach {f->
                 log.info "${f.getName()} - ${f.getMimeType()} - ${f.getId()}"
+                /**
+                 * If the sheet name starts with the specified autowise_event_prefix process it
+                 */
                 if (f.getName().startsWith(config.getString("autowise_event_prefix"))){
 
-                    vertx.executeBlocking(blocking->blocking.complete(slurpSheet(googleApi, f.getId()))){
-                        res->
-                            if(res){
-                                Event event = res.result()
-                                log.info "Successfully slurped event! ${event}"
-                                def jsonString = getEventGenerator().toJson(event)
-                                log.info "${jsonString}"
+                    // Do processing in separate thread to avoid blocking the main loop.
+                    vertx.executeBlocking(blocking->{
 
-                                def slurpedEvent = slurpEventJson(jsonString)
-                                log.info "${slurpedEvent}"
-
-                            }else{
-                                log.error res.cause().getMessage(), res.cause()
-                            }
+                        processEventSheet(services, f.getId()).onSuccess {
+                            blocking.complete()
+                        }
+                        //blocking.complete(slurpSheet(googleApi, f.getId()))
+                        //blocking.complete()
+                    }){
+                        log.info "Allegedly done processing"
                     }
 
 

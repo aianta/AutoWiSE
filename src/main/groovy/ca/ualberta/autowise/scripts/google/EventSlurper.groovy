@@ -1,5 +1,11 @@
 package ca.ualberta.autowise.scripts.google
 
+/**
+ * @Author Alexandru Ianta
+ * Parse a google sheet as an event description and
+ * produce an {@link ca.ualberta.autowise.model.Event}
+ */
+
 import ca.ualberta.autowise.GoogleAPI
 import ca.ualberta.autowise.model.Event
 import ca.ualberta.autowise.model.EventStatus
@@ -8,10 +14,10 @@ import ca.ualberta.autowise.model.Shift
 import com.google.api.client.googleapis.json.GoogleJsonError
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.services.sheets.v4.model.ValueRange
-import groovy.json.JsonOutput
 import groovy.transform.Field
 import org.slf4j.LoggerFactory
 
+import java.time.Duration
 import java.time.LocalTime
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -34,11 +40,6 @@ import java.util.stream.Collectors
  */
 @Field static DateTimeFormatter shiftTimeFormatter = DateTimeFormatter.ofPattern("H:mm");
 
-/**
- * @Author Alexandru Ianta
- * Parse a google sheet as an event description and
- * produce an {@link ca.ualberta.autowise.model.Event}
- */
 
 static def slurpSheet(GoogleAPI googleAPI, spreadsheetId){
     api = googleAPI
@@ -82,9 +83,9 @@ static def slurpSheet(GoogleAPI googleAPI, spreadsheetId){
             eventOrganizers: slurpEmailsHorizontally("Event!7:7"),
             volunteerCoordinators: slurpEmailsHorizontally("Event!8:8"),
             executiveRatio: Double.parseDouble(slurped.get("executiveRatio")),
-            campaignStartOffset: 1000 * 60 * 60 * 24 * Long.parseLong(slurped.get("campaignStartOffset")), //Convert days to ms
-            resolicitFrequency: 1000 * 60 * 60 * 24 * Long.parseLong(slurped.get("resolicitFrequency")),   //Convert days to ms
-            followupOffset: 1000 * 60 * 60 * Long.parseLong(slurped.get("followupOffset")),                //Convert hours to ms
+            campaignStartOffset: Duration.ofDays(Long.parseLong(slurped.get("campaignStartOffset"))).toMillis(), //Convert days to ms
+            resolicitFrequency: Duration.ofDays(Long.parseLong(slurped.get("resolicitFrequency"))).toMillis(),   //Convert days to ms
+            followupOffset: Duration.ofHours(Long.parseLong(slurped.get("followupOffset"))).toMillis(),          //Convert hours to ms
             recruitmentEmailTemplateId: slurped.get("recruitmentEmailTemplateId"),
             followupEmailTemplateId: slurped.get("followupEmailTemplateId"),
             confirmAssignedEmailTemplateId: slurped.get("confirmAssignedEmailTemplateId"),
