@@ -3,12 +3,14 @@ package ca.ualberta.autowise.model
 import java.time.ZonedDateTime
 
 enum EventStatus{
-    READY
+    READY, IN_PROGRESS, COMPLETE, PAUSE
 }
 
 class Event {
+
+
     UUID id
-    EventStatus status
+    String status
 
     //Event info
     String name

@@ -2,17 +2,21 @@ package ca.ualberta.autowise
 
 import ca.ualberta.autowise.model.Event
 import com.google.api.services.drive.model.File
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
 import io.vertx.config.ConfigRetriever
 import io.vertx.config.ConfigRetrieverOptions
 import io.vertx.config.ConfigStoreOptions
 import io.vertx.core.CompositeFuture
 import io.vertx.core.Promise
 import io.vertx.core.json.JsonObject;
-import org.slf4j.LoggerFactory;
+import org.slf4j.LoggerFactory
 
+import static ca.ualberta.autowise.JsonUtils.slurpEventJson;
 import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.*
 import static ca.ualberta.autowise.scripts.google.GetFilesInFolder.getFiles
 import static ca.ualberta.autowise.scripts.google.EventSlurper.slurpSheet
+import static ca.ualberta.autowise.JsonUtils.getEventGenerator
 
 /**
  * @Author Alexandru Ianta
@@ -123,6 +127,12 @@ void vertxStart(Promise<Void> promise){
                             if(res){
                                 Event event = res.result()
                                 log.info "Successfully slurped event! ${event}"
+                                def jsonString = getEventGenerator().toJson(event)
+                                log.info "${jsonString}"
+
+                                def slurpedEvent = slurpEventJson(jsonString)
+                                log.info "${slurpedEvent}"
+
                             }else{
                                 log.error res.cause().getMessage(), res.cause()
                             }

@@ -69,7 +69,6 @@ static def slurpSheet(GoogleAPI googleAPI, spreadsheetId){
     slurped.forEach {key,value-> log.info "${key}: ${value}"}
 
     List<Role> roles = slurpRolesAndShifts()
-    //log.info "${roles.toStringFormat()}"
 
     Event result = new Event(
             id: slurped.get("id") == null?null:UUID.fromString(slurped.get("id")),

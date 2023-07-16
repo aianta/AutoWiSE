@@ -13,17 +13,17 @@ class Shift {
     int targetNumberOfVolunteers
 
 
-    def toJsonFormat(){
-        JsonObject result = new JsonObject()
-            .put("index", index)
-            .put("startTime", startTime.toString())
-            .put("endTime", endTime.toString())
-            .put("targetNumberOfVolunteers", targetNumberOfVolunteers)
-
-        return result
-    }
-
-    String toStringFormat(){
-        return toJson().encodePrettily()
-    }
+//    def toJsonFormat(){
+//        JsonObject result = new JsonObject()
+//            .put("index", index)
+//            .put("startTime", startTime.toString())
+//            .put("endTime", endTime.toString())
+//            .put("targetNumberOfVolunteers", targetNumberOfVolunteers)
+//
+//        return result
+//    }
+//
+//    String toStringFormat(){
+//        return toJson().encodePrettily()
+//    }
 }

@@ -9,16 +9,16 @@ class Role {
     List<Shift> shifts = new ArrayList()
 
 
-    def toJsonFormat(){
-        JsonObject result = new JsonObject()
-            .put("name", name)
-            .put("description", description)
-            .put("shifts", shifts.stream().map(Shift::toJsonFormat).collect(JsonArray::new, JsonArray::add, JsonArray::addAll))
-
-        return result
-    }
-
-    String toStringFormat(){
-        return toJson().encodePrettily()
-    }
+//    def toJsonFormat(){
+//        JsonObject result = new JsonObject()
+//            .put("name", name)
+//            .put("description", description)
+//            .put("shifts", shifts.stream().map(Shift::toJsonFormat).collect(JsonArray::new, JsonArray::add, JsonArray::addAll))
+//
+//        return result
+//    }
+//
+//    String toStringFormat(){
+//        return toJson().encodePrettily()
+//    }
 }
