@@ -48,3 +48,4 @@ src/main/groovy/ca/ualberta/autowise/tokens/
 src/main/groovy/ca/ualberta/wiser-oauth-google.json
 tokens
 autowise-conf.yaml
+autowise.db

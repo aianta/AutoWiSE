@@ -2,6 +2,7 @@ package ca.ualberta.autowise.scripts
 
 import ca.ualberta.autowise.model.Event
 import ca.ualberta.autowise.model.EventStatus
+import ca.ualberta.autowise.model.Shift
 import ca.ualberta.autowise.model.Task
 import ca.ualberta.autowise.model.TaskStatus
 import groovy.transform.Field
@@ -11,11 +12,14 @@ import org.slf4j.LoggerFactory
 import java.time.Duration
 import java.time.ZonedDateTime
 import java.time.temporal.ChronoUnit
-import java.time.temporal.TemporalAmount
+import java.util.stream.Collectors
+import java.util.stream.Stream
 
-import static ca.ualberta.autowise.scripts.google.UpdateSheetSingleValue.updateSingleValueAt
+import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateSingleValueAt
+import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateColumnValueAt
 
 @Field static def log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.RegisterNewEvent.class)
+@Field static def EVENT_STATUS_CELL_ADDRESS = "\'Event Status\'!A5"
 
 static def registerNewEvent(services, event, sheetId){
     Promise promise = Promise.promise();
@@ -27,26 +31,60 @@ static def registerNewEvent(services, event, sheetId){
      * 1. Assigning it an event id
      * 2. Creating an automated recruitment campaign plan
      *      This will consist of a series of scheduled tasks to execute for this event.
-     * 3. Generate 'Event Status' sheet in the event spreadsheet.
-     * 4. Generate 'Volunteer Contact Status' sheet in the event spreadsheet.
-     * 5. Set the event status to 'IN_PROGRESS' in the event spreadsheet.
-     * 6. Notify volunteer coordinators and event leads that the event has been registered.
+     * 3. Update 'Event Status' sheet in the event spreadsheet.
+     * 4. Set the event status to 'IN_PROGRESS' in the event spreadsheet.
      */
 
     assert event.id == null // Events processed by this script should not have ids
+    // Set the event id
     event.id = UUID.randomUUID() // Generate an id for this event.
 
-    // Set event id
-    //TODO uncomment this
-    //updateSingleValueAt(services.googleAPI, sheetId, "Event!A2", event.id.toString())
 
     // Make campaign plan
     List<Task> plan = makeCampaignPlan(event)
     log.info "plan size: ${plan.size()}"
+
     // Persist plan in sqlite
     services.db.insertPlan(plan)
 
+    // Update 'Event Status' Sheet
+    // TODO - batch these
+    updateColumnValueAt(services.googleAPI, sheetId, EVENT_STATUS_CELL_ADDRESS, produceRoleShiftList(event))
+
+    // Update the event id in the sheet
+    updateSingleValueAt(services.googleAPI, sheetId, "Event!A2", event.id.toString())
+    // Update the event status
+    updateSingleValueAt(services.googleAPI, sheetId, "Event!A3", EventStatus.IN_PROGRESS.toString())
+
     return promise.future();
+}
+
+/**
+ * For an event produces an expanded list of all volunteer slots as defined
+ * by the number of roles and shifts.
+ * IE: If there is a single role 'Grill Master' for which 2 volunteers are required
+ * and this role has a single shift. This function would produce:
+ *
+ * ["1 - Grill Master", "1 - Grill Master"]
+ * @param event
+ */
+private static def produceRoleShiftList(Event event){
+    List<String> result = new ArrayList<>()
+
+    event.roles.forEach(role->{
+        role.shifts.forEach { Shift shift ->
+
+            result.addAll(
+                    Stream.generate(()->"${shift.index} - ${role.name}")
+                            .limit(shift.targetNumberOfVolunteers)
+                            .collect(Collectors.toList())
+            )
+
+        }
+    })
+
+    return result;
+
 }
 
 private static def makeCampaignPlan(Event event){
