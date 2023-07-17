@@ -1,4 +1,4 @@
-package ca.ualberta.autowise.scripts.google
+package ca.ualberta.autowise.scripts
 
 import ca.ualberta.autowise.GoogleAPI
 import ca.ualberta.autowise.model.EventStatus
@@ -8,8 +8,9 @@ import org.slf4j.LoggerFactory
 
 import static ca.ualberta.autowise.scripts.google.EventSlurper.slurpSheet
 import static ca.ualberta.autowise.scripts.RegisterNewEvent.registerNewEvent
+import static ca.ualberta.autowise.scripts.SendEmailWithTemplate.sendEmailWithTemplate
 
-@Field static def log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.google.ProcessAutoWiSEEventSheet.class)
+@Field static def log = LoggerFactory.getLogger(ProcessAutoWiSEEventSheet.class)
 @Field static GoogleAPI googleAPI
 
 static def processEventSheet(services, sheetId){
@@ -37,6 +38,9 @@ static def processEventSheet(services, sheetId){
 
     def event = slurpSheet(googleAPI, sheetId)
     log.info "event.id: ${event.id} - ${event.id == null}"
+
+    //TODO: for testing only, remove
+    sendEmailWithTemplate(services.googleAPI, event.recruitmentEmailTemplateId, "lol@gmail.com")
 
     if(event.id == null){
         //This is a new event.

@@ -1,9 +1,8 @@
 package ca.ualberta.autowise
 
-import ca.ualberta.autowise.model.Event
+
 import com.google.api.services.drive.model.File
-import groovy.json.JsonOutput
-import groovy.json.JsonSlurper
+import groovy.transform.Field
 import io.vertx.config.ConfigRetriever
 import io.vertx.config.ConfigRetrieverOptions
 import io.vertx.config.ConfigStoreOptions
@@ -12,12 +11,8 @@ import io.vertx.core.Promise
 import io.vertx.core.json.JsonObject;
 import org.slf4j.LoggerFactory
 
-import static ca.ualberta.autowise.JsonUtils.slurpEventJson;
-import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.*
 import static ca.ualberta.autowise.scripts.google.GetFilesInFolder.getFiles
-import static ca.ualberta.autowise.scripts.google.EventSlurper.slurpSheet
-import static ca.ualberta.autowise.JsonUtils.getEventGenerator
-import static ca.ualberta.autowise.scripts.google.ProcessAutoWiSEEventSheet.processEventSheet
+import static ca.ualberta.autowise.scripts.ProcessAutoWiSEEventSheet.processEventSheet
 
 /**
  * @Author Alexandru Ianta
@@ -25,6 +20,8 @@ import static ca.ualberta.autowise.scripts.google.ProcessAutoWiSEEventSheet.proc
  */
 
 log = LoggerFactory.getLogger(getClass())
+
+@Field static JsonObject config
 
 void vertxStart(Promise<Void> promise){
 
@@ -53,7 +50,7 @@ void vertxStart(Promise<Void> promise){
         }
 
         //Make config values available for initializing AutoWiSE systems
-        def config = configResult.result()
+        config = configResult.result()
 
         //Initialize Authentication for Google API
         vertx.executeBlocking(blocking->blocking.complete(GoogleAPI.createInstance(

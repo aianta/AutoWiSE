@@ -51,10 +51,11 @@ static def registerNewEvent(services, event, sheetId){
     // TODO - batch these
     updateColumnValueAt(services.googleAPI, sheetId, EVENT_STATUS_CELL_ADDRESS, produceRoleShiftList(event))
 
-    // Update the event id in the sheet
-    updateSingleValueAt(services.googleAPI, sheetId, "Event!A2", event.id.toString())
+    //TODO - turn these on again
+    //Update the event id in the sheet
+    //updateSingleValueAt(services.googleAPI, sheetId, "Event!A2", event.id.toString())
     // Update the event status
-    updateSingleValueAt(services.googleAPI, sheetId, "Event!A3", EventStatus.IN_PROGRESS.toString())
+    //updateSingleValueAt(services.googleAPI, sheetId, "Event!A3", EventStatus.IN_PROGRESS.toString())
 
     return promise.future();
 }
