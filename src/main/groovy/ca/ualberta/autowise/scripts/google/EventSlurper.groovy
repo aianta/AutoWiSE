@@ -267,3 +267,17 @@ private static def slurpRolesAndShifts(){
 private static def getRoleByName(List<Role> roles, String name){
     return roles.stream().filter(r->r.name.equals(name)).findFirst().orElse(null);
 }
+
+/**
+ * Returns true for all statuses an event can be in and still be slurped
+ * @param status
+ */
+static def isSlurpable(status){
+
+    def slurpableStatuses = [
+            EventStatus.READY.toString(),
+            EventStatus.IN_PROGRESS.toString()
+    ] as Set
+
+    return slurpableStatuses.contains(status)
+}

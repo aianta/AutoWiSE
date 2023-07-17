@@ -20,6 +20,12 @@ vertx{
     redeploy = false
 }
 
+configurations.all {
+    resolutionStrategy.capabilitiesResolution.withCapability('org.codehaus.groovy:groovy') {
+        selectHighestVersion()
+    }
+}
+
 dependencies {
 
 
@@ -40,8 +46,13 @@ dependencies {
     implementation 'com.google.apis:google-api-services-gmail:v1-rev20220404-2.0.0'
 
     implementation("com.slack.api:slack-api-client:1.30.0")
-    // Disable this dependency, it seems vertx-lang-groovy requires groovy 3.0.8
-    //implementation 'org.apache.groovy:groovy:4.0.2'
+    // Absolutely NEED groovy 4.x, promises and futures are broken with anything older!!!
+    // https://github.com/vert-x3/vertx-lang-groovy/issues/113
+    // Nearly went insane with this one, careful...
+
+    // https://mvnrepository.com/artifact/org.apache.groovy/groovy
+    implementation 'org.apache.groovy:groovy:4.0.13'
+
 
     // https://mvnrepository.com/artifact/org.xerial/sqlite-jdbc
     implementation 'org.xerial:sqlite-jdbc:3.42.0.0'

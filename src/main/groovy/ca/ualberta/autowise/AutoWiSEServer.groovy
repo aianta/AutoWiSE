@@ -1,10 +1,14 @@
 package ca.ualberta.autowise
 
+import ca.ualberta.autowise.model.Webhook
 import io.vertx.core.Vertx
 import io.vertx.core.http.HttpServer
 import io.vertx.core.http.HttpServerOptions
 import io.vertx.ext.web.Router
+import io.vertx.ext.web.RoutingContext
 import org.slf4j.LoggerFactory
+import io.vertx.core.http.HttpMethod;
+import org.apache.commons.codec.binary.Base64
 
 /**
  * @Author Alexandru Ianta
@@ -53,5 +57,24 @@ class AutoWiSEServer {
         server.requestHandler(router).listen(PORT)
 
         log.info "AutoWiSE Server running at ${HOST}:${PORT}"
+    }
+
+    def mountWebhook(Webhook hook){
+        try{
+            log.info "Mounting webhook!"
+            def webhookPath = Base64.encodeBase64URLSafeString(hook.id.toString().getBytes())
+            log.info "mounting webhook to path: ${webhookPath}"
+            router.route(HttpMethod.GET, "/"+webhookPath).handler(this::webhookHandler)
+
+        }catch (Exception e){
+            log.error e.getMessage() , e
+        }
+    }
+
+    def webhookHandler(RoutingContext rc){
+        def encodedHookId = rc.request().path().substring(1) //Cut off the starting slash
+        log.info "encodedHookId: ${encodedHookId}"
+        def webhookId = UUID.fromString(new String(Base64.decodeBase64(encodedHookId)))
+        log.info "decoded webhook id: ${webhookId.toString()}"
     }
 }

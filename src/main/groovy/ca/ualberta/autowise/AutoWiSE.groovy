@@ -7,6 +7,7 @@ import io.vertx.config.ConfigRetriever
 import io.vertx.config.ConfigRetrieverOptions
 import io.vertx.config.ConfigStoreOptions
 import io.vertx.core.CompositeFuture
+import io.vertx.core.Future
 import io.vertx.core.Promise
 import io.vertx.core.json.JsonObject;
 import org.slf4j.LoggerFactory
@@ -23,7 +24,7 @@ log = LoggerFactory.getLogger(getClass())
 
 @Field static JsonObject config
 
-void vertxStart(Promise<Void> promise){
+void vertxStart(Promise<Void> startup){
 
     /**
      * SETUP: Perform all start up logic here.
@@ -91,7 +92,7 @@ void vertxStart(Promise<Void> promise){
         }
 
         //TODO: Establish connection to load active work from SQLite
-        vertx.executeBlocking(blocking->blocking.complete(SQLite.createInstance(vertx, config.getString("db_connection_string")))){
+        vertx.executeBlocking(blocking->SQLite.createInstance(vertx, config.getString("db_connection_string"),blocking )){
             res ->
                 if (res){
                     databaseInit.complete(res.result())
@@ -108,10 +109,10 @@ void vertxStart(Promise<Void> promise){
                 serverInit.future()
         ]).onComplete { setup->
 
-            def googleApi = setup.result().resultAt(0)
-            def slackApi = setup.result().resultAt(1)
-            def db = setup.result().resultAt(2)
-            def server = setup.result().resultAt(3)
+            GoogleAPI googleApi = setup.result().resultAt(0)
+            SlackAPI slackApi = setup.result().resultAt(1)
+            SQLite db = setup.result().resultAt(2)
+            AutoWiSEServer server = setup.result().resultAt(3)
 
             //Package all the services into a map for easy passing to scripts
             def services = [
@@ -122,6 +123,24 @@ void vertxStart(Promise<Void> promise){
             ]
 
             //sendSlackMessage(slackApi, "#auto-wise", "Greetings from the script!")
+
+            db.getWork().onSuccess(taskList->{
+                taskList.forEach( task-> {
+                    log.info "Looking through task ${task.name}"
+
+                    switch (task.name) {
+                        case "AutoWiSE Event Registration Email":
+                            break
+                        case "Initial Recruitment Email":
+                            break
+                        case "Recruitment Email":
+                            break
+                        case "Follow-up Email":
+                            break
+
+                    }
+                })
+            })
 
             /**
              * Start going through all the google sheets in the autowise folder on google drive.
@@ -141,8 +160,6 @@ void vertxStart(Promise<Void> promise){
                         processEventSheet(services, f.getId()).onSuccess {
                             blocking.complete()
                         }
-                        //blocking.complete(slurpSheet(googleApi, f.getId()))
-                        //blocking.complete()
                     }){
                         log.info "Allegedly done processing"
                     }
@@ -152,21 +169,29 @@ void vertxStart(Promise<Void> promise){
             }
 
             /**
-             * Once all setup is complete start the main loop of the system.
-             * The logic below is executed every TICK.
+             * Once all setup is complete start the main loops of the system.
              */
-            periodId = vertx.setPeriodic(config.getLong("tick_rate"), id->{
-                log.info "tick"
+            googleSheetPeriodId = vertx.setPeriodic(config.getLong("external_tick_rate"), id->{
+                log.info "external tick"
 
                 /**
                  * On every tick check google drive for new events to process.
                  */
 
-
             })
 
+            internalPeriodId = vertx.setPeriodic(config.getLong("internal_tick_rate"), id->{
+                log.info "internal tick"
+
+
+
+                }
+
+
+            )
+
             /** Notify vertx that verticle deployment is complete */
-            promise.complete()
+            startup.complete()
         }
 
     }

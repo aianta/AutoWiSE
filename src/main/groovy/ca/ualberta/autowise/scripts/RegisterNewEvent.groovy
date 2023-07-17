@@ -2,11 +2,15 @@ package ca.ualberta.autowise.scripts
 
 import ca.ualberta.autowise.model.Event
 import ca.ualberta.autowise.model.EventStatus
+import ca.ualberta.autowise.model.HookType
 import ca.ualberta.autowise.model.Shift
 import ca.ualberta.autowise.model.Task
 import ca.ualberta.autowise.model.TaskStatus
+import ca.ualberta.autowise.model.Volunteer
+import ca.ualberta.autowise.model.Webhook
 import groovy.transform.Field
 import io.vertx.core.Promise
+import io.vertx.core.json.JsonObject
 import org.slf4j.LoggerFactory
 
 import java.time.Duration
@@ -17,6 +21,7 @@ import java.util.stream.Stream
 
 import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateSingleValueAt
 import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateColumnValueAt
+import static ca.ualberta.autowise.scripts.google.VolunteerListSlurper.slurpVolunteerList
 
 @Field static def log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.RegisterNewEvent.class)
 @Field static def EVENT_STATUS_CELL_ADDRESS = "\'Event Status\'!A5"
@@ -31,8 +36,10 @@ static def registerNewEvent(services, event, sheetId){
      * 1. Assigning it an event id
      * 2. Creating an automated recruitment campaign plan
      *      This will consist of a series of scheduled tasks to execute for this event.
-     * 3. Update 'Event Status' sheet in the event spreadsheet.
-     * 4. Set the event status to 'IN_PROGRESS' in the event spreadsheet.
+     * 3. Create 'cancel campaign' webhook
+     * 4. Create webhooks to cancel and instantly execute any task.
+     * 5. Update 'Event Status' sheet in the event spreadsheet.
+     * 6. Set the event status to 'IN_PROGRESS' in the event spreadsheet.
      */
 
     assert event.id == null // Events processed by this script should not have ids
@@ -47,15 +54,44 @@ static def registerNewEvent(services, event, sheetId){
     // Persist plan in sqlite
     services.db.insertPlan(plan)
 
+    // Make, save, and mount cancel campaign webhook
+    Webhook cancelHook = new Webhook(
+            id: UUID.randomUUID(),
+            eventId: event.id,
+            type: HookType.CANCEL_CAMPAIGN,
+            data: new JsonObject(),
+            expiry: event.startTime.toInstant().toEpochMilli(),
+            invoked: false
+    )
+    services.db.insertWebhook(cancelHook)
+    services.server.mountWebhook(cancelHook)
+
+    //Make, save, and mount task webhooks
+    plan.forEach {task->
+        try{
+
+            def taskCancelHook = task.makeCancelWebhook()
+            services.db.insertWebhook(taskCancelHook)
+            services.server.mountWebhook(taskCancelHook)
+
+            def taskExecuteHook = task.makeExecuteWebhook()
+            services.db.insertWebhook(taskExecuteHook)
+            services.server.mountWebhook(taskExecuteHook)
+
+        }catch(Exception e){
+            log.error e.getMessage(), e
+        }
+    }
+
     // Update 'Event Status' Sheet
     // TODO - batch these
     updateColumnValueAt(services.googleAPI, sheetId, EVENT_STATUS_CELL_ADDRESS, produceRoleShiftList(event))
 
-    //TODO - turn these on again
+
     //Update the event id in the sheet
-    //updateSingleValueAt(services.googleAPI, sheetId, "Event!A2", event.id.toString())
+    updateSingleValueAt(services.googleAPI, sheetId, "Event!A2", event.id.toString())
     // Update the event status
-    //updateSingleValueAt(services.googleAPI, sheetId, "Event!A3", EventStatus.IN_PROGRESS.toString())
+    updateSingleValueAt(services.googleAPI, sheetId, "Event!A3", EventStatus.IN_PROGRESS.toString())
 
     return promise.future();
 }
@@ -87,6 +123,8 @@ private static def produceRoleShiftList(Event event){
     return result;
 
 }
+
+
 
 private static def makeCampaignPlan(Event event){
     List<Task> plan = new ArrayList<>();

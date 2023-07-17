@@ -7,6 +7,7 @@ import io.vertx.core.Future
 import org.slf4j.LoggerFactory
 
 import static ca.ualberta.autowise.scripts.google.EventSlurper.slurpSheet
+import static ca.ualberta.autowise.scripts.google.EventSlurper.isSlurpable
 import static ca.ualberta.autowise.scripts.RegisterNewEvent.registerNewEvent
 import static ca.ualberta.autowise.scripts.SendEmailWithTemplate.sendEmailWithTemplate
 
@@ -20,33 +21,29 @@ static def processEventSheet(services, sheetId){
     /**
      * First check if this is a new event. New events will not have an event id (uuid) in cell A2.
      *
-     * Pull eventId and event status to start. Only process if event status is READY.
+     * Pull event status to start. Only process if event status is READY.
      */
-    //TODO: Refactor this to only retrieve the status
-    def eventIdCellAddress = "Event!A2"
     def eventStatusCellAddress = "Event!A3"
-    def ranges = [eventIdCellAddress, eventStatusCellAddress]
 
-    def response = googleAPI.sheets().spreadsheets().values().batchGet(sheetId).setRanges(ranges).execute()
-    def idAndStatus = response.getValueRanges()
+    def response = googleAPI.sheets().spreadsheets().values().get(sheetId, eventStatusCellAddress).execute()
+    def status = response.getValues()
 
-    def status = idAndStatus.get(1)
-    if(status == null || status.isEmpty() || !status.getValues().get(0).get(0).equals(EventStatus.READY.toString())){
-        log.info "Event sheet ${sheetId} is null, empty or not marked 'READY' skipping..."
+    if(status == null || status.isEmpty() || !isSlurpable(status.get(0).get(0))){
+        log.info "Event sheet ${sheetId} status is null, empty, or not-slurpable skipping..."
         return
     }
 
     def event = slurpSheet(googleAPI, sheetId)
-    log.info "event.id: ${event.id} - ${event.id == null}"
 
-    //TODO: for testing only, remove
-    sendEmailWithTemplate(services.googleAPI, event.recruitmentEmailTemplateId, "lol@gmail.com")
+    switch(status.get(0).get(0)){
 
-    if(event.id == null){
-        //This is a new event.
-        return registerNewEvent(services, event, sheetId)
-    }else{
-        //This is an existing event.
-        return Future.succeededFuture()
+        case EventStatus.READY.toString():
+            assert event.id == null //Event Id should be null at this stage
+            return registerNewEvent(services, event, sheetId)
+        default:
+            log.error "Unrecognized event status!"
+            return Future.succeededFuture()
+
     }
+
 }
