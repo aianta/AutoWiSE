@@ -20,14 +20,8 @@ import static ca.ualberta.autowise.scripts.google.SendEmail.sendEmailToGroup
  * the task.
  */
 
-/**
- *
- * @param services
- * @param t
- */
 
 static def eventRegistrationEmailTask(services, Task t, emailTemplateId){
-
     def recipients = new ArrayList<String>()
     def volunteerCoordinators = t.data.getJsonArray("volunteerCoordinators")
     def eventLeads = t.data.getJsonArray("eventLeads")

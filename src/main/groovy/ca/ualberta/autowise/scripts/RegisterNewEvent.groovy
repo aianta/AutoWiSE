@@ -8,6 +8,8 @@ import ca.ualberta.autowise.model.Task
 import ca.ualberta.autowise.model.TaskStatus
 import ca.ualberta.autowise.model.Volunteer
 import ca.ualberta.autowise.model.Webhook
+import ca.ualberta.autowise.scripts.google.VolunteerListSlurper
+import com.google.api.services.sheets.v4.model.ValueRange
 import groovy.transform.Field
 import io.vertx.core.Promise
 import io.vertx.core.json.JsonObject
@@ -23,12 +25,13 @@ import io.vertx.core.json.JsonArray
 
 import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateSingleValueAt
 import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateColumnValueAt
+import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateAt
 import static ca.ualberta.autowise.scripts.google.VolunteerListSlurper.slurpVolunteerList
 
 @Field static def log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.RegisterNewEvent.class)
 @Field static def EVENT_STATUS_CELL_ADDRESS = "\'Event Status\'!A5"
 
-static def registerNewEvent(services, event, sheetId){
+static def registerNewEvent(services, event, sheetId, volunteerSheetId, volunteerTableRange){
     Promise promise = Promise.promise();
 
     log.info "Starting new event registration!"
@@ -41,7 +44,8 @@ static def registerNewEvent(services, event, sheetId){
      * 3. Create 'cancel campaign' webhook
      * 4. Create webhooks to cancel and instantly execute any task.
      * 5. Update 'Event Status' sheet in the event spreadsheet.
-     * 6. Set the event status to 'IN_PROGRESS' in the event spreadsheet.
+     * 6. Initialize the 'Volunteer Contact Status' sheet in the event spreadsheet.
+     * 7. Set the event status to 'IN_PROGRESS' in the event spreadsheet.
      */
 
     assert event.id == null // Events processed by this script should not have ids
@@ -97,6 +101,20 @@ static def registerNewEvent(services, event, sheetId){
     updateSingleValueAt(services.googleAPI, sheetId, "Event!A2", event.id.toString())
     // Update the event status
     updateSingleValueAt(services.googleAPI, sheetId, "Event!A3", EventStatus.IN_PROGRESS.toString())
+    try{
+        def volunteers = slurpVolunteerList(services.googleAPI, volunteerSheetId, volunteerTableRange)
+        log.info "got volunteers! ${volunteers}"
+        def volunteerContactStatusData = makeInitialVolunteerContactStatus(volunteers)
+        def volunteerContactStatusCellAddress = "\'Volunteer Contact Status\'!A2"
+        ValueRange valueRange = new ValueRange()
+        valueRange.setMajorDimension("ROWS")
+        valueRange.setRange(volunteerContactStatusCellAddress)
+        valueRange.setValues(volunteerContactStatusData)
+        updateAt(services.googleAPI, sheetId, volunteerContactStatusCellAddress, valueRange)
+    }catch (Exception e){
+        log.error e.getMessage(), e
+    }
+
 
     return promise.future();
 }
@@ -129,6 +147,15 @@ private static def produceRoleShiftList(Event event){
 
 }
 
+private static def makeInitialVolunteerContactStatus(Set<Volunteer> volunteers){
+
+    def result = []
+    volunteers.forEach {volunteer->
+        result.add([volunteer.email, "-", "Not Contacted"])
+    }
+
+    return result
+}
 
 
 private static def makeCampaignPlan(Event event){

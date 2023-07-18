@@ -11,6 +11,7 @@ class Event {
 
     UUID id
     String status
+    String sheetId
 
     //Event info
     String name

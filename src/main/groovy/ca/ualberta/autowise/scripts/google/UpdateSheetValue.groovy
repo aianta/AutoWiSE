@@ -62,7 +62,7 @@ def static updateColumnValueAt(GoogleAPI googleAPI, sheetId, cellAddress, List<S
    }
 }
 
-private static def updateAt(GoogleAPI googleAPI, sheetId, cellAddress, body){
+static def updateAt(GoogleAPI googleAPI, sheetId, cellAddress, body){
     try{
         UpdateValuesResponse response = googleAPI.sheets().spreadsheets().values().update(sheetId, cellAddress, body)
                 .setValueInputOption("RAW") // See: https://developers.google.com/sheets/api/reference/rest/v4/ValueInputOption

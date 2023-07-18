@@ -142,7 +142,7 @@ void vertxStart(Promise<Void> startup){
                     // Do processing in separate thread to avoid blocking the main loop.
                     vertx.executeBlocking(blocking->{
 
-                        processEventSheet(services, f.getId()).onSuccess {
+                        processEventSheet(services, f.getId(), config.getString("autowise_volunteer_pool_id"), config.getString("autowise_volunteer_table_range")).onSuccess {
                             blocking.complete()
                         }
                     }){
@@ -179,6 +179,8 @@ void vertxStart(Promise<Void> startup){
 
                                 break
                             case "Initial Recruitment Email":
+
+
                                 break
                             case "Recruitment Email":
                                 break

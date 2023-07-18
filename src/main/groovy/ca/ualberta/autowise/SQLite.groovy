@@ -161,6 +161,10 @@ class SQLite {
     /**
      * Returns all scheduled tasks that need to be done at the moment ordered by ascending
      * execution times.
+     *
+     * TODO - Consider marking tasks as in-progress after fetching to avoid multiple executions
+     *  if a task doesn't finish before the next internal tick. This shouldn't really happen,
+     *  but you know...
      */
     def getWork(){
         def promise = Promise.promise()

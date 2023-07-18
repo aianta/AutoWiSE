@@ -8,30 +8,32 @@ import org.slf4j.LoggerFactory
 
 @Field static log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.google.VolunteerListSlurper.class)
 
-static def slurpVolunteerList(GoogleAPI googleAPI){
+static def slurpVolunteerList(GoogleAPI googleAPI, volunteerSheetId, volunteerTableRange){
     //Store as a set for easy 'contains' operations
     Set<Volunteer> volunteers = new ArrayList<>()
+    try{
 
-    def volunteerSheetId = AutoWiSE.config.getString("autowise_volunteer_pool_id")
-    def volunteerTableRange = AutoWiSE.config.getString("autowise_volunteer_table_range")
-
-    def response = googleAPI.sheets().spreadsheets().values().get(volunteerSheetId, volunteerTableRange).execute()
-    def data = response.getValues();
-    if(data == null || data.isEmpty()){
-        throw new RuntimeException("Volunteer pool data missing from sheet ${volunteerSheetId}@${volunteerTableRange}")
-    }
-
-    ListIterator<List<Object>> it = data.listIterator()
-    while(it.hasNext()){
-        def currRow = it.next();
-        if (currRow.get(0).equals("Name")){ //If the first column of the row contains 'Name' then this is the header row
-            continue //Move on to the actual volunteers
+        def response = googleAPI.sheets().spreadsheets().values().get(volunteerSheetId, volunteerTableRange).execute()
+        def data = response.getValues();
+        if(data == null || data.isEmpty()){
+            throw new RuntimeException("Volunteer pool data missing from sheet ${volunteerSheetId}@${volunteerTableRange}")
         }
-        if (currRow.isEmpty()){
-            continue //Skip empty rows
+
+        ListIterator<List<Object>> it = data.listIterator()
+        while(it.hasNext()){
+            def currRow = it.next();
+            if (currRow.get(0).equals("Name")){ //If the first column of the row contains 'Name' then this is the header row
+                continue //Move on to the actual volunteers
+            }
+            if (currRow.isEmpty()){
+                continue //Skip empty rows
+            }
+            Volunteer volunteer = new Volunteer(name: currRow.get(0), email: currRow.get(1))
+            volunteers.add(volunteer)
         }
-        Volunteer volunteer = new Volunteer(name: currRow.get(0), email: currRow.get(1))
-        volunteers.add(volunteer)
+
+    }catch (Exception e){
+        log.error e.getMessage(), e
     }
 
     return volunteers

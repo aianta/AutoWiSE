@@ -22,6 +22,8 @@ import org.slf4j.LoggerFactory
  *
  *  See October 23, 2020 entry: <a href="https://jakartaee.github.io/mail-api/#API_Documentation">Jakarta EE Mail Docs</a>
  *
+ *  See https://support.google.com/a/answer/166852 for other quotas/sending limit considerations.
+ *
  */
 
 @Field static def log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.google.SendEmail.class)

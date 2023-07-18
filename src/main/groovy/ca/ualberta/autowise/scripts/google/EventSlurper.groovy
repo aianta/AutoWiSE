@@ -73,6 +73,7 @@ static def slurpSheet(GoogleAPI googleAPI, spreadsheetId){
 
     Event result = new Event(
             id: slurped.get("id") == null?null:UUID.fromString(slurped.get("id")),
+            sheetId: sheetId,
             status: EventStatus.valueOf(slurped.get("status")),
             name: slurped.get("name"),
             description: slurped.get("description"),

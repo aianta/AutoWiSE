@@ -14,7 +14,7 @@ import static ca.ualberta.autowise.scripts.SendEmailWithTemplate.sendEmailWithTe
 @Field static def log = LoggerFactory.getLogger(ProcessAutoWiSEEventSheet.class)
 @Field static GoogleAPI googleAPI
 
-static def processEventSheet(services, sheetId){
+static def processEventSheet(services, sheetId, volunteerSheetId, volunteerTableRange){
 
     googleAPI = services.googleAPI
 
@@ -39,7 +39,7 @@ static def processEventSheet(services, sheetId){
 
         case EventStatus.READY.toString():
             assert event.id == null //Event Id should be null at this stage
-            return registerNewEvent(services, event, sheetId)
+            return registerNewEvent(services, event, sheetId, volunteerSheetId, volunteerTableRange)
         default:
             log.error "Unrecognized event status!"
             return Future.succeededFuture()
