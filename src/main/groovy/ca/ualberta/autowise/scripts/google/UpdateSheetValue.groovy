@@ -3,6 +3,7 @@ package ca.ualberta.autowise.scripts.google
 import ca.ualberta.autowise.GoogleAPI
 import com.google.api.client.googleapis.json.GoogleJsonError
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
+import com.google.api.services.sheets.v4.model.AppendValuesResponse
 import com.google.api.services.sheets.v4.model.UpdateValuesResponse
 import com.google.api.services.sheets.v4.model.ValueRange
 import groovy.transform.Field
@@ -60,6 +61,22 @@ def static updateColumnValueAt(GoogleAPI googleAPI, sheetId, cellAddress, List<S
    }catch (Exception e){
        log.error e.getMessage(), e
    }
+}
+
+static def appendAt(GoogleAPI googleAPI, sheetId, cellAddress, body){
+    try{
+        AppendValuesResponse response = googleAPI.sheets().spreadsheets().values().append(sheetId, cellAddress, body)
+                .setValueInputOption("RAW")
+                .setIncludeValuesInResponse(true)
+                .execute()
+        log.info response.toPrettyString()
+
+    }catch (GoogleJsonResponseException | Exception e) {
+        // TODO(developer) - handle error appropriately
+        //GoogleJsonError error = e.getDetails();
+        log.error e.getMessage(), e
+        throw e
+    }
 }
 
 static def updateAt(GoogleAPI googleAPI, sheetId, cellAddress, body){

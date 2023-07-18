@@ -6,6 +6,17 @@ import org.slf4j.LoggerFactory
 
 @Field static log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.google.GetSheetValue.class)
 
+static def getValuesAt(GoogleAPI googleAPI, sheetId, range){
+    def response = googleAPI.sheets().spreadsheets().values().get(sheetId, range).execute()
+    def value = response.getValues()
+    if (value == null || value.isEmpty()){
+        log.error "No value found in sheet ${sheetId}@${cellAddress}!"
+    }else{
+        return value
+    }
+    return null
+}
+
 public static def getValueAt(GoogleAPI googleAPI, sheetId, cellAddress){
     def response = googleAPI.sheets().spreadsheets().values().get(sheetId, cellAddress).execute()
     def value = response.getValues()

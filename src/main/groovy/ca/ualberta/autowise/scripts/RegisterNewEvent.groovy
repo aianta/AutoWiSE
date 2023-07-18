@@ -151,7 +151,7 @@ private static def makeInitialVolunteerContactStatus(Set<Volunteer> volunteers){
 
     def result = []
     volunteers.forEach {volunteer->
-        result.add([volunteer.email, "-", "Not Contacted"])
+        result.add([volunteer.email, "-", "Not Contacted","-","-","-","-"])
     }
 
     return result
@@ -198,6 +198,8 @@ private static def makeCampaignPlan(Event event){
             taskExecutionTime: _initialRecruitmentTaskExecutionTime,
             status: TaskStatus.SCHEDULED
     )
+    initialRecruitmentEmail.data.put("eventSheetId", event.sheetId)
+    initialRecruitmentEmail.data.put("eventSlackChannel", event.eventSlackChannel)
     plan.add(initialRecruitmentEmail)
 
     /**
