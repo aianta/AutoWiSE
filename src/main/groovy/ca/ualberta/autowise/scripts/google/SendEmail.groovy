@@ -26,14 +26,25 @@ import org.slf4j.LoggerFactory
 
 @Field static def log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.google.SendEmail.class)
 
+static def sendEmailToGroup(googleAPI, from, to, subject, content ){
+    MimeMessage email = createMimeMessage(from, subject, content)
+    to.forEach(
+            recipient->{
+                email.addRecipient(Message.RecipientType.TO, new InternetAddress(recipient))
+            }
+    )
+    _sendEmail(googleAPI, email)
+}
+
 static def sendEmail(googleAPI, from, to, subject, content){
-    MimeMessage email = createMimeMessage(from, to, subject, content)
-    log.info "About to send email!"
+    MimeMessage email = createMimeMessage(from, subject, content)
+    email.addRecipient(Message.RecipientType.TO, new InternetAddress(to))
     _sendEmail(googleAPI, email)
 }
 
 static def sendEmail(googleAPI, from, to, bcc, subject, content){
-    MimeMessage email = createMimeMessage(from, to, subject, content)
+    MimeMessage email = createMimeMessage(from, subject, content)
+    email.addRecipient(Message.RecipientType.TO, new InternetAddress(to))
     email.addRecipient(Message.RecipientType.BCC, new InternetAddress(bcc))
     _sendEmail(googleAPI, email)
 }
@@ -60,16 +71,15 @@ private static def _sendEmail(GoogleAPI googleAPI, MimeMessage email){
 
 }
 
-private static def createMimeMessage(from, to, subject, text){
+private static def createMimeMessage(from, subject, text){
     try{
         log.info "Creating MimeMessage"
         Properties props = new Properties();
         Session session = Session.getDefaultInstance(props)
         MimeMessage email =  new MimeMessage(session)
         email.setFrom(from)
-        email.addRecipient(Message.RecipientType.TO, new InternetAddress(to))
         email.setSubject(subject.toString()) //toString any GStrings that made it here
-        email.setText(text.toString()) //toString any GStrings that made it here
+        email.setText(text.toString(), "utf-8", "html") //toString any GStrings that made it here
         return email
     }catch(Exception e){
         log.error e.getMessage(), e

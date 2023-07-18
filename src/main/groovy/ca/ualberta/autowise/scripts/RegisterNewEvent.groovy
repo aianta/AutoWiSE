@@ -19,6 +19,8 @@ import java.time.temporal.ChronoUnit
 import java.util.stream.Collectors
 import java.util.stream.Stream
 
+import io.vertx.core.json.JsonArray
+
 import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateSingleValueAt
 import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateColumnValueAt
 import static ca.ualberta.autowise.scripts.google.VolunteerListSlurper.slurpVolunteerList
@@ -51,9 +53,6 @@ static def registerNewEvent(services, event, sheetId){
     List<Task> plan = makeCampaignPlan(event)
     log.info "plan size: ${plan.size()}"
 
-    // Persist plan in sqlite
-    services.db.insertPlan(plan)
-
     // Make, save, and mount cancel campaign webhook
     Webhook cancelHook = new Webhook(
             id: UUID.randomUUID(),
@@ -65,6 +64,7 @@ static def registerNewEvent(services, event, sheetId){
     )
     services.db.insertWebhook(cancelHook)
     services.server.mountWebhook(cancelHook)
+    plan.get(0).data.put("campaignCancelHookId", cancelHook.id.toString())
 
     //Make, save, and mount task webhooks
     plan.forEach {task->
@@ -73,15 +73,20 @@ static def registerNewEvent(services, event, sheetId){
             def taskCancelHook = task.makeCancelWebhook()
             services.db.insertWebhook(taskCancelHook)
             services.server.mountWebhook(taskCancelHook)
+            task.data.put("cancelHookId", taskCancelHook.id.toString())
 
             def taskExecuteHook = task.makeExecuteWebhook()
             services.db.insertWebhook(taskExecuteHook)
             services.server.mountWebhook(taskExecuteHook)
+            task.data.put("executeHookId", taskExecuteHook.id.toString())
 
         }catch(Exception e){
             log.error e.getMessage(), e
         }
     }
+
+    // Persist plan in sqlite, make sure to do this after webhook generation, so webhook info makes it into the db.
+    services.db.insertPlan(plan)
 
     // Update 'Event Status' Sheet
     // TODO - batch these
@@ -129,8 +134,6 @@ private static def produceRoleShiftList(Event event){
 private static def makeCampaignPlan(Event event){
     List<Task> plan = new ArrayList<>();
 
-    int sequenceNumber = 1
-
     Task notifyEventLeadsAndVolCoordinatorsOfEventRegistration = new Task(
             taskId: UUID.randomUUID(),
             eventId: event.id,
@@ -139,7 +142,11 @@ private static def makeCampaignPlan(Event event){
             advanceNotifyOffset: 0,
             notify: false,
             taskExecutionTime: ZonedDateTime.now(),
-            status: TaskStatus.SCHEDULED
+            status: TaskStatus.SCHEDULED,
+            data: new JsonObject()
+                .put("eventName", event.name)
+                .put("eventLeads", event.eventOrganizers.stream().collect(JsonArray::new, JsonArray::add, JsonArray::addAll))
+                .put("volunteerCoordinators", event.volunteerCoordinators.stream().collect(JsonArray::new, JsonArray::add, JsonArray::addAll))
     )
     plan.add(notifyEventLeadsAndVolCoordinatorsOfEventRegistration)
 

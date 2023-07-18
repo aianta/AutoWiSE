@@ -93,10 +93,11 @@ class SQLite {
                                notify,
                                task_execution_time,
                                task_execution_time_epoch_milli,
-                               status
+                               status,
+                               data
                                )
             VALUES (
-                    ?,?,?,?,?,?,?,?,?
+                    ?,?,?,?,?,?,?,?,?,?
             );
             '''
             ).execute(Tuple.from([
@@ -108,7 +109,8 @@ class SQLite {
                     task.notify,
                     task.taskExecutionTime.format(EventSlurper.eventTimeFormatter),
                     task.taskExecutionTime.toInstant().toEpochMilli(),
-                    task.status.toString()
+                    task.status.toString(),
+                    task.data.encode()
             ]), res->{
                 if(res){
                     log.info "Successfully inserted task ${task.taskId.toString().substring(0,8)} - ${task.name} for event ${task.eventId.toString()}"
@@ -122,6 +124,37 @@ class SQLite {
             log.error e.getMessage(), e
         }
 
+        return promise.future()
+    }
+
+    def markTaskComplete(taskId){
+        def promise = Promise.promise();
+        pool.preparedQuery('''
+            UPDATE tasks 
+            SET status = ?
+            WHERE task_id = ?;
+        ''')
+        .execute(Tuple.of(TaskStatus.COMPLETE, taskId.toString()))
+        .onSuccess(rs->promise.complete())
+        .onFailure {err->log.error err.getMessage(), err}
+        return promise.future()
+    }
+
+    def fetchAllScheduledTasksForEvent(eventId){
+        Promise<List<Task>> promise = Promise.promise()
+        pool.preparedQuery('''
+            SELECT * FROM tasks WHERE event_id = ? AND status = ? ORDER BY task_execution_time_epoch_milli ASC;
+        ''')
+        .execute(Tuple.of(eventId.toString(), TaskStatus.SCHEDULED))
+        .onSuccess {rowSet->
+            List<Task> result = new ArrayList<>();
+            for(Row row: rowSet){
+                Task t = taskFromRow(row)
+                result.add(t)
+            }
+            promise.complete(result)
+        }
+        .onFailure {err->log.error err.getMessage(), err}
         return promise.future()
     }
 
@@ -168,7 +201,8 @@ class SQLite {
                 advanceNotifyOffset: row.getLong("advance_notify_offset"),
                 notify: row.getInteger("notify") == 0?false:true,
                 taskExecutionTime: ZonedDateTime.parse(row.getString("task_execution_time"), EventSlurper.eventTimeFormatter),
-                status: TaskStatus.valueOf(row.getString("status"))
+                status: TaskStatus.valueOf(row.getString("status")),
+                data: new JsonObject(row.getString("data"))
         )
         return t
     }
@@ -257,7 +291,8 @@ class SQLite {
                 notify INTEGER NOT NULL,
                 task_execution_time TEXT NOT NULL,
                 task_execution_time_epoch_milli INTEGER NOT NULL,
-                status TEXT NOT NULL
+                status TEXT NOT NULL,
+                data TEXT NOT NULL
             )
         ''')
         .execute({

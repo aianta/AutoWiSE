@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory
 
 import static ca.ualberta.autowise.scripts.google.GetFilesInFolder.getFiles
 import static ca.ualberta.autowise.scripts.ProcessAutoWiSEEventSheet.processEventSheet
+import static ca.ualberta.autowise.scripts.EventRegistrationEmailTask.eventRegistrationEmailTask
 
 /**
  * @Author Alexandru Ianta
@@ -124,23 +125,7 @@ void vertxStart(Promise<Void> startup){
 
             //sendSlackMessage(slackApi, "#auto-wise", "Greetings from the script!")
 
-            db.getWork().onSuccess(taskList->{
-                taskList.forEach( task-> {
-                    log.info "Looking through task ${task.name}"
 
-                    switch (task.name) {
-                        case "AutoWiSE Event Registration Email":
-                            break
-                        case "Initial Recruitment Email":
-                            break
-                        case "Recruitment Email":
-                            break
-                        case "Follow-up Email":
-                            break
-
-                    }
-                })
-            })
 
             /**
              * Start going through all the google sheets in the autowise folder on google drive.
@@ -183,7 +168,26 @@ void vertxStart(Promise<Void> startup){
             internalPeriodId = vertx.setPeriodic(config.getLong("internal_tick_rate"), id->{
                 log.info "internal tick"
 
+                db.getWork().onSuccess(taskList->{
+                    taskList.forEach( task-> {
+                        log.info "Looking through task ${task.name}"
 
+                        switch (task.name) {
+                            case "AutoWiSE Event Registration Email":
+
+                                eventRegistrationEmailTask(services, task, config.getString("autowise_new_recruitment_campaign_email_template"))
+
+                                break
+                            case "Initial Recruitment Email":
+                                break
+                            case "Recruitment Email":
+                                break
+                            case "Follow-up Email":
+                                break
+
+                        }
+                    })
+                })
 
                 }
 

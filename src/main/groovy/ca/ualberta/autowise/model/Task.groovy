@@ -22,6 +22,7 @@ class Task {
     boolean notify //Whether the task should notify the event slack channel after it is complete.
     ZonedDateTime taskExecutionTime //The datetime the task is scheduled to be executed.
     TaskStatus status
+    JsonObject data = new JsonObject()
 
     def makeCancelWebhook(){
         Webhook result = new Webhook(
@@ -46,6 +47,7 @@ class Task {
                 data: new JsonObject()
                     .put("taskId", taskId.toString())
         )
+        return  result
     }
 
 }
