@@ -23,6 +23,7 @@ import static ca.ualberta.autowise.JsonUtils.slurpRolesJson
 import static ca.ualberta.autowise.scripts.FindAvailableShiftRoles.findAvailableShiftRoles
 import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.sendSlackMessage
 import static ca.ualberta.autowise.scripts.SyncEventVolunteerContactSheet.syncEventVolunteerContactSheet
+import static ca.ualberta.autowise.scripts.SyncEventVolunteerContactSheet.updateVolunteerContactStatusTable
 import static ca.ualberta.autowise.scripts.google.DocumentSlurper.slurpDocument
 import static ca.ualberta.autowise.scripts.BuildShiftRoleOptions.buildShiftRoleOptions
 import static ca.ualberta.autowise.scripts.google.SendEmail.*
@@ -51,7 +52,7 @@ static def initialRecruitmentEmailTask(services, Task task, volunteerPoolSheetId
     def volunteers = slurpVolunteerList(services.googleAPI, volunteerPoolSheetId, volunteerPoolTableRange)
     def eventName = task.data.getString("eventName")
     def eventSheetId = task.data.getString("eventSheetId")
-    def eventbriteLink = task.geta.getString("eventbriteLink")
+    def eventbriteLink = task.data.getString("eventbriteLink")
     List<Role> eventRoles = slurpRolesJson(task.data.getString("rolesJsonString"))
     def eventStartTime = ZonedDateTime.parse(task.data.getString("eventStartTime"), EventSlurper.eventTimeFormatter)
     def volunteerContactStatusData = syncEventVolunteerContactSheet(services.googleAPI, eventSheetId, volunteers)
@@ -69,60 +70,69 @@ static def initialRecruitmentEmailTask(services, Task task, volunteerPoolSheetId
             continue // Skip header row
         }
 
-        //Assemble email for this volunteer.
-        def volunteer = getVolunteerByEmail(rowData.get(0))
+        if(rowData.get(2).equals("Not Contacted") || rowData.get(2).equals("Waiting for response")){
 
-        List<ShiftRole> availableShiftRoles = unfilledShiftRoles.stream()
-                .map(shiftRoleString->getShiftRole(shiftRoleString, eventRoles))
-                .map(shiftRole->{
-                    // Generate a personalized webhook for this shiftRole
-                    Webhook volunteerWebhook = new Webhook(
-                            id: UUID.randomUUID(),
-                            eventId: task.eventId,
-                            type: HookType.ACCEPT_ROLE_SHIFT,
-                            expiry: eventStartTime.toInstant().toEpochMilli(),
-                            invoked: false,
-                            data: new JsonObject()
-                                    .put("volunteerName", volunteer.name)
-                                    .put("volunteerEmail", volunteer.email)
-                                    .put("eventSheetId", eventSheetId)
-                                    .put("shiftRoleString", shiftRole.shiftRoleString)
-                    )
-                    services.db.insertWebhook(volunteerWebhook)
-                    services.server.mountWebhook(volunteerWebhook)
-                    shiftRole.acceptHook = volunteerWebhook
-                })
-                .collect(Collectors.toList())
+            //Assemble email for this volunteer.
+            def volunteer = getVolunteerByEmail(rowData.get(0), volunteers)
+            if (volunteer == null){
+                log.warn "Volunteer with email ${rowData.get(0)} does not appear in WiSER volunteer pool, skipping recruitment email"
+                continue
+            }
 
-        //Create reject webhook
-        Webhook rejectHook = new Webhook(
-                id: UUID.randomUUID(),
-                eventId: task.eventId,
-                type: HookType.REJECT_VOLUNTEERING_FOR_EVENT,
-                expiry: eventStartTime.toInstant().toEpochMilli(),
-                invoked: false,
-                data: new JsonObject()
-                    .put("volunteerName", volunteer.name)
-                    .put("volunteerEmail", volunteer.email)
-                    .put("eventSheetId", eventSheetId)
-        )
-        services.db.insertWebhook(rejectHook)
-        services.server.mountWebhook(rejectHook)
+            List<ShiftRole> availableShiftRoles = unfilledShiftRoles.stream()
+                    .map(shiftRoleString->getShiftRole(shiftRoleString, eventRoles))
+                    .map(shiftRole->{
+                        // Generate a personalized webhook for this shiftRole
+                        Webhook volunteerWebhook = new Webhook(
+                                id: UUID.randomUUID(),
+                                eventId: task.eventId,
+                                type: HookType.ACCEPT_ROLE_SHIFT,
+                                expiry: eventStartTime.toInstant().toEpochMilli(),
+                                invoked: false,
+                                data: new JsonObject()
+                                        .put("volunteerName", volunteer.name)
+                                        .put("volunteerEmail", volunteer.email)
+                                        .put("eventSheetId", eventSheetId)
+                                        .put("shiftRoleString", shiftRole.shiftRoleString)
+                        )
+                        services.db.insertWebhook(volunteerWebhook)
+                        services.server.mountWebhook(volunteerWebhook)
+                        shiftRole.acceptHook = volunteerWebhook
+                        return shiftRole
+                    })
+                    .collect(Collectors.toList())
 
-        def shiftRoleHTMLTable = buildShiftRoleOptions(availableShiftRoles)
-        def emailContents = emailTemplate.replaceAll("%AVAILABLE_SHIFT_ROLES%", shiftRoleHTMLTable)
-        emailContents = emailContents.replaceAll("%REJECT_LINK%", "<a href=\"http://localhost:8080/${rejectHook.path()}\">Click me if you aren't able to volunteer for this event.</a>")
-        emailContents = emailContents.replaceAll("%EVENTBRITE_LINK%", "<a href=\"${eventbriteLink}\">eventbrite</a>")
+            //Create reject webhook
+            Webhook rejectHook = new Webhook(
+                    id: UUID.randomUUID(),
+                    eventId: task.eventId,
+                    type: HookType.REJECT_VOLUNTEERING_FOR_EVENT,
+                    expiry: eventStartTime.toInstant().toEpochMilli(),
+                    invoked: false,
+                    data: new JsonObject()
+                            .put("volunteerName", volunteer.name)
+                            .put("volunteerEmail", volunteer.email)
+                            .put("eventSheetId", eventSheetId)
+            )
+            services.db.insertWebhook(rejectHook)
+            services.server.mountWebhook(rejectHook)
 
-        //Send email
-        sendEmail(services.googleAPI, "AutoWise", volunteer.email, "[WiSER] Volunteer opportunities for ${eventName}!",emailContents)
+            def shiftRoleHTMLTable = buildShiftRoleOptions(availableShiftRoles)
+            def emailContents = emailTemplate.replaceAll("%AVAILABLE_SHIFT_ROLES%", shiftRoleHTMLTable)
+            emailContents = emailContents.replaceAll("%REJECT_LINK%", "<a href=\"http://localhost:8080/${rejectHook.path()}\">Click me if you aren't able to volunteer for this event.</a>")
+            emailContents = emailContents.replaceAll("%EVENTBRITE_LINK%", "<a href=\"${eventbriteLink}\">eventbrite</a>")
 
-        //Update volunteer contact status data
-        rowData.set(1, ZonedDateTime.now().format(EventSlurper.eventTimeFormatter)) //Update 'Last Contacted at'
-        rowData.set(2, 'Waiting for response')
+            //Send email
+            sendEmail(services.googleAPI, "AutoWise", volunteer.email, "[WiSER] Volunteer opportunities for ${eventName}!",emailContents)
 
-        //Update the volunteer contact status
-        updateVolunteerContactStatusTable(services.googleAPI, eventSheetId, volunteerContactStatusData)
+            //Update volunteer contact status data
+            rowData.set(1, ZonedDateTime.now().format(EventSlurper.eventTimeFormatter)) //Update 'Last Contacted at'
+            rowData.set(2, 'Waiting for response')
+
+            //Update the volunteer contact status
+            updateVolunteerContactStatusTable(services.googleAPI, eventSheetId, volunteerContactStatusData)
+
+        }
     }
 
     //Mark task complete in SQLite

@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory
 import static ca.ualberta.autowise.scripts.google.GetFilesInFolder.getFiles
 import static ca.ualberta.autowise.scripts.ProcessAutoWiSEEventSheet.processEventSheet
 import static ca.ualberta.autowise.scripts.EventRegistrationEmailTask.eventRegistrationEmailTask
+import static ca.ualberta.autowise.scripts.InitialRecruitmentEmailTask.initialRecruitmentEmailTask
 
 /**
  * @Author Alexandru Ianta
@@ -175,11 +176,12 @@ void vertxStart(Promise<Void> startup){
                         switch (task.name) {
                             case "AutoWiSE Event Registration Email":
 
-                                eventRegistrationEmailTask(services, task, config.getString("autowise_new_recruitment_campaign_email_template"))
+                                //eventRegistrationEmailTask(services, task, config.getString("autowise_new_recruitment_campaign_email_template"))
 
                                 break
                             case "Initial Recruitment Email":
 
+                                initialRecruitmentEmailTask(services, task, config.getString("autowise_volunteer_pool_id"), config.getString("autowise_volunteer_table_range"))
 
                                 break
                             case "Recruitment Email":

@@ -14,8 +14,8 @@ static def buildShiftRoleOptions(List<ShiftRole> shiftRoles){
     sb.append("<table><thead><tr><th>Role</th><th>Start Time</th><th>End Time</th><th>Description</th><th>Volunteer Link</th></tr></thead>")
 
     def it = shiftRoles.listIterator()
-    if(it.hasNext()){
-        def curr = it.next()
+    while (it.hasNext()){
+        ShiftRole curr = it.next()
         sb.append("<tr>" +
                 "<td>${curr.role.name}</td>" +
                 "<td>${curr.shift.startTime.format(EventSlurper.shiftTimeFormatter)}</td>" +

@@ -17,26 +17,36 @@ import static ca.ualberta.autowise.scripts.google.GetSheetValue.getValuesAt
 static def findAvailableShiftRoles(GoogleAPI googleAPI, sheetId ){
 
     def data = getValuesAt(googleAPI, sheetId, EVENT_STATUS_RANGE)
+
+    log.info "Got ${data.size()} rows from ${EVENT_STATUS_RANGE}"
+
     def it = data.listIterator();
     def tableFirstColHeader = "Shift - Role"
 
     Set<String> unfilledShiftRoles = [] as Set
 
-    while(it.hasNext()){
+    while(it.hasNext()) {
         def rowData = it.next();
-        if (rowData.isEmpty() || !rowData.get(0).equals(tableFirstColHeader)){
+        log.info rowData.toString()
+        if (rowData.isEmpty() || !rowData.get(0).equals(tableFirstColHeader)) {
+            log.info "Skipping row before shift-role header: ${!rowData.isEmpty()?rowData.get(0).equals(tableFirstColHeader):"empty"}"
             continue //Skip all lines until 'Shift - Role' header
         }
-
         if (rowData.get(0).equals(tableFirstColHeader)){
-            rowData = it.next() //Advance to the first record
+            break
         }
+    }
+
+    while (it.hasNext()){
+        def rowData = it.next()
 
         //Check if shift-role has been filled.
         if (rowData.size() == 1 || rowData.get(1).equals("") || rowData.get(1).equals("-")){
             //If there is no value beside this shiftRoleString, or the value is empty, or a dash the shift-role has not been filled.
             unfilledShiftRoles.add(rowData.get(0))
+            log.info "Found unfilled shift-role! ${rowData.get(0)}"
         }
+        log.info "Shift-role ${rowData.get(0)} has been filled!"
     }
 
     return unfilledShiftRoles

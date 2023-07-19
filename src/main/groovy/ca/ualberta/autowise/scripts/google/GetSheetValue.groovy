@@ -10,7 +10,7 @@ static def getValuesAt(GoogleAPI googleAPI, sheetId, range){
     def response = googleAPI.sheets().spreadsheets().values().get(sheetId, range).execute()
     def value = response.getValues()
     if (value == null || value.isEmpty()){
-        log.error "No value found in sheet ${sheetId}@${cellAddress}!"
+        log.error "No value found in sheet ${sheetId}@${range}!"
     }else{
         return value
     }
