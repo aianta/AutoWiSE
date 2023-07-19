@@ -56,7 +56,11 @@ static def initialRecruitmentEmailTask(services, Task task, volunteerPoolSheetId
     def eventStartTime = ZonedDateTime.parse(task.data.getString("eventStartTime"), EventSlurper.eventTimeFormatter)
     def volunteerContactStatusData = syncEventVolunteerContactSheet(services.googleAPI, eventSheetId, volunteers)
     def emailTemplate = slurpDocument(services.googleAPI, task.data.getString("emailTemplateId"))
+    def unfilledShiftRoles = findAvailableShiftRoles(services.googleAPI, eventSheetId)
 
+    if (unfilledShiftRoles.size() == 0){
+        return handleNoAvailableShiftRoles(services, task, eventName)
+    }
 
     def it = volunteerContactStatusData.listIterator()
     while (it.hasNext()){
@@ -67,8 +71,7 @@ static def initialRecruitmentEmailTask(services, Task task, volunteerPoolSheetId
 
         //Assemble email for this volunteer.
         def volunteer = getVolunteerByEmail(rowData.get(0))
-        //TODO -> handle case where there are no unfilled shiftRoles
-        def unfilledShiftRoles = findAvailableShiftRoles(services.googleAPI, eventSheetId)
+
         List<ShiftRole> availableShiftRoles = unfilledShiftRoles.stream()
                 .map(shiftRoleString->getShiftRole(shiftRoleString, eventRoles))
                 .map(shiftRole->{
@@ -131,6 +134,13 @@ static def initialRecruitmentEmailTask(services, Task task, volunteerPoolSheetId
     }
 }
 
+private static def handleNoAvailableShiftRoles(services, Task task, eventName){
+    services.db.markTaskComplete(task.taskId)
+    if(task.notify){
+        sendSlackMessage(services.slackAPI, task.data.getString("eventSlackChannel"), "No unfilled shifts for ${eventName}. Aborting recruitment email task.")
+    }
+    return
+}
 
 private static def getVolunteerByEmail(String email, Set<Volunteer> volunteers){
     return volunteers.stream().filter (volunteer->volunteer.email.equals(email))
