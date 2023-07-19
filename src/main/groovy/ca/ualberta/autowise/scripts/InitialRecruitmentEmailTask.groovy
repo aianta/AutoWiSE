@@ -1,20 +1,31 @@
 package ca.ualberta.autowise.scripts
 
 import ca.ualberta.autowise.GoogleAPI
+import ca.ualberta.autowise.model.HookType
+import ca.ualberta.autowise.model.Role
+import ca.ualberta.autowise.model.ShiftRole
 import ca.ualberta.autowise.model.Task
 import ca.ualberta.autowise.model.Volunteer
+import ca.ualberta.autowise.model.Webhook
 import ca.ualberta.autowise.scripts.google.EventSlurper
 import com.google.api.services.sheets.v4.model.ValueRange
 import groovy.transform.Field
+import io.vertx.core.json.JsonObject
 
 import java.time.ZonedDateTime
 import java.util.stream.Collectors
 
+import static ca.ualberta.autowise.scripts.FindAvailableShiftRoles.getShiftRole
 import static ca.ualberta.autowise.scripts.google.VolunteerListSlurper.slurpVolunteerList
 import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.appendAt
 import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateAt
+import static ca.ualberta.autowise.JsonUtils.slurpRolesJson
+import static ca.ualberta.autowise.scripts.FindAvailableShiftRoles.findAvailableShiftRoles
 import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.sendSlackMessage
-
+import static ca.ualberta.autowise.scripts.SyncEventVolunteerContactSheet.syncEventVolunteerContactSheet
+import static ca.ualberta.autowise.scripts.google.DocumentSlurper.slurpDocument
+import static ca.ualberta.autowise.scripts.BuildShiftRoleOptions.buildShiftRoleOptions
+import static ca.ualberta.autowise.scripts.google.SendEmail.*
 
 /**
  * @author Alexandru Ianta
@@ -33,26 +44,75 @@ import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.sendSlackMessa
  *
  */
 
-@Field static def VOLUNTEER_CONTACT_STATUS_RANGE = "\'Volunteer Contact Status\'!A:G"
 
 static def initialRecruitmentEmailTask(services, Task task, volunteerPoolSheetId, volunteerPoolTableRange){
 
+    // Fetch all the data we'll need to execute the task
     def volunteers = slurpVolunteerList(services.googleAPI, volunteerPoolSheetId, volunteerPoolTableRange)
+    def eventName = task.data.getString("eventName")
     def eventSheetId = task.data.getString("eventSheetId")
-    def volunteerContactStatusData = getValuesAt(services.googleAPI, eventSheetId, VOLUNTEER_CONTACT_STATUS_RANGE)
-    volunteerContactStatusData = updateVolunteerList(services.googleAPI, eventSheetId, volunteers, volunteerContactStatusData)
+    def eventbriteLink = task.geta.getString("eventbriteLink")
+    List<Role> eventRoles = slurpRolesJson(task.data.getString("rolesJsonString"))
+    def eventStartTime = ZonedDateTime.parse(task.data.getString("eventStartTime"), EventSlurper.eventTimeFormatter)
+    def volunteerContactStatusData = syncEventVolunteerContactSheet(services.googleAPI, eventSheetId, volunteers)
+    def emailTemplate = slurpDocument(services.googleAPI, task.data.getString("emailTemplateId"))
+
 
     def it = volunteerContactStatusData.listIterator()
     while (it.hasNext()){
-        def rowData = (List<String>)it.next()
+        def rowData = it.next()
         if (rowData.get(0).equals("Volunteers")){
             continue // Skip header row
         }
 
         //Assemble email for this volunteer.
-        def volunteerName = getVolunteerByEmail(rowData.get(0)).name
+        def volunteer = getVolunteerByEmail(rowData.get(0))
+        //TODO -> handle case where there are no unfilled shiftRoles
+        def unfilledShiftRoles = findAvailableShiftRoles(services.googleAPI, eventSheetId)
+        List<ShiftRole> availableShiftRoles = unfilledShiftRoles.stream()
+                .map(shiftRoleString->getShiftRole(shiftRoleString, eventRoles))
+                .map(shiftRole->{
+                    // Generate a personalized webhook for this shiftRole
+                    Webhook volunteerWebhook = new Webhook(
+                            id: UUID.randomUUID(),
+                            eventId: task.eventId,
+                            type: HookType.ACCEPT_ROLE_SHIFT,
+                            expiry: eventStartTime.toInstant().toEpochMilli(),
+                            invoked: false,
+                            data: new JsonObject()
+                                    .put("volunteerName", volunteer.name)
+                                    .put("volunteerEmail", volunteer.email)
+                                    .put("eventSheetId", eventSheetId)
+                                    .put("shiftRoleString", shiftRole.shiftRoleString)
+                    )
+                    services.db.insertWebhook(volunteerWebhook)
+                    services.server.mountWebhook(volunteerWebhook)
+                    shiftRole.acceptHook = volunteerWebhook
+                })
+                .collect(Collectors.toList())
+
+        //Create reject webhook
+        Webhook rejectHook = new Webhook(
+                id: UUID.randomUUID(),
+                eventId: task.eventId,
+                type: HookType.REJECT_VOLUNTEERING_FOR_EVENT,
+                expiry: eventStartTime.toInstant().toEpochMilli(),
+                invoked: false,
+                data: new JsonObject()
+                    .put("volunteerName", volunteer.name)
+                    .put("volunteerEmail", volunteer.email)
+                    .put("eventSheetId", eventSheetId)
+        )
+        services.db.insertWebhook(rejectHook)
+        services.server.mountWebhook(rejectHook)
+
+        def shiftRoleHTMLTable = buildShiftRoleOptions(availableShiftRoles)
+        def emailContents = emailTemplate.replaceAll("%AVAILABLE_SHIFT_ROLES%", shiftRoleHTMLTable)
+        emailContents = emailContents.replaceAll("%REJECT_LINK%", "<a href=\"http://localhost:8080/${rejectHook.path()}\">Click me if you aren't able to volunteer for this event.</a>")
+        emailContents = emailContents.replaceAll("%EVENTBRITE_LINK%", "<a href=\"${eventbriteLink}\">eventbrite</a>")
 
         //Send email
+        sendEmail(services.googleAPI, "AutoWise", volunteer.email, "[WiSER] Volunteer opportunities for ${eventName}!",emailContents)
 
         //Update volunteer contact status data
         rowData.set(1, ZonedDateTime.now().format(EventSlurper.eventTimeFormatter)) //Update 'Last Contacted at'
@@ -71,68 +131,12 @@ static def initialRecruitmentEmailTask(services, Task task, volunteerPoolSheetId
     }
 }
 
-private static def updateVolunteerContactStatusTable(GoogleAPI googleAPI, sheetId, data){
-    def valueRange = new ValueRange()
-    valueRange.setRange(VOLUNTEER_CONTACT_STATUS_RANGE)
-    valueRange.setMajorDimension("ROWS")
-    valueRange.setValues(data)
-    updateAt(googleAPI, sheetId, VOLUNTEER_CONTACT_STATUS_RANGE, valueRange )
-}
 
 private static def getVolunteerByEmail(String email, Set<Volunteer> volunteers){
     return volunteers.stream().filter (volunteer->volunteer.email.equals(email))
         .findFirst().orElse(null);
 }
 
-/**
- * Adds any volunteers that have been added to the volunteer pool into the volunteer
- * contact status sheet for this event.
- * @param googleAPI
- * @param sheetId
- * @param mainPool
- * @param volunteerContactStatusTable
- * @return
- */
-private static def updateVolunteerList(GoogleAPI googleAPI, sheetId, mainPool, volunteerContactStatusTable) {
 
-    def stringSetVolunteers = mainPool.stream().map(volunteer -> volunteer.email).collect(Collectors.toSet());
-    def volunteerContactStatusSet = [] as Set
-    def toAdd = [] as Set
 
-    //Go through the current list and build it into a set
-    def it = volunteerContactStatusTable.listIterator()
-    while (it.hasNext()) {
-        def rowData = it.next()
-        if (rowData.get(0).equals("Volunteers")) {
-            continue //Skip header row
-        }
-        volunteerContactStatusSet.add(rowData.get(0))
-    }
 
-    //Find all volunteers that appear in the main volunteer pool but not in the contact status page
-    for (String volunteer : stringSetVolunteers) {
-        if (!volunteerContactStatusSet.contains(volunteer)) {
-            toAdd.add(volunteer)
-        }
-    }
-
-    //Create records for all of them.
-    def valueRange = new ValueRange()
-    valueRange.setRange(VOLUNTEER_CONTACT_STATUS_RANGE)
-    valueRange.setValues(makeNewVolunteerEntries(toAdd))
-    valueRange.setMajorDimension("ROWS")
-
-    //Append them into the volunteer contact status range
-    appendAt(googleAPI, sheetId, VOLUNTEER_CONTACT_STATUS_RANGE, valueRange )
-
-    //Get the updated volunteer contact status range
-    return getValuesAt(googleAPI, sheetId, VOLUNTEER_CONTACT_STATUS_RANGE)
-}
-
-private static makeNewVolunteerEntries(volunteers){
-    def result = []
-    volunteers.forEach{
-        volunteer->
-            result.add([volunteer, "-", "Not Contacted", "-", "-", "-","-"])
-    }
-}

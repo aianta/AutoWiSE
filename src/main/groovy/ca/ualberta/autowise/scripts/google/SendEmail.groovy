@@ -38,6 +38,7 @@ static def sendEmailToGroup(googleAPI, from, to, subject, content ){
     _sendEmail(googleAPI, email)
 }
 
+//TODO -> insert 1 second delay before sending
 static def sendEmail(googleAPI, from, to, subject, content){
     MimeMessage email = createMimeMessage(from, subject, content)
     email.addRecipient(Message.RecipientType.TO, new InternetAddress(to))

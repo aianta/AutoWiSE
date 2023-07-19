@@ -1,6 +1,7 @@
 package ca.ualberta.autowise
 
 import ca.ualberta.autowise.model.Event
+import ca.ualberta.autowise.model.Role
 import ca.ualberta.autowise.scripts.google.EventSlurper
 import groovy.json.JsonGenerator
 import groovy.json.JsonSlurper
@@ -30,6 +31,22 @@ static def getEventGenerator(){
             }
             .build()
 
+}
+
+static def slurpRolesJson(String json){
+    def slurper = new JsonSlurper()
+    def parsedJson = slurper.parseText(json)
+
+    List<Role> result = new ArrayList<>()
+    parsedJson.forEach { role->
+        role.shifts.forEach { shift->
+
+            shift.startTime = LocalTime.parse(shift.startTime, EventSlurper.shiftTimeFormatter)
+            shift.endTime = LocalTime.parse(shift.endTime, EventSlurper.shiftTimeFormatter)
+        }
+        result.add(new Role(role))
+    }
+    return result
 }
 
 static def slurpEventJson(String json){

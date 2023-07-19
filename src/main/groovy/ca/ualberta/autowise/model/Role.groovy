@@ -8,6 +8,9 @@ class Role {
     String description
     List<Shift> shifts = new ArrayList()
 
+    def removeShift(shiftIndex){
+        shifts.removeIf {shift->shift.index == shiftIndex}
+    }
 
 //    def toJsonFormat(){
 //        JsonObject result = new JsonObject()

@@ -1,5 +1,6 @@
 package ca.ualberta.autowise.scripts
 
+import ca.ualberta.autowise.JsonUtils
 import ca.ualberta.autowise.model.Event
 import ca.ualberta.autowise.model.EventStatus
 import ca.ualberta.autowise.model.HookType
@@ -8,6 +9,7 @@ import ca.ualberta.autowise.model.Task
 import ca.ualberta.autowise.model.TaskStatus
 import ca.ualberta.autowise.model.Volunteer
 import ca.ualberta.autowise.model.Webhook
+import ca.ualberta.autowise.scripts.google.EventSlurper
 import ca.ualberta.autowise.scripts.google.VolunteerListSlurper
 import com.google.api.services.sheets.v4.model.ValueRange
 import groovy.transform.Field
@@ -200,6 +202,11 @@ private static def makeCampaignPlan(Event event){
     )
     initialRecruitmentEmail.data.put("eventSheetId", event.sheetId)
     initialRecruitmentEmail.data.put("eventSlackChannel", event.eventSlackChannel)
+    initialRecruitmentEmail.data.put("rolesJsonString", JsonUtils.getEventGenerator().toJson(event.roles))
+    initialRecruitmentEmail.data.put("eventStartTime", event.startTime.format(EventSlurper.eventTimeFormatter))
+    initialRecruitmentEmail.data.put("emailTemplateId", event.recruitmentEmailTemplateId)
+    initialRecruitmentEmail.data.put("eventbriteLink", event.eventbriteLink)
+    initialRecruitmentEmail.data.put("eventName", event.name)
     plan.add(initialRecruitmentEmail)
 
     /**
