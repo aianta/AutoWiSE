@@ -9,7 +9,8 @@ import io.vertx.config.ConfigStoreOptions
 import io.vertx.core.CompositeFuture
 import io.vertx.core.Future
 import io.vertx.core.Promise
-import io.vertx.core.json.JsonObject;
+import io.vertx.core.json.JsonObject
+import io.vertx.rxjava3.ext.auth.sqlclient.SqlAuthentication;
 import org.slf4j.LoggerFactory
 
 import static ca.ualberta.autowise.scripts.google.GetFilesInFolder.getFiles
@@ -42,7 +43,7 @@ void vertxStart(Promise<Void> startup){
     ConfigStoreOptions yamlOptionsStore = new ConfigStoreOptions()
         .setType("file")
         .setFormat("yaml")
-        .setConfig(new JsonObject().put "path", "autowise-conf.yaml")
+        .setConfig(new JsonObject().put( "path", "autowise-conf.yaml"))
     ConfigRetriever retriever = ConfigRetriever.create(vertx, new ConfigRetrieverOptions().addStore(yamlOptionsStore))
 
     retriever.getConfig { configResult->
@@ -82,27 +83,20 @@ void vertxStart(Promise<Void> startup){
                 }
         }
 
-        //Setup HTTP Server to handle webhooks
-        vertx.executeBlocking(blocking->blocking.complete(AutoWiSEServer.createInstance(vertx, config.getString("host"), config.getInteger("port")))){
-            res->
-                if(res){
-                    serverInit.complete(res.result())
-                }else{
-                    log.error res.cause().getMessage(), res.cause()
-                    serverInit.fail(res.cause())
-                }
-        }
+        //Init SQlite, then use that to init AutoWiSEServer
+        vertx.executeBlocking(blocking->{
+            Promise sqlitePromise = Promise.promise()
+            SQLite.createInstance(vertx, config.getString("db_connection_string"), sqlitePromise.future())
 
-        //TODO: Establish connection to load active work from SQLite
-        vertx.executeBlocking(blocking->SQLite.createInstance(vertx, config.getString("db_connection_string"),blocking )){
-            res ->
-                if (res){
-                    databaseInit.complete(res.result())
-                }else{
-                    log.error res.cause().getMessage(), res.cause()
-                    databaseInit.fail(res.cause())
-                }
-        }
+            sqlitePromise.future().onSuccess{
+                database->
+                    databaseInit.complete(database) //Complete the database init future.
+                    AutoWiSEServer server = AutoWiSEServer.createInstance(vertx, config.getString("host"), config.getInteger("port"), database)
+                    serverInit.complete(server) //Complete the server init future.
+            }.onFailure {
+                err-> log.error err.getMessage(), err
+            }
+        })
 
         CompositeFuture.all([
                 googleAPIInit.future(),
@@ -123,6 +117,10 @@ void vertxStart(Promise<Void> startup){
                     db: db,
                     server: server
             ]
+
+            server.setServices(services)
+
+            server.loadWebhooks() //Load webhooks from database.
 
             //sendSlackMessage(slackApi, "#auto-wise", "Greetings from the script!")
 

@@ -1,5 +1,6 @@
 package ca.ualberta.autowise
 
+import ca.ualberta.autowise.model.HookType
 import ca.ualberta.autowise.model.Task
 import ca.ualberta.autowise.model.TaskStatus
 import ca.ualberta.autowise.model.Webhook
@@ -127,6 +128,27 @@ class SQLite {
         return promise.future()
     }
 
+    def markWebhookInvoked(webhookId){
+        def promise = Promise.promise();
+        pool.preparedQuery('''
+            UPDATE webhooks 
+            SET invoked = 1, 
+                invoked_on = ?
+            WHERE webhook_id = ?;
+        ''')
+        .execute(Tuple.of(ZonedDateTime.now().format(EventSlurper.eventTimeFormatter), webhookId.toString()))
+        .onSuccess{
+            promise.complete()
+        }
+        .onFailure{
+            err-> log.error err.getMessage, err
+                promise.fail(err)
+        }
+
+        return promise.future()
+
+    }
+
     def markTaskComplete(taskId){
         def promise = Promise.promise();
         pool.preparedQuery('''
@@ -211,10 +233,66 @@ class SQLite {
         return t
     }
 
+    private Webhook webhookFromRow(Row row){
+        Webhook w = new Webhook(
+                id: UUID.fromString(row.getString("webhook_id")),
+                eventId: UUID.fromString(row.getString("event_id")),
+                type: HookType.valueOf(row.getString("hook_type")),
+                data: new JsonObject(row.getString("data")),
+                expiry: row.getLong("expiry"),
+                invoked: row.getInteger("invoked") == 0?false:true,
+                invokedOn: row.getString("invoked_on") != null?ZonedDateTime.parse(row.getString("invoked_on"), EventSlurper.eventTimeFormatter):null
+        )
+        return w
+    }
+
     def insertWebhooks(List<Webhook> hooks){
         return CompositeFuture.all(hooks.stream()
                 .map(h->insertWebhook(h))
                 .collect(Collectors.toList()))
+    }
+
+    def getActiveWebhooks(){
+        Promise promise = Promise.promise();
+        pool.preparedQuery('''
+            SELECT * FROM webhooks WHERE expiry >= ? AND invoked = 0;
+        ''')
+        .execute(Tuple.of(ZonedDateTime.now().toInstant().toEpochMilli()))
+        .onSuccess(rowSet->{
+            Set<Webhook> webhooks = new HashSet<>()
+            for (Row row: rowSet){
+                webhooks.add(webhookFromRow(row))
+            }
+            promise.complete(webhooks)
+        })
+        .onFailure {
+            err-> log.error err.getMessage(), err
+                promise.fail(err)
+        }
+
+        return promise.future()
+    }
+
+    def getWebhookById(id){
+        Promise promise = Promise.promise()
+        pool.preparedQuery('''
+            SELECT * FROM webhooks WHERE webhook_id = ?;
+        ''')
+        .execute(Tuple.of(id.toString()))
+        .onSuccess(rowSet->{
+            List<Webhook> result = new ArrayList<>()
+            for(Row row: rowSet){
+                Webhook hook = webhookFromRow(row)
+                result.add(hook)
+            }
+            promise.complete(result)
+        }).onFailure{
+            err->
+                log.error err.getMessage(), err
+                promise.fail(err)
+        }
+
+        return promise.future()
     }
 
     def insertWebhook(Webhook hook){

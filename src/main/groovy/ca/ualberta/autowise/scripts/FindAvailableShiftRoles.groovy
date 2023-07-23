@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory
 import static ca.ualberta.autowise.scripts.google.GetSheetValue.getValuesAt
 
 @Field static log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.FindAvailableShiftRoles.class)
-@Field static EVENT_STATUS_RANGE = "\'Event Status\'!A:B" //TODO -> move to a constants file? See about testing
+@Field static EVENT_STATUS_RANGE = "\'Event Status\'!A:C" //TODO -> move to a constants file? See about testing
 
 
 static def findAvailableShiftRoles(GoogleAPI googleAPI, sheetId ){
@@ -45,8 +45,10 @@ static def findAvailableShiftRoles(GoogleAPI googleAPI, sheetId ){
             //If there is no value beside this shiftRoleString, or the value is empty, or a dash the shift-role has not been filled.
             unfilledShiftRoles.add(rowData.get(0))
             log.info "Found unfilled shift-role! ${rowData.get(0)}"
+        }else{
+            log.info "Shift-role ${rowData.get(0)} has been filled!"
         }
-        log.info "Shift-role ${rowData.get(0)} has been filled!"
+
     }
 
     return unfilledShiftRoles

@@ -28,6 +28,7 @@ class Event {
     long campaignStartOffset //in milliseconds
     long resolicitFrequency //In milliseconds
     long followupOffset //Offset in milliseconds from start time when the follow up email should be sent.
+    String initialRecruitmentEmailTemplateId
     String recruitmentEmailTemplateId
     String followupEmailTemplateId
     String confirmAssignedEmailTemplateId

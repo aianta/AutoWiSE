@@ -14,6 +14,8 @@ import io.vertx.core.json.JsonObject
 import org.slf4j.LoggerFactory
 
 import java.time.ZonedDateTime
+import java.util.function.Predicate
+import java.util.function.Supplier
 import java.util.stream.Collectors
 
 import static ca.ualberta.autowise.scripts.FindAvailableShiftRoles.getShiftRole
@@ -48,15 +50,21 @@ import static ca.ualberta.autowise.scripts.google.SendEmail.*
  *
  */
 
-
-static def initialRecruitmentEmailTask(services, Task task, volunteerPoolSheetId, volunteerPoolTableRange){
+/**
+ *
+ * @param services
+ * @param config
+ * @param task
+ * @param statusPredicate resolves true, if an email should be sent to a volunteer with the given contact status.
+ * @return
+ */
+static def emailTask(services, config, Task task, Predicate<String> statusPredicate, Supplier<String> emailContentSupplier){
 
     // Fetch all the data we'll need to execute the task
-    def volunteers = slurpVolunteerList(services.googleAPI, volunteerPoolSheetId, volunteerPoolTableRange)
+    def volunteers = slurpVolunteerList(services.googleAPI, config.getString("autowise_volunteer_pool_id"), config.getString("autowise_volunteer_table_range"))
     def eventName = task.data.getString("eventName")
     def eventSheetId = task.data.getString("eventSheetId")
     def eventbriteLink = task.data.getString("eventbriteLink")
-    def eventSlackChannel  = task.data.getString("eventSlackChannel")
     List<Role> eventRoles = slurpRolesJson(task.data.getString("rolesJsonString"))
     def eventStartTime = ZonedDateTime.parse(task.data.getString("eventStartTime"), EventSlurper.eventTimeFormatter)
     def volunteerContactStatusData = syncEventVolunteerContactSheet(services.googleAPI, eventSheetId, volunteers)
@@ -74,7 +82,8 @@ static def initialRecruitmentEmailTask(services, Task task, volunteerPoolSheetId
             continue // Skip header row
         }
 
-        if(rowData.get(2).equals("Not Contacted") || rowData.get(2).equals("Waiting for response")){
+        //if(rowData.get(2).equals("Not Contacted") || rowData.get(2).equals("Waiting for response")){
+        if(statusPredicate.test(rowData.get(2))){  //If status predicate test passes, we send an email
 
             //Assemble email for this volunteer.
             def volunteer = getVolunteerByEmail(rowData.get(0), volunteers)
@@ -96,13 +105,8 @@ static def initialRecruitmentEmailTask(services, Task task, volunteerPoolSheetId
                                 data: new JsonObject()
                                         .put("volunteerName", volunteer.name)
                                         .put("volunteerEmail", volunteer.email)
-                                        .put("eventName", eventName)
                                         .put("eventSheetId", eventSheetId)
                                         .put("shiftRoleString", shiftRole.shiftRoleString)
-                                        .put("confirmAssignedEmailTemplateId", task.data.getString("confirmAssignedEmailTemplateId"))
-                                        .put("eventSlackChannel", eventSlackChannel)
-                                        .put("rolesJsonString", task.data.getString("rolesJsonString"))
-                                        .put("eventStartTime", eventStartTime.format(EventSlurper.eventTimeFormatter))
                         )
                         services.db.insertWebhook(volunteerWebhook)
                         services.server.mountWebhook(volunteerWebhook)
@@ -122,7 +126,6 @@ static def initialRecruitmentEmailTask(services, Task task, volunteerPoolSheetId
                             .put("volunteerName", volunteer.name)
                             .put("volunteerEmail", volunteer.email)
                             .put("eventSheetId", eventSheetId)
-
             )
             services.db.insertWebhook(rejectHook)
             services.server.mountWebhook(rejectHook)
@@ -131,6 +134,8 @@ static def initialRecruitmentEmailTask(services, Task task, volunteerPoolSheetId
             def emailContents = emailTemplate.replaceAll("%AVAILABLE_SHIFT_ROLES%", shiftRoleHTMLTable)
             emailContents = emailContents.replaceAll("%REJECT_LINK%", "<a href=\"http://localhost:8080/${rejectHook.path()}\">Click me if you aren't able to volunteer for this event.</a>")
             emailContents = emailContents.replaceAll("%EVENTBRITE_LINK%", "<a href=\"${eventbriteLink}\">eventbrite</a>")
+
+
 
             //Send email
             sendEmail(services.googleAPI, "AutoWise", volunteer.email, "[WiSER] Volunteer opportunities for ${eventName}!",emailContents)

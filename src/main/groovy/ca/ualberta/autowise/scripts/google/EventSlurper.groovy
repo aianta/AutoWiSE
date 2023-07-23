@@ -28,6 +28,8 @@ import java.util.stream.Collectors
 @Field static log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.google.EventSlurper.class)
 @Field static ROLES_AND_SHIFTS_RANGE = "Event!A23:D200"
 
+
+
 /**
  * DateTime parsing for event start and end times from google sheets.
  * See: <a href="https://docs.oracle.com/javase/8/docs/api/java/time/format/DateTimeFormatter.html">DateTimeFormatter docs<a>
@@ -58,12 +60,13 @@ static def slurpSheet(GoogleAPI googleAPI, spreadsheetId){
             "campaignStartOffset": "Event!B16",
             "resolicitFrequency": "Event!B17",
             "followupOffset": "Event!B18",
-            "recruitmentEmailTemplateId": "Event!B19",
-            "followupEmailTemplateId": "Event!B20",
-            "confirmAssignedEmailTemplateId": "Event!B21",
-            "confirmCancelledEmailTemplateId": "Event!B22",
-            "confirmWaitlistEmailTemplateId": "Event!B23",
-            "confirmRejectedEmailTemplateId": "Event!B24",
+            "initialRecruitmentEmailTemplateId": "Event!B19",
+            "recruitmentEmailTemplateId": "Event!B20",
+            "followupEmailTemplateId": "Event!B21",
+            "confirmAssignedEmailTemplateId": "Event!B22",
+            "confirmCancelledEmailTemplateId": "Event!B23",
+            "confirmWaitlistEmailTemplateId": "Event!B24",
+            "confirmRejectedEmailTemplateId": "Event!B25",
     ]
 
     def slurped = slurpStaticSingleValues(staticSingleValues)
@@ -87,6 +90,7 @@ static def slurpSheet(GoogleAPI googleAPI, spreadsheetId){
             campaignStartOffset: Duration.ofDays(Long.parseLong(slurped.get("campaignStartOffset"))).toMillis(), //Convert days to ms
             resolicitFrequency: Duration.ofDays(Long.parseLong(slurped.get("resolicitFrequency"))).toMillis(),   //Convert days to ms
             followupOffset: Duration.ofHours(Long.parseLong(slurped.get("followupOffset"))).toMillis(),          //Convert hours to ms
+            initialRecruitmentEmailTemplateId: slurped.get("initialRecruitmentEmailTemplateId"),
             recruitmentEmailTemplateId: slurped.get("recruitmentEmailTemplateId"),
             followupEmailTemplateId: slurped.get("followupEmailTemplateId"),
             confirmAssignedEmailTemplateId: slurped.get("confirmAssignedEmailTemplateId"),
