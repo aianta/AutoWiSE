@@ -100,6 +100,7 @@ static def initialRecruitmentEmailTask(services, Task task, volunteerPoolSheetId
                                         .put("eventSheetId", eventSheetId)
                                         .put("shiftRoleString", shiftRole.shiftRoleString)
                                         .put("confirmAssignedEmailTemplateId", task.data.getString("confirmAssignedEmailTemplateId"))
+                                        .put("confirmWaitlistEmailTemplateId", task.data.getString("confirmWaitlistEmailTemplateId"))
                                         .put("eventSlackChannel", eventSlackChannel)
                                         .put("rolesJsonString", task.data.getString("rolesJsonString"))
                                         .put("eventStartTime", eventStartTime.format(EventSlurper.eventTimeFormatter))

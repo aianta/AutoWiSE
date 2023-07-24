@@ -32,6 +32,26 @@ def static updateSingleValueAt(GoogleAPI googleAPI, sheetId, cellAddress, value)
     updateAt(googleAPI, sheetId, cellAddress, body)
 }
 
+def static updateRowValueAt(GoogleAPI googleAPI, sheetId, cellAddress, Collection<String> data){
+
+        data = data.stream()
+        /**
+         *        Because we're in groovy, our strings are often GStrings instead of actual strings.
+         *        Google's API would however be very displeased to get a GString when it just wants
+         *        strings.
+         *        So we convert any GString to Strings with this mapping step
+         */
+                .map(element->element.toString())
+                .collect(Collectors.toList())
+        data = [data]
+        ValueRange body = new ValueRange()
+                .setRange(cellAddress)
+                .setValues(data)
+                .setMajorDimension("ROWS")
+        updateAt(googleAPI, sheetId, cellAddress, body)
+
+}
+
 /**
  *
  * @param googleAPI GoogleAPI object to use when making the request.

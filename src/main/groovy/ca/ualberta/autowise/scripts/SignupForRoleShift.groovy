@@ -22,7 +22,7 @@ import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.*
 import static ca.ualberta.autowise.scripts.FindAvailableShiftRoles.getShiftRole
 import static ca.ualberta.autowise.scripts.google.DocumentSlurper.*
 import static ca.ualberta.autowise.scripts.google.SendEmail.*
-
+import static ca.ualberta.autowise.scripts.SyncEventVolunteerContactSheet.*
 
 @Field static DateTimeFormatter eventDayFormatter = DateTimeFormatter.ofPattern("M/dd/yyyy")
 @Field static def log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.SignupForRoleShift.class)
@@ -33,11 +33,17 @@ import static ca.ualberta.autowise.scripts.google.SendEmail.*
  * 1. Look through the 'Event Status' sheet
  *     a) go line by line until we find entries for the shift role associate with the link they pressed.
  *     if there is an empty slot:
- *          1. Put the volunteers email in the slot and update the event status table.
- *          2. Create a cancellation webhook for the volunteer.
- *          3. Send a confirmation email to the volunteer.
- *          4. Notify the event slack channel.
- *          5. Mark this webhook invoked
+ *          1. Put the volunteer's email in the slot and update the event status table.
+ *          2. Update the Volunteer Contact status table.
+ *          3. Create a cancellation webhook for the volunteer.
+ *          4. Send a confirmation email to the volunteer.
+ *          5. Notify the event slack channel.
+ *          6. Mark this webhook invoked
+ *     b) There is no empty slot
+ *          1. Update the volunteer contact status table
+ *          2. Send a waitlist confirmation email to the volunteer.
+ *          3. Notify the event slack channel.
+ *          4. Mark this webhook invoked
  */
 
 
@@ -51,6 +57,7 @@ static def acceptShiftRole(services, Webhook webhook){
         List<Role> roles = slurpRolesJson(webhook.data.getString("rolesJsonString"))
         def eventStartTime = ZonedDateTime.parse(webhook.data.getString("eventStartTime"), EventSlurper.eventTimeFormatter)
         def eventSlackChannel = webhook.data.getString("eventSlackChannel")
+        ShiftRole shiftRole = getShiftRole(targetShiftRoleString, roles)
 
         def data = getValuesAt(services.googleAPI, eventSheetId, FindAvailableShiftRoles.EVENT_STATUS_RANGE )
         def tableFirstColHeader = "Shift - Role"
@@ -83,7 +90,9 @@ static def acceptShiftRole(services, Webhook webhook){
                     rowData.set(1, volunteerEmail) //Assign this volunteer to the shift-role
                     rowData.set(2, volunteerName)
                 }
+
                 updateEventStatusTable(services.googleAPI, eventSheetId, data)
+                updateVolunteerStatus(services.googleAPI, eventSheetId, volunteerEmail, "Accepted", targetShiftRoleString)
 
                 Webhook cancelHook = new Webhook(
                         id: UUID.randomUUID(),
@@ -99,7 +108,7 @@ static def acceptShiftRole(services, Webhook webhook){
                 services.db.insertWebhook(cancelHook)
                 services.server.mountWebhook(cancelHook)
 
-                ShiftRole shiftRole = getShiftRole(targetShiftRoleString, roles)
+
                 def emailTemplate = slurpDocument(services.googleAPI, webhook.data.getString("confirmAssignedEmailTemplateId"))
                 def emailContents = emailTemplate.replaceAll("%EVENT_NAME%", eventName)
                 emailContents = emailContents.replaceAll("%ROLE_NAME%", shiftRole.role.name)
@@ -126,11 +135,34 @@ static def acceptShiftRole(services, Webhook webhook){
 
     //If we make it to here, there are no available slots for the target shift role.
     //TODO: implement waitlist functionality.
+    //updateWaitlist(services.googleAPI, eventSheetId, targetShiftRoleString, volunteerEmail)
+    updateVolunteerStatus(services.googleAPI, eventSheetId, volunteerEmail, "Waitlisted", targetShiftRoleString)
 
+    def emailTemplate = slurpDocument(services.googleAPI, webhook.data.getString("confirmWaitlistEmailTemplateId"))
+    def emailContents = emailTemplate.replaceAll("%EVENT_NAME%", eventName)
+    emailContents = emailContents.replaceAll("%ROLE_NAME%", shiftRole.role.name)
+    emailContents = emailContents.replaceAll("%SHIFT_START%", shiftRole.shift.startTime.format(EventSlurper.shiftTimeFormatter))
+    emailContents = emailContents.replaceAll("%SHIFT_END%", shiftRole.shift.endTime.format(EventSlurper.shiftTimeFormatter))
+
+    sendEmail(services.googleAPI, "AutoWiSE", volunteerEmail, "[WiSER] Volunteer Sign-up Waitlist Confirmation for ${eventName}", emailContents)
+
+    sendSlackMessage(services.slackAPI, eventSlackChannel, "${volunteerName} has expressed interest in volunteering for ${eventName} as ${shiftRole.role.name}. However there were no matching free slots for this volunteer, so they have been waitlisted and notified that they will be contacted if a slot frees up.")
+
+    services.db.markWebhookInvoked(webhook.id)
 }
 
-private static def sendConfirmAssignedEmail(GoogleAPI googleAPI){
+private static def updateWaitlist(GoogleAPI googleAPI, sheetId, shiftRoleString, volunteerEmail){
+    def waitListRow = getValuesAt(googleAPI, sheetId, "\'Event Status\'!4:4")
 
+    def it = waitListRow.listIterator()
+    while (it.hasNext()){
+        def colData = it.next()
+        if (colData.get(0).equals(shiftRoleString)){
+            ValueRange data = new ValueRange()
+            data.setValues([[volunteerEmail]])
+            appendAt(googleAPI, sheetId, "\'Event Status\'!R4:C${it.nextIndex()}", data )
+        }
+    }
 }
 
 private static def updateEventStatusTable(GoogleAPI googleAPI, sheetId, data){

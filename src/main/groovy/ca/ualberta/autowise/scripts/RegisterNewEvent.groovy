@@ -10,7 +10,6 @@ import ca.ualberta.autowise.model.TaskStatus
 import ca.ualberta.autowise.model.Volunteer
 import ca.ualberta.autowise.model.Webhook
 import ca.ualberta.autowise.scripts.google.EventSlurper
-import ca.ualberta.autowise.scripts.google.VolunteerListSlurper
 import com.google.api.services.sheets.v4.model.ValueRange
 import groovy.transform.Field
 import io.vertx.core.Promise
@@ -25,13 +24,15 @@ import java.util.stream.Stream
 
 import io.vertx.core.json.JsonArray
 
+import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateRowValueAt
 import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateSingleValueAt
 import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateColumnValueAt
 import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateAt
 import static ca.ualberta.autowise.scripts.google.VolunteerListSlurper.slurpVolunteerList
 
 @Field static def log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.RegisterNewEvent.class)
-@Field static def EVENT_STATUS_CELL_ADDRESS = "\'Event Status\'!A5"
+@Field static def EVENT_STATUS_ROLE_SHIFT_CELL_ADDRESS = "\'Event Status\'!A5"
+@Field static def EVENT_STATUS_WAITLIST_CELL_ADDRESS = "\'Event Status\'!F4"
 
 static def registerNewEvent(services, event, sheetId, volunteerSheetId, volunteerTableRange){
     Promise promise = Promise.promise();
@@ -96,8 +97,8 @@ static def registerNewEvent(services, event, sheetId, volunteerSheetId, voluntee
 
     // Update 'Event Status' Sheet
     // TODO - batch these
-    updateColumnValueAt(services.googleAPI, sheetId, EVENT_STATUS_CELL_ADDRESS, produceRoleShiftList(event))
-
+    updateColumnValueAt(services.googleAPI, sheetId, EVENT_STATUS_ROLE_SHIFT_CELL_ADDRESS, produceRoleShiftList(event))
+    //updateRowValueAt(services.googleAPI, sheetId, EVENT_STATUS_WAITLIST_CELL_ADDRESS, produceRoleShiftSet(event))
 
     //Update the event id in the sheet
     updateSingleValueAt(services.googleAPI, sheetId, "Event!A2", event.id.toString())
@@ -119,6 +120,10 @@ static def registerNewEvent(services, event, sheetId, volunteerSheetId, voluntee
 
 
     return promise.future();
+}
+
+private static def produceRoleShiftSet(Event event){
+    return produceRoleShiftList(event).stream().collect(Collectors.toSet())
 }
 
 /**
@@ -206,6 +211,7 @@ private static def makeCampaignPlan(Event event){
     initialRecruitmentEmail.data.put("eventStartTime", event.startTime.format(EventSlurper.eventTimeFormatter))
     initialRecruitmentEmail.data.put("emailTemplateId", event.initialRecruitmentEmailTemplateId)
     initialRecruitmentEmail.data.put("confirmAssignedEmailTemplateId", event.confirmAssignedEmailTemplateId)
+    initialRecruitmentEmail.data.put("confirmWaitlistEmailTemplateId", event.confrimWaitlistEmailTemplateId)
     initialRecruitmentEmail.data.put("eventbriteLink", event.eventbriteLink)
     initialRecruitmentEmail.data.put("eventName", event.name)
     plan.add(initialRecruitmentEmail)

@@ -2,18 +2,56 @@ package ca.ualberta.autowise.scripts
 
 import ca.ualberta.autowise.GoogleAPI
 import ca.ualberta.autowise.model.Volunteer
+import ca.ualberta.autowise.scripts.google.EventSlurper
 import com.google.api.services.sheets.v4.model.ValueRange
 import groovy.transform.Field
+import org.slf4j.LoggerFactory
 
+import java.time.ZonedDateTime
 import java.util.stream.Collectors
 
 import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.appendAt
 import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateAt
+import static ca.ualberta.autowise.scripts.google.VolunteerListSlurper.log
 import static ca.ualberta.autowise.scripts.google.VolunteerListSlurper.slurpVolunteerList
 import static ca.ualberta.autowise.scripts.google.GetSheetValue.getValuesAt
 
 
-@Field static def VOLUNTEER_CONTACT_STATUS_RANGE = "\'Volunteer Contact Status\'!A:G"
+@Field static def VOLUNTEER_CONTACT_STATUS_RANGE = "\'Volunteer Contact Status\'!A:H"
+@Field static def log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.SyncEventVolunteerContactSheet.class)
+
+static def updateVolunteerStatus(GoogleAPI googleAPI, sheetId, volunteerEmail, volunteerStatus, shiftRoleString){
+
+    def volunteerStatusData = getValuesAt(googleAPI, sheetId, VOLUNTEER_CONTACT_STATUS_RANGE)
+
+    def it = volunteerStatusData.iterator();
+    while (it.hasNext()){
+        def rowData = it.next();
+        if(!rowData.isEmpty() && rowData.get(0).equals(volunteerEmail)){
+            rowData.set(2, volunteerStatus)
+            rowData.set(7, shiftRoleString)
+            switch (volunteerStatus){
+                case "Accepted":
+                    rowData.set(3, ZonedDateTime.now().format(EventSlurper.eventTimeFormatter))
+                    break
+                case "Rejected":
+                    rowData.set(4, ZonedDateTime.now().format(EventSlurper.eventTimeFormatter))
+                    break
+                case "Cancelled":
+                    rowData.set(5, ZonedDateTime.now().format(EventSlurper.eventTimeFormatter))
+                    break
+                case "Waitlisted":
+                    rowData.set(6, ZonedDateTime.now().format(EventSlurper.eventTimeFormatter))
+                    break
+                default:
+                    log.warn "Unrecognized volunteer status string!"
+            }
+
+            break
+        }
+    }
+    updateVolunteerContactStatusTable(googleAPI, sheetId, volunteerStatusData)
+}
 
 static List<List<String>> syncEventVolunteerContactSheet(GoogleAPI googleAPI, sheetId , wiserVolunteers){
     //wiserVolunteers is a set of all wiser volunteers.
