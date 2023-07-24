@@ -1,6 +1,6 @@
 package ca.ualberta.autowise.scripts
 
-import ca.ualberta.autowise.GoogleAPI
+
 import ca.ualberta.autowise.model.HookType
 import ca.ualberta.autowise.model.Role
 import ca.ualberta.autowise.model.ShiftRole
@@ -8,7 +8,6 @@ import ca.ualberta.autowise.model.Task
 import ca.ualberta.autowise.model.Volunteer
 import ca.ualberta.autowise.model.Webhook
 import ca.ualberta.autowise.scripts.google.EventSlurper
-import com.google.api.services.sheets.v4.model.ValueRange
 import groovy.transform.Field
 import io.vertx.core.json.JsonObject
 import org.slf4j.LoggerFactory
@@ -17,14 +16,12 @@ import java.time.ZonedDateTime
 import java.util.stream.Collectors
 
 import static ca.ualberta.autowise.scripts.FindAvailableShiftRoles.getShiftRole
-import static ca.ualberta.autowise.scripts.google.VolunteerListSlurper.slurpVolunteerList
-import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.appendAt
-import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateAt
+import static ca.ualberta.autowise.scripts.google.VolunteerListSlurper.*
 import static ca.ualberta.autowise.JsonUtils.slurpRolesJson
 import static ca.ualberta.autowise.scripts.FindAvailableShiftRoles.findAvailableShiftRoles
 import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.sendSlackMessage
-import static ca.ualberta.autowise.scripts.SyncEventVolunteerContactSheet.syncEventVolunteerContactSheet
-import static ca.ualberta.autowise.scripts.SyncEventVolunteerContactSheet.updateVolunteerContactStatusTable
+import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.syncEventVolunteerContactSheet
+import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.updateVolunteerContactStatusTable
 import static ca.ualberta.autowise.scripts.google.DocumentSlurper.slurpDocument
 import static ca.ualberta.autowise.scripts.BuildShiftRoleOptions.buildShiftRoleOptions
 import static ca.ualberta.autowise.scripts.google.SendEmail.*
@@ -101,6 +98,7 @@ static def initialRecruitmentEmailTask(services, Task task, volunteerPoolSheetId
                                         .put("shiftRoleString", shiftRole.shiftRoleString)
                                         .put("confirmAssignedEmailTemplateId", task.data.getString("confirmAssignedEmailTemplateId"))
                                         .put("confirmWaitlistEmailTemplateId", task.data.getString("confirmWaitlistEmailTemplateId"))
+                                        .put("confirmCancelledEmailTemplateId", task.data.getString("confirmCancelledEmailTemplateId"))
                                         .put("eventSlackChannel", eventSlackChannel)
                                         .put("rolesJsonString", task.data.getString("rolesJsonString"))
                                         .put("eventStartTime", eventStartTime.format(EventSlurper.eventTimeFormatter))
@@ -163,10 +161,7 @@ private static def handleNoAvailableShiftRoles(services, Task task, eventName){
     return
 }
 
-private static def getVolunteerByEmail(String email, Set<Volunteer> volunteers){
-    return volunteers.stream().filter (volunteer->volunteer.email.equals(email))
-        .findFirst().orElse(null);
-}
+
 
 
 

@@ -1,12 +1,11 @@
 package ca.ualberta.autowise.scripts
 
-import ca.ualberta.autowise.GoogleAPI
+
 import ca.ualberta.autowise.model.HookType
 import ca.ualberta.autowise.model.Role
 import ca.ualberta.autowise.model.ShiftRole
 import ca.ualberta.autowise.model.Webhook
 import ca.ualberta.autowise.scripts.google.EventSlurper
-import com.google.api.services.sheets.v4.model.ValueRange
 import groovy.transform.Field
 import io.vertx.core.json.JsonObject
 import org.slf4j.LoggerFactory
@@ -17,12 +16,12 @@ import java.time.ZonedDateTime;
 
 import static ca.ualberta.autowise.JsonUtils.*
 import static ca.ualberta.autowise.scripts.google.GetSheetValue.*
-import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.*
+import static ca.ualberta.autowise.scripts.ManageEventStatusTable.*
 import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.*
 import static ca.ualberta.autowise.scripts.FindAvailableShiftRoles.getShiftRole
 import static ca.ualberta.autowise.scripts.google.DocumentSlurper.*
 import static ca.ualberta.autowise.scripts.google.SendEmail.*
-import static ca.ualberta.autowise.scripts.SyncEventVolunteerContactSheet.*
+import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.*
 
 @Field static DateTimeFormatter eventDayFormatter = DateTimeFormatter.ofPattern("M/dd/yyyy")
 @Field static def log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.SignupForRoleShift.class)
@@ -63,6 +62,7 @@ static def acceptShiftRole(services, Webhook webhook){
         def tableFirstColHeader = "Shift - Role"
         def it = data.listIterator()
 
+        //Skip irrelevant rows at the top of the sheet.
         while(it.hasNext()) {
             def rowData = it.next();
             log.info rowData.toString()
@@ -103,7 +103,14 @@ static def acceptShiftRole(services, Webhook webhook){
                         data: new JsonObject()
                             .put("volunteerEmail", volunteerEmail)
                             .put("eventSheetId", eventSheetId)
+                            .put("eventStartTime", eventStartTime.format(EventSlurper.eventTimeFormatter))
                             .put("shiftRoleString", targetShiftRoleString)
+                            .put("eventSlackChannel", eventSlackChannel)
+                            .put("volunteerName", volunteerName)
+                            .put("eventName", eventName)
+                            .put("rolesJsonString", webhook.data.getString("rolesJsonString"))
+                            .put("confirmAssignedEmailTemplateId", webhook.data.getString("confirmAssignedEmailTemplateId"))
+                            .put("confirmCancelledEmailTemplateId", webhook.data.getString("confirmCancelledEmailTemplateId"))
                 )
                 services.db.insertWebhook(cancelHook)
                 services.server.mountWebhook(cancelHook)
@@ -135,7 +142,6 @@ static def acceptShiftRole(services, Webhook webhook){
 
     //If we make it to here, there are no available slots for the target shift role.
     //TODO: implement waitlist functionality.
-    //updateWaitlist(services.googleAPI, eventSheetId, targetShiftRoleString, volunteerEmail)
     updateVolunteerStatus(services.googleAPI, eventSheetId, volunteerEmail, "Waitlisted", targetShiftRoleString)
 
     def emailTemplate = slurpDocument(services.googleAPI, webhook.data.getString("confirmWaitlistEmailTemplateId"))
@@ -151,24 +157,4 @@ static def acceptShiftRole(services, Webhook webhook){
     services.db.markWebhookInvoked(webhook.id)
 }
 
-private static def updateWaitlist(GoogleAPI googleAPI, sheetId, shiftRoleString, volunteerEmail){
-    def waitListRow = getValuesAt(googleAPI, sheetId, "\'Event Status\'!4:4")
 
-    def it = waitListRow.listIterator()
-    while (it.hasNext()){
-        def colData = it.next()
-        if (colData.get(0).equals(shiftRoleString)){
-            ValueRange data = new ValueRange()
-            data.setValues([[volunteerEmail]])
-            appendAt(googleAPI, sheetId, "\'Event Status\'!R4:C${it.nextIndex()}", data )
-        }
-    }
-}
-
-private static def updateEventStatusTable(GoogleAPI googleAPI, sheetId, data){
-    def valueRange = new ValueRange()
-    valueRange.setRange(FindAvailableShiftRoles.EVENT_STATUS_RANGE)
-    valueRange.setValues(data)
-    valueRange.setMajorDimension("ROWS")
-    updateAt(googleAPI, sheetId,FindAvailableShiftRoles.EVENT_STATUS_RANGE, valueRange)
-}

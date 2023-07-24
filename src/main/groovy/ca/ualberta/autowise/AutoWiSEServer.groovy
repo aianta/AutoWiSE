@@ -12,6 +12,7 @@ import io.vertx.core.http.HttpMethod;
 import org.apache.commons.codec.binary.Base64
 
 import static ca.ualberta.autowise.scripts.SignupForRoleShift.*
+import static ca.ualberta.autowise.scripts.CancelShiftRole.*
 
 /**
  * @Author Alexandru Ianta
@@ -30,13 +31,14 @@ class AutoWiSEServer {
     HttpServer server;
     Router router;
     SQLite db;
+    def config
     def services
     static instance;
 
-    static createInstance(vertx, host, port, db){
-        HOST = host
-        PORT = port
-        instance = new AutoWiSEServer(vertx, db);
+    static createInstance(vertx, config, db){
+        HOST = config.getString("host")
+        PORT = config.getInteger("port")
+        instance = new AutoWiSEServer(vertx, db, config);
         return instance
     }
 
@@ -52,7 +54,8 @@ class AutoWiSEServer {
         log.info "Services initialized!"
     }
 
-    private AutoWiSEServer(vertx, SQLite db){
+    private AutoWiSEServer(vertx, SQLite db, config){
+        this.config = config
         this.vertx = vertx
         this.db = db
 
@@ -100,12 +103,21 @@ class AutoWiSEServer {
 
         db.getWebhookById(webhookId).onSuccess{ Webhook webhook->{
 
+            if(webhook.invoked){
+                log.info "webhook has already been invoked aborting!"
+                return
+            }
+
             log.info( "hook type match [${webhook.type.toString()}:${HookType.ACCEPT_ROLE_SHIFT.toString()}] ${webhook.type.equals(HookType.ACCEPT_ROLE_SHIFT)}")
 
             switch (webhook.type){
                 case HookType.ACCEPT_ROLE_SHIFT:
                     acceptShiftRole(services, webhook)
                     break
+                case HookType.CANCEL_ROLE_SHIFT:
+                    cancelShiftRole(services, webhook, config)
+                    break
+
                 default:log.warn "Unknown hook type! ${webhook.type.toString()}"
             }
 

@@ -8,6 +8,11 @@ import org.slf4j.LoggerFactory
 
 @Field static log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.google.VolunteerListSlurper.class)
 
+static def getVolunteerByEmail(String email, Set<Volunteer> volunteers){
+    return volunteers.stream().filter (volunteer->volunteer.email.equals(email))
+            .findFirst().orElse(null);
+}
+
 static def slurpVolunteerList(GoogleAPI googleAPI, volunteerSheetId, volunteerTableRange){
     //Store as a set for easy 'contains' operations
     Set<Volunteer> volunteers = new ArrayList<>()

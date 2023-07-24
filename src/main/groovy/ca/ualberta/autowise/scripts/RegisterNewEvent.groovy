@@ -158,7 +158,7 @@ private static def makeInitialVolunteerContactStatus(Set<Volunteer> volunteers){
 
     def result = []
     volunteers.forEach {volunteer->
-        result.add([volunteer.email, "-", "Not Contacted","-","-","-","-"])
+        result.add([volunteer.email, "-", "Not Contacted","-","-","-","-","-"])
     }
 
     return result
@@ -212,6 +212,7 @@ private static def makeCampaignPlan(Event event){
     initialRecruitmentEmail.data.put("emailTemplateId", event.initialRecruitmentEmailTemplateId)
     initialRecruitmentEmail.data.put("confirmAssignedEmailTemplateId", event.confirmAssignedEmailTemplateId)
     initialRecruitmentEmail.data.put("confirmWaitlistEmailTemplateId", event.confrimWaitlistEmailTemplateId)
+    initialRecruitmentEmail.data.put("confirmCancelledEmailTemplateId", event.confirmCancelledEmailTemplateId)
     initialRecruitmentEmail.data.put("eventbriteLink", event.eventbriteLink)
     initialRecruitmentEmail.data.put("eventName", event.name)
     plan.add(initialRecruitmentEmail)

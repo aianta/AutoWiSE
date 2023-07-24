@@ -91,7 +91,7 @@ void vertxStart(Promise<Void> startup){
             sqlitePromise.future().onSuccess{
                 database->
                     databaseInit.complete(database) //Complete the database init future.
-                    AutoWiSEServer server = AutoWiSEServer.createInstance(vertx, config.getString("host"), config.getInteger("port"), database)
+                    AutoWiSEServer server = AutoWiSEServer.createInstance(vertx, config, database)
                     serverInit.complete(server) //Complete the server init future.
             }.onFailure {
                 err-> log.error err.getMessage(), err

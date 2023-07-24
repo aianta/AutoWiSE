@@ -1,7 +1,7 @@
 package ca.ualberta.autowise.scripts
 
 import ca.ualberta.autowise.GoogleAPI
-import ca.ualberta.autowise.model.Volunteer
+import ca.ualberta.autowise.model.WaitlistEntry
 import ca.ualberta.autowise.scripts.google.EventSlurper
 import com.google.api.services.sheets.v4.model.ValueRange
 import groovy.transform.Field
@@ -12,13 +12,39 @@ import java.util.stream.Collectors
 
 import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.appendAt
 import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateAt
-import static ca.ualberta.autowise.scripts.google.VolunteerListSlurper.log
-import static ca.ualberta.autowise.scripts.google.VolunteerListSlurper.slurpVolunteerList
 import static ca.ualberta.autowise.scripts.google.GetSheetValue.getValuesAt
 
 
 @Field static def VOLUNTEER_CONTACT_STATUS_RANGE = "\'Volunteer Contact Status\'!A:H"
-@Field static def log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.SyncEventVolunteerContactSheet.class)
+@Field static def log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.class)
+
+
+static def getWaitlistForShiftRole(GoogleAPI googleAPI, sheetId, shiftRoleString){
+    def result = new ArrayList<WaitlistEntry>();
+
+    def volunteerStatusData = getValuesAt(googleAPI, sheetId, VOLUNTEER_CONTACT_STATUS_RANGE)
+
+    def it = volunteerStatusData.iterator();
+
+    while(it.hasNext()){
+        def rowData = it.next()
+        if(!rowData.isEmpty() && rowData.get(7).equals(shiftRoleString) && rowData.get(2).equals("Waitlisted") && !rowData.get(6).equals("-")){
+            result.add(new  WaitlistEntry(
+                    email: rowData.get(0),
+                    waitlistedOn: ZonedDateTime.parse(rowData.get(6), EventSlurper.eventTimeFormatter),
+                    desiredShiftRole: rowData.get(7)
+            ))
+        }
+    }
+
+    //Sort the waitlisted entries in ascending order such that the oldest entry is first,
+    result = result.sort((entry1, entry2)->{
+        return entry1.waitlistedOn.compareTo(entry2.waitlistedOn)
+    })
+
+    return result
+}
+
 
 static def updateVolunteerStatus(GoogleAPI googleAPI, sheetId, volunteerEmail, volunteerStatus, shiftRoleString){
 
