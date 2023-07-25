@@ -17,6 +17,7 @@ import static ca.ualberta.autowise.scripts.google.GetFilesInFolder.getFiles
 import static ca.ualberta.autowise.scripts.ProcessAutoWiSEEventSheet.processEventSheet
 import static ca.ualberta.autowise.scripts.EventRegistrationEmailTask.eventRegistrationEmailTask
 import static ca.ualberta.autowise.scripts.InitialRecruitmentEmailTask.initialRecruitmentEmailTask
+import static ca.ualberta.autowise.scripts.RecruitmentEmailTask.recruitmentEmailTask
 
 /**
  * @Author Alexandru Ianta
@@ -178,11 +179,14 @@ void vertxStart(Promise<Void> startup){
 
                                 break
                             case "Initial Recruitment Email":
-
-                                initialRecruitmentEmailTask(services, task, config.getString("autowise_volunteer_pool_id"), config.getString("autowise_volunteer_table_range"))
-
+                                recruitmentEmailTask(vertx, services, task, config, (status)->{
+                                  return status.equals("Not Contacted")
+                                }, "Waiting for response", "[WiSER] Volunteer opportunities for ${task.data.getString("eventName")}!")
                                 break
                             case "Recruitment Email":
+                                recruitmentEmailTask(vertx, services, task, config, (status)->{
+                                    return status.equals("Not Contacted") || status.equals("Waiting for response")
+                                }, "Waiting for response", "[WiSER] Volunteer opportunities for ${task.data.getString("eventName")}!")
                                 break
                             case "Follow-up Email":
                                 break

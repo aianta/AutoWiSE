@@ -108,6 +108,8 @@ class AutoWiSEServer {
                 return
             }
 
+            db.markWebhookInvoked(webhookId) //Mark webhook invoked right away, to prevent duplicate invokes
+
             log.info( "hook type match [${webhook.type.toString()}:${HookType.ACCEPT_ROLE_SHIFT.toString()}] ${webhook.type.equals(HookType.ACCEPT_ROLE_SHIFT)}")
 
             switch (webhook.type){
@@ -120,6 +122,8 @@ class AutoWiSEServer {
 
                 default:log.warn "Unknown hook type! ${webhook.type.toString()}"
             }
+
+            rc.response().setStatusCode(200).end("Your request has been processed! Thank you! You may now close this window.")
 
         }}
 

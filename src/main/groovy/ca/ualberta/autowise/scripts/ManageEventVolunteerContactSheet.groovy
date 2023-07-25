@@ -55,7 +55,9 @@ static def updateVolunteerStatus(GoogleAPI googleAPI, sheetId, volunteerEmail, v
         def rowData = it.next();
         if(!rowData.isEmpty() && rowData.get(0).equals(volunteerEmail)){
             rowData.set(2, volunteerStatus)
-            rowData.set(7, shiftRoleString)
+            if (shiftRoleString != null){
+                rowData.set(7, shiftRoleString)
+            }
             switch (volunteerStatus){
                 case "Accepted":
                     rowData.set(3, ZonedDateTime.now().format(EventSlurper.eventTimeFormatter))
@@ -68,6 +70,9 @@ static def updateVolunteerStatus(GoogleAPI googleAPI, sheetId, volunteerEmail, v
                     break
                 case "Waitlisted":
                     rowData.set(6, ZonedDateTime.now().format(EventSlurper.eventTimeFormatter))
+                    break
+                case "Waiting for response":
+                    rowData.set(1, ZonedDateTime.now().format(EventSlurper.eventTimeFormatter))
                     break
                 default:
                     log.warn "Unrecognized volunteer status string!"

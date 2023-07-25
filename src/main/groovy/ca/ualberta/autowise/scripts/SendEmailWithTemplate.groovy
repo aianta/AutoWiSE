@@ -62,15 +62,7 @@ static def messingAround(services, Vertx vertx, config){
 
 }
 
-private static Future send(GoogleAPI googleAPI, Vertx vertx, config, emailBody, target){
-    Promise promise = Promise.promise()
 
-    vertx.setTimer(config.getString("mass_email_delay"), {timerId->
-        sendEmail(googleAPI, "AutoWiSE", target, "TODO: subject", emailBody)
-        promise.complete()
-    })
-    return promise.future();
-}
 
 static def sendEmailWithTemplate(GoogleAPI googleAPI, templateId, targetEmail){
 

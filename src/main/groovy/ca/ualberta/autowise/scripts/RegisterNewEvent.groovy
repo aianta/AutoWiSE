@@ -213,6 +213,7 @@ private static def makeCampaignPlan(Event event){
     initialRecruitmentEmail.data.put("confirmAssignedEmailTemplateId", event.confirmAssignedEmailTemplateId)
     initialRecruitmentEmail.data.put("confirmWaitlistEmailTemplateId", event.confrimWaitlistEmailTemplateId)
     initialRecruitmentEmail.data.put("confirmCancelledEmailTemplateId", event.confirmCancelledEmailTemplateId)
+    initialRecruitmentEmail.data.put("confirmRejectedEmailTemplatedId", event.confirmRejectedEmailTemplateId)
     initialRecruitmentEmail.data.put("eventbriteLink", event.eventbriteLink)
     initialRecruitmentEmail.data.put("eventName", event.name)
     plan.add(initialRecruitmentEmail)
@@ -240,6 +241,18 @@ private static def makeCampaignPlan(Event event){
                     notify: true,
                     taskExecutionTime: resolicitTime,
                     status: TaskStatus.SCHEDULED,
+                    data: new JsonObject()
+                        .put("eventSheetId", event.sheetId)
+                        .put("eventSlackChannel", event.eventSlackChannel)
+                        .put("rolesJsonString", JsonUtils.getEventGenerator().toJson(event.roles))
+                        .put("eventStartTime", event.startTime.format(EventSlurper.eventTimeFormatter))
+                        .put("emailTemplateId", event.recruitmentEmailTemplateId)
+                        .put("confirmAssignedEmailTemplateId", event.confirmAssignedEmailTemplateId)
+                        .put("confirmWaitlistEmailTemplateId", event.confrimWaitlistEmailTemplateId)
+                        .put("confirmCancelledEmailTemplateId", event.confirmCancelledEmailTemplateId)
+                        .put("confirmRejectedEmailTemplateId", event.confirmRejectedEmailTemplateId)
+                        .put("eventbriteLink", event.eventbriteLink)
+                        .put("eventName", event.name)
             )
             plan.add(reminder)
         }
