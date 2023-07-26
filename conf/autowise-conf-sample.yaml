@@ -1,0 +1,30 @@
+---
+# General
+external_tick_rate: 10800000 # How often does AutoWiSE execute its external loop (the one that checks for new events on GDrive)
+internal_tick_rate: 30000 # How often does AutoWiSE execute its internal loop (the one that dispatches planned tasks from SQLite)
+mass_email_delay: 1000 # Time in ms between emails in a mass send task. Need to keep below 2 emails/second.
+
+# SQLite Config
+db_connection_string: 'jdbc:sqlite:autowise.db'
+
+# Web Server Config
+host: localhost
+port: 8080
+
+# Google API Configs
+application_name: AutoWiSE
+credentials_path: credentials.json
+auth_tokens_directory_path: tokens
+auth_server_receiver_port: 8888
+
+# Google Drive Configs
+autowise_event_prefix: "[AutoWiSE][Event]"
+autowise_drive_folder_id:
+autowise_volunteer_pool_id:  # Drive id of the sheet containing the volunteer list
+autowise_volunteer_table_range: Sheet1!A:B
+autowise_new_recruitment_campaign_email_template:
+
+# Slack Config
+slack_token:
+
+...

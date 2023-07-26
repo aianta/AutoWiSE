@@ -41,7 +41,7 @@ void vertxStart(Promise<Void> startup){
     ConfigStoreOptions yamlOptionsStore = new ConfigStoreOptions()
         .setType("file")
         .setFormat("yaml")
-        .setConfig(new JsonObject().put( "path", "autowise-conf.yaml"))
+        .setConfig(new JsonObject().put( "path", "conf/autowise-conf.yaml"))
     ConfigRetriever retriever = ConfigRetriever.create(vertx, new ConfigRetrieverOptions().addStore(yamlOptionsStore))
 
     retriever.getConfig { configResult->
