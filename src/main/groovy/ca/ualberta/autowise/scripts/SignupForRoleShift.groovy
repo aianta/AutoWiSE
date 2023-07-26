@@ -132,8 +132,7 @@ static def acceptShiftRole(services, Webhook webhook){
                 //Notify slack
                 sendSlackMessage(services.slackAPI, eventSlackChannel, "${volunteerName} has expressed interest in volunteering for ${eventName} as ${shiftRole.role.name}. They have been successfully assigned shift ${shiftRole.shift.index} starting at ${shiftRole.shift.startTime.format(EventSlurper.shiftTimeFormatter)} and ending at ${shiftRole.shift.endTime.format(EventSlurper.shiftTimeFormatter)}. "  )
 
-                //Mark this webhook as invoked
-                services.db.markWebhookInvoked(webhook.id)
+
                 //TODO - remove this webhook from server
                 return
             }
@@ -154,7 +153,7 @@ static def acceptShiftRole(services, Webhook webhook){
 
     sendSlackMessage(services.slackAPI, eventSlackChannel, "${volunteerName} has expressed interest in volunteering for ${eventName} as ${shiftRole.role.name}. However there were no matching free slots for this volunteer, so they have been waitlisted and notified that they will be contacted if a slot frees up.")
 
-    services.db.markWebhookInvoked(webhook.id)
+
 }
 
 

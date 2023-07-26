@@ -149,7 +149,7 @@ static def cancelShiftRole(services, Webhook webhook, config){
 
             sendSlackMessage(services.slackAPI, eventSlackChannel, slackMessage)
 
-            services.db.markWebhookInvoked(webhook.id)
+
         }
     }
 

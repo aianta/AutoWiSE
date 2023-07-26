@@ -9,9 +9,7 @@ import org.slf4j.LoggerFactory
 
 import java.util.function.BiFunction
 import java.util.function.Consumer
-import java.util.function.Function
 
-import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.updateVolunteerStatus
 import static ca.ualberta.autowise.scripts.google.SendEmail.sendEmail
 
 class MassEmailEntry{
@@ -20,6 +18,29 @@ class MassEmailEntry{
     String target
 }
 
+/**
+ * @Author Alexandru Ianta
+ *
+ * This class helps facilitate the sending of personalized emails at scale. IE: When we need to send 100 emails, one by one, with unique links in each one.
+ *
+ * The idea is that those types of emails are sent by processing the 'volunteer contact status' table row by row.
+ * So the MassEmail sender accepts such a table an iterable, then sets up a while loop with future management such
+ * that each email is:
+ *  1. Executed with vertx.executeBlocking in its own thread, freeing the main loop.
+ *  2. Executed with 'mass_email_delay' number of milliseconds delay to respect the 2 emails/sec max for the gmail API.
+ *  3. Executed in a chain of sequential futures, such that the next email sends only after the first completes.
+ *
+ *  This is achieved by passing the caller the rowData for each row in the iterable that was used to initialize MassEmailSender
+ *  as well as a future that will complete when the email for that particular row will have been sent.
+ *
+ *  In return MassEmailSender expects a MassEmailEntry object containing all information required to send an email corresponding
+ *  with the row it passed to the caller via the BiFunction.
+ *
+ *  If the caller gives back a null object, MassEmailSender assumes no email is to be sent for that row and proceed to the next iteration
+ *  of the while loop.
+ *
+ *  Finally sendMassEmail also provides a future that will complete when all emails for the iterable have been sent.
+ */
 class MassEmailSender {
 
     static log = LoggerFactory.getLogger(MassEmailSender.class)
