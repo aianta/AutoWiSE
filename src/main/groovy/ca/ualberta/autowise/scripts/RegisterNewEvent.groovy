@@ -65,9 +65,9 @@ static def registerNewEvent(services, event, sheetId, volunteerSheetId, voluntee
             id: UUID.randomUUID(),
             eventId: event.id,
             type: HookType.CANCEL_CAMPAIGN,
-            data: new JsonObject(),
+            data: new JsonObject().put("eventSheetId", event.sheetId),
             expiry: event.startTime.toInstant().toEpochMilli(),
-            invoked: false
+            invoked: false,
     )
     services.db.insertWebhook(cancelHook)
     services.server.mountWebhook(cancelHook)
@@ -271,6 +271,16 @@ private static def makeCampaignPlan(Event event){
             notify: true,
             taskExecutionTime: event.startTime.minus(event.followupOffset, ChronoUnit.MILLIS),
             status: TaskStatus.SCHEDULED,
+            data: new JsonObject()
+                    .put("eventSheetId", event.sheetId)
+                    .put("eventSlackChannel", event.eventSlackChannel)
+                    .put("emailTemplateId", event.followupEmailTemplateId)
+                    .put("eventbriteLink", event.eventbriteLink)
+                    .put("eventName", event.name)
+                    .put("eventStartTime", event.startTime.format(EventSlurper.eventTimeFormatter))
+                    .put("rolesJsonString", JsonUtils.getEventGenerator().toJson(event.roles))
+                    .put("confirmAssignedEmailTemplateId", event.confirmAssignedEmailTemplateId)
+                    .put("confirmCancelledEmailTemplateId", event.confirmCancelledEmailTemplateId)
     )
     plan.add(followup)
 

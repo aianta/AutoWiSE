@@ -13,7 +13,9 @@ import org.slf4j.LoggerFactory
 
 import static ca.ualberta.autowise.scripts.google.GetFilesInFolder.getFiles
 import static ca.ualberta.autowise.scripts.ProcessAutoWiSEEventSheet.processEventSheet
-import static ca.ualberta.autowise.scripts.RecruitmentEmailTask.recruitmentEmailTask
+import static ca.ualberta.autowise.scripts.tasks.RecruitmentEmailTask.recruitmentEmailTask
+import static ca.ualberta.autowise.scripts.tasks.ConfirmationEmailTask.confirmationEmailTask
+import static ca.ualberta.autowise.scripts.tasks.EventRegistrationEmailTask.eventRegistrationEmailTask
 /**
  * @Author Alexandru Ianta
  * This verticle is responsible for bootstrapping all of AutoWiSE's functionality.
@@ -116,37 +118,6 @@ void vertxStart(Promise<Void> startup){
 
             server.setServices(services)
 
-            server.loadWebhooks() //Load webhooks from database.
-
-            //sendSlackMessage(slackApi, "#auto-wise", "Greetings from the script!")
-
-
-
-            /**
-             * Start going through all the google sheets in the autowise folder on google drive.
-             */
-            List<File> files = getFiles(googleApi, config.getString("autowise_drive_folder_id"), "application/vnd.google-apps.spreadsheet")
-
-            files.forEach {f->
-                log.info "${f.getName()} - ${f.getMimeType()} - ${f.getId()}"
-                /**
-                 * If the sheet name starts with the specified autowise_event_prefix process it
-                 */
-                if (f.getName().startsWith(config.getString("autowise_event_prefix"))){
-
-                    // Do processing in separate thread to avoid blocking the main loop.
-                    vertx.executeBlocking(blocking->{
-
-                        processEventSheet(services, f.getId(), config.getString("autowise_volunteer_pool_id"), config.getString("autowise_volunteer_table_range")).onSuccess {
-                            blocking.complete()
-                        }
-                    }){
-                        log.info "Allegedly done processing"
-                    }
-
-
-                }
-            }
 
             /**
              * Once all setup is complete start the main loops of the system.
@@ -154,9 +125,37 @@ void vertxStart(Promise<Void> startup){
             googleSheetPeriodId = vertx.setPeriodic(config.getLong("external_tick_rate"), id->{
                 log.info "external tick"
 
+                log.info "Refreshing webhooks"
+                server.loadWebhooks() //Load webhooks from database.
+
                 /**
                  * On every tick check google drive for new events to process.
                  */
+                /**
+                 * Start going through all the google sheets in the autowise folder on google drive.
+                 */
+                List<File> files = getFiles(googleApi, config.getString("autowise_drive_folder_id"), "application/vnd.google-apps.spreadsheet")
+
+                files.forEach {f->
+                    log.info "${f.getName()} - ${f.getMimeType()} - ${f.getId()}"
+                    /**
+                     * If the sheet name starts with the specified autowise_event_prefix process it
+                     */
+                    if (f.getName().startsWith(config.getString("autowise_event_prefix"))){
+
+                        // Do processing in separate thread to avoid blocking the main loop.
+                        vertx.executeBlocking(blocking->{
+
+                            processEventSheet(services, f.getId(), config.getString("autowise_volunteer_pool_id"), config.getString("autowise_volunteer_table_range")).onSuccess {
+                                blocking.complete()
+                            }
+                        }){
+                            log.info "Allegedly done processing"
+                        }
+
+
+                    }
+                }
 
             })
 
@@ -167,26 +166,8 @@ void vertxStart(Promise<Void> startup){
                     taskList.forEach( task-> {
                         log.info "Looking through task ${task.name}"
 
-                        switch (task.name) {
-                            case "AutoWiSE Event Registration Email":
+                        executeTask(task, vertx, services, config)
 
-                                //eventRegistrationEmailTask(services, task, config.getString("autowise_new_recruitment_campaign_email_template"))
-
-                                break
-                            case "Initial Recruitment Email":
-                                recruitmentEmailTask(vertx, services, task, config, (status)->{
-                                  return status.equals("Not Contacted")
-                                }, "[WiSER] Volunteer opportunities for ${task.data.getString("eventName")}!")
-                                break
-                            case "Recruitment Email":
-                                recruitmentEmailTask(vertx, services, task, config, (status)->{
-                                    return status.equals("Not Contacted") || status.equals("Waiting for response")
-                                }, "[WiSER] Volunteer opportunities for ${task.data.getString("eventName")}!")
-                                break
-                            case "Follow-up Email":
-                                break
-
-                        }
                     })
                 })
 
@@ -206,3 +187,26 @@ void vertxStart(Promise<Void> startup){
 }
 
 
+static def executeTask(task, vertx, services, config){
+    switch (task.name) {
+        case "AutoWiSE Event Registration Email":
+
+            eventRegistrationEmailTask(services, task, config.getString("autowise_new_recruitment_campaign_email_template"), config)
+
+            break
+        case "Initial Recruitment Email":
+            recruitmentEmailTask(vertx, services, task, config, (status)->{
+                return status.equals("Not Contacted")
+            }, "[WiSER] Volunteer opportunities for ${task.data.getString("eventName")}!")
+            break
+        case "Recruitment Email":
+            recruitmentEmailTask(vertx, services, task, config, (status)->{
+                return status.equals("Not Contacted") || status.equals("Waiting for response")
+            }, "[WiSER] Volunteer opportunities for ${task.data.getString("eventName")}!")
+            break
+        case "Follow-up Email":
+            confirmationEmailTask(vertx, services, task, config, "[WiSER] Confirm your upcomming volunteer shift for ${task.data.getString("eventName")}!" )
+            break
+
+    }
+}

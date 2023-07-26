@@ -1,10 +1,11 @@
-package ca.ualberta.autowise.scripts
+package ca.ualberta.autowise.scripts.webhook
 
 
 import ca.ualberta.autowise.model.HookType
 import ca.ualberta.autowise.model.Role
 import ca.ualberta.autowise.model.ShiftRole
 import ca.ualberta.autowise.model.Webhook
+import ca.ualberta.autowise.scripts.FindAvailableShiftRoles
 import ca.ualberta.autowise.scripts.google.EventSlurper
 import groovy.transform.Field
 import io.vertx.core.json.JsonObject
@@ -24,7 +25,7 @@ import static ca.ualberta.autowise.scripts.google.SendEmail.*
 import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.*
 
 @Field static DateTimeFormatter eventDayFormatter = DateTimeFormatter.ofPattern("M/dd/yyyy")
-@Field static def log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.SignupForRoleShift.class)
+@Field static def log = LoggerFactory.getLogger(SignupForRoleShift.class)
 
 /**
  * @Author Alexandru Ianta
@@ -46,12 +47,19 @@ import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.*
  */
 
 
-static def acceptShiftRole(services, Webhook webhook){
+static def acceptShiftRole(services, Webhook webhook, config){
+        def eventSheetId = webhook.data.getString "eventSheetId"
+        def volunteerEmail = webhook.data.getString "volunteerEmail"
+
+        if(hasVolunteerAlreadyCancelled(services.googleAPI, eventSheetId, volunteerEmail)){
+            log.info "${volunteerEmail} has already cancelled or rejected for this event."
+            return
+        }
 
         def targetShiftRoleString = webhook.data.getString("shiftRoleString")
-        def volunteerEmail = webhook.data.getString "volunteerEmail"
+
         def volunteerName = webhook.data.getString "volunteerName"
-        def eventSheetId = webhook.data.getString "eventSheetId"
+
         def eventName = webhook.data.getString "eventName"
         List<Role> roles = slurpRolesJson(webhook.data.getString("rolesJsonString"))
         def eventStartTime = ZonedDateTime.parse(webhook.data.getString("eventStartTime"), EventSlurper.eventTimeFormatter)
@@ -123,7 +131,7 @@ static def acceptShiftRole(services, Webhook webhook){
                 emailContents = emailContents.replaceAll("%SHIFT_START%", shiftRole.shift.startTime.format(EventSlurper.shiftTimeFormatter))
                 emailContents = emailContents.replaceAll("%SHIFT_END%", shiftRole.shift.endTime.format(EventSlurper.shiftTimeFormatter))
                 emailContents = emailContents.replaceAll("%EVENT_DATE%", eventStartTime.format(eventDayFormatter))
-                emailContents = emailContents.replaceAll("%CANCEL_LINK%", "<a href=\"http://localhost:8080/${cancelHook.path()}\">Cancel</a>")
+                emailContents = emailContents.replaceAll("%CANCEL_LINK%", "<a href=\"http://${config.getString("host")}:${config.getInteger("port").toString()}/${cancelHook.path()}\">Cancel</a>")
 
                 log.info "email contents: \n${emailContents}"
 

@@ -1,11 +1,12 @@
-package ca.ualberta.autowise.scripts
+package ca.ualberta.autowise.scripts.webhook
 
-import ca.ualberta.autowise.GoogleAPI
+
 import ca.ualberta.autowise.model.HookType
 import ca.ualberta.autowise.model.Role
 import ca.ualberta.autowise.model.ShiftRole
 import ca.ualberta.autowise.model.WaitlistEntry
 import ca.ualberta.autowise.model.Webhook
+import ca.ualberta.autowise.scripts.FindAvailableShiftRoles
 import ca.ualberta.autowise.scripts.google.EventSlurper
 import groovy.transform.Field
 import io.vertx.core.json.JsonObject
@@ -14,7 +15,6 @@ import org.slf4j.LoggerFactory
 import java.time.ZonedDateTime
 
 import static ca.ualberta.autowise.JsonUtils.slurpRolesJson
-import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.*
 import static ca.ualberta.autowise.scripts.ManageEventStatusTable.*
 import static ca.ualberta.autowise.scripts.google.GetSheetValue.*
 import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.*
@@ -24,29 +24,36 @@ import static ca.ualberta.autowise.scripts.FindAvailableShiftRoles.*
 import static ca.ualberta.autowise.scripts.google.SendEmail.*
 import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.*
 
-@Field static def log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.CancelShiftRole.class)
+@Field static def log = LoggerFactory.getLogger(CancelShiftRole.class)
 
 /**
  * @Author Alexandru Ianta
  * When a volunteer cancels on their commitment to volunteer for a shift role:
+ * Before we do anything, we need to check that this volunteer hasn't already cancelled.
+ *
  * 1. Find them in the event status table and remove their email and name from the list.
  * 2. Update the volunteers status in the volunteer contact status sheet.
- * 2. Read through the volunteer contact status table and find the next waitlisted volunteer for the shift-role.
+ * 3. Read through the volunteer contact status table and find the next waitlisted volunteer for the shift-role.
  *      a) If one exists, move them into the appropriate volunteer slot on the event status sheet.
  *      b) Create a cancel webhook for the waitlisted volunteer
  *      c) Email the replacement volunteer to let them know they have been put into the volunteer slot.
  *      d) Update the replacement volunteer's status in the volunteer contact status sheet.
- * 3. Email the volunteer that cancelled to confirm their cancellation.
- * 4. Notify slack of the changes.
- * 5. Mark the webhook as invoked
+ * 4. Email the volunteer that cancelled to confirm their cancellation.
+ * 5. Notify slack of the changes.
  */
 
 static def cancelShiftRole(services, Webhook webhook, config){
+    def volunteerEmail = webhook.data.getString("volunteerEmail")
+    def eventSheetId = webhook.data.getString("eventSheetId")
+
+    if (hasVolunteerAlreadyCancelled(services.googleAPI, eventSheetId, volunteerEmail)){
+        log.info "${volunteerEmail} has already cancelled before halting cancel operation."
+        return
+    }
+
     def volunteers = slurpVolunteerList(services.googleAPI, config.getString("autowise_volunteer_pool_id"), config.getString("autowise_volunteer_table_range"))
     def targetShiftRoleString = webhook.data.getString("shiftRoleString")
-    def eventSheetId = webhook.data.getString("eventSheetId")
     def eventSlackChannel = webhook.data.getString("eventSlackChannel")
-    def volunteerEmail = webhook.data.getString("volunteerEmail")
     def volunteerName = webhook.data.getString("volunteerName")
     def eventName = webhook.data.getString("eventName")
     List<Role> roles = slurpRolesJson(webhook.data.getString("rolesJsonString"))
@@ -125,7 +132,7 @@ static def cancelShiftRole(services, Webhook webhook, config){
                 emailContent = emailContent.replaceAll("%SHIFT_START%", shiftRole.shift.startTime.format(EventSlurper.shiftTimeFormatter))
                 emailContent = emailContent.replaceAll("%SHIFT_END%", shiftRole.shift.endTime.format(EventSlurper.shiftTimeFormatter))
                 emailContent = emailContent.replaceAll("%EVENT_DATE%", eventStartTime.format(SignupForRoleShift.eventDayFormatter))
-                emailContent = emailContent.replaceAll("%CANCEL_LINK%", "<a href=\"http://localhost:8080/${cancelHook.path()}\">Cancel</a>")
+                emailContent = emailContent.replaceAll("%CANCEL_LINK%", "<a href=\"http://${config.getString("host")}:${config.getInteger("port").toString()}/${cancelHook.path()}\">Cancel</a>")
 
                 sendEmail(services.googleAPI, "AutoWiSE", replacementEmail, "[WiSER] Moved off waitlist, assigned volunteer role for ${eventName}",emailContent)
 

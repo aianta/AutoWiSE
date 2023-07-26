@@ -45,6 +45,20 @@ static def getWaitlistForShiftRole(GoogleAPI googleAPI, sheetId, shiftRoleString
     return result
 }
 
+static def hasVolunteerAlreadyCancelled(GoogleAPI googleAPI, sheetId, volunteerEmail){
+    def volunteerStatusData = getValuesAt(googleAPI, sheetId, VOLUNTEER_CONTACT_STATUS_RANGE)
+
+    //Get the row for the specified volunteer
+    def volunteerRow = volunteerStatusData.stream().filter(rowData->!rowData.isEmpty() && rowData.get(0).equals(volunteerEmail)).findFirst().orElse(null);
+
+    if (volunteerRow == null){
+        log.warn "Warning, could not find volunteer with email ${volunteerEmail} to check if they've already cancelled."
+        return true //Gong to return true anyways, to halt any operation being done.
+    }
+
+    return !volunteerRow.get(5).equals("-") || !volunteerRow.get(4).equals("-") //Index 5 corresponds with 'Cancelled On' in the sheet. Index 4 corresponds with 'Rejected On' If the value is something other than '-' they have already cancelled/rejected.
+
+}
 
 static def updateVolunteerStatus(GoogleAPI googleAPI, sheetId, volunteerEmail, volunteerStatus, shiftRoleString){
 

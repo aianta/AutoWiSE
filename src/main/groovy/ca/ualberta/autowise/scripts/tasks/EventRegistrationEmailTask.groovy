@@ -1,4 +1,4 @@
-package ca.ualberta.autowise.scripts
+package ca.ualberta.autowise.scripts.tasks
 
 import ca.ualberta.autowise.AutoWiSE
 import ca.ualberta.autowise.model.Event
@@ -15,13 +15,10 @@ import static ca.ualberta.autowise.scripts.google.SendEmail.sendEmailToGroup
  * Sends an email to event leads and volunteer coordinators to let them know
  * their event has been successfully registered into the system.
  *
- * NOTE: Like all internal loop scripts should make absolutely minimal use of the googleAPI,
- * ideally no more than a single action. Use task.data to pass information required to execute
- * the task.
  */
 
 
-static def eventRegistrationEmailTask(services, Task t, emailTemplateId){
+static def eventRegistrationEmailTask(services, Task t, emailTemplateId, config){
     def recipients = new ArrayList<String>()
     def volunteerCoordinators = t.data.getJsonArray("volunteerCoordinators")
     def eventLeads = t.data.getJsonArray("eventLeads")
@@ -35,13 +32,13 @@ static def eventRegistrationEmailTask(services, Task t, emailTemplateId){
     services.db.fetchAllScheduledTasksForEvent(t.eventId)
         .onSuccess(eventTasks->{
 
-            def taskSummary = makeTaskSummary(eventTasks, t)
+            def taskSummary = makeTaskSummary(eventTasks, t, config)
             //NOTE: Do as I say, not as I do...
             def emailTemplate = slurpDocument(services.googleAPI, emailTemplateId)
 
             def emailContents = emailTemplate.replaceAll("%eventName%", eventName)
             emailContents = emailContents.replaceAll("%taskSummary%", taskSummary)
-            emailContents = emailContents.replaceAll("%cancelLink%", "http://localhost:8080${campaignCancelHookPath}" )
+            emailContents = emailContents.replaceAll("%cancelLink%", "<a href=\"http://${config.getString("host")}:${config.getInteger("port").toString()}${campaignCancelHookPath}\">Cancel Campaign</a>" )
 
             //TODO - Error handling
             sendEmailToGroup(services.googleAPI, "AutoWiSE", recipients, "AutoWiSE Automated Campaign Plan for ${eventName}", emailContents)
@@ -52,7 +49,7 @@ static def eventRegistrationEmailTask(services, Task t, emailTemplateId){
 
 }
 
-private static def makeTaskSummary(List<Task> eventTasks, thisTask){
+private static def makeTaskSummary(List<Task> eventTasks, thisTask, config){
     StringBuilder sb = new StringBuilder()
     sb.append("<table><thead><tr><th>Task Name</th><th>Execution time</th><th>Cancel</th><th>Execute Now</th></tr></thead>")
 
@@ -68,8 +65,8 @@ private static def makeTaskSummary(List<Task> eventTasks, thisTask){
 
         sb.append("<tr><td>${currTask.name}</td>" +
                 "<td>${currTask.taskExecutionTime.format(EventSlurper.eventTimeFormatter)}</td>" +
-                "<td><a href=\"http://localhost:8080${cancelHookPath}\">Cancel</a></td>" +
-                "<td><a href=\"http://localhost:8080${executeHookPath}\">Execute</a></td>" +
+                "<td><a href=\"http://${config.getString("host")}:${config.getInteger("port").toString()}${cancelHookPath}\">Cancel</a></td>" +
+                "<td><a href=\"http://${config.getString("host")}:${config.getInteger("port").toString()}${executeHookPath}\">Execute</a></td>" +
                 "</tr>")
     }
 

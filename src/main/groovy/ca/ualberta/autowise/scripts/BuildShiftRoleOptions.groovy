@@ -9,7 +9,7 @@ import java.util.stream.Collectors
 import static ca.ualberta.autowise.scripts.FindAvailableShiftRoles.*
 
 
-static def buildShiftRoleOptions(List<ShiftRole> shiftRoles){
+static def buildShiftRoleOptions(List<ShiftRole> shiftRoles, config){
     StringBuilder sb = new StringBuilder()
     sb.append("<table><thead><tr><th>Role</th><th>Start Time</th><th>End Time</th><th>Description</th><th>Volunteer Link</th></tr></thead>")
 
@@ -21,7 +21,7 @@ static def buildShiftRoleOptions(List<ShiftRole> shiftRoles){
                 "<td>${curr.shift.startTime.format(EventSlurper.shiftTimeFormatter)}</td>" +
                 "<td>${curr.shift.endTime.format(EventSlurper.shiftTimeFormatter)}</td>" +
                 "<td>${curr.role.description}</td>" +
-                "<td><a href=\"http://localhost:8080/${curr.acceptHook.path()}\">Click to Volunteer!</a></td>" +
+                "<td><a href=\"http://${config.getString("host")}:${config.getInteger("port").toString()}/${curr.acceptHook.path()}\">Click to Volunteer!</a></td>" +
                 "</tr>")
     }
     sb.append("</table>")

@@ -1,6 +1,6 @@
-package ca.ualberta.autowise.scripts
+package ca.ualberta.autowise.scripts.tasks
 
-import ca.ualberta.autowise.GoogleAPI
+
 import ca.ualberta.autowise.model.HookType
 import ca.ualberta.autowise.model.MassEmailEntry
 import ca.ualberta.autowise.model.MassEmailSender
@@ -11,9 +11,6 @@ import ca.ualberta.autowise.model.Volunteer
 import ca.ualberta.autowise.model.Webhook
 import ca.ualberta.autowise.scripts.google.EventSlurper
 import groovy.transform.Field
-import io.vertx.core.Future
-import io.vertx.core.Handler
-import io.vertx.core.Promise
 import io.vertx.core.Vertx
 import io.vertx.core.json.JsonObject
 import org.slf4j.LoggerFactory
@@ -27,15 +24,30 @@ import static ca.ualberta.autowise.scripts.BuildShiftRoleOptions.buildShiftRoleO
 import static ca.ualberta.autowise.scripts.FindAvailableShiftRoles.findAvailableShiftRoles
 import static ca.ualberta.autowise.scripts.FindAvailableShiftRoles.getShiftRole
 import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.syncEventVolunteerContactSheet
-import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.updateVolunteerContactStatusTable
 import static ca.ualberta.autowise.scripts.google.DocumentSlurper.slurpDocument
-import static ca.ualberta.autowise.scripts.google.SendEmail.sendEmail
 import static ca.ualberta.autowise.scripts.google.VolunteerListSlurper.getVolunteerByEmail
 import static ca.ualberta.autowise.scripts.google.VolunteerListSlurper.slurpVolunteerList
 import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.sendSlackMessage
 import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.updateVolunteerStatus
 
-@Field static def log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.RecruitmentEmailTask.class)
+@Field static def log = LoggerFactory.getLogger(RecruitmentEmailTask.class)
+
+/**
+ * @author Alexandru Ianta
+ * WARNING: this documentation may be out of date as of July 26, 2023
+ * The following task is broken down as follows:
+ *
+ * 1. Fetch the volunteer pool and fetch the email template
+ *      a. Fetch the 'Volunteer Contact Status' table
+ *      b. Compare the volunteer pool to the list on the 'Volunteer Contact Status' sheet. Append volunteers that don't appear in the sheet.
+ * 2. Assemble the Shift-Role volunteer options summary for the event.
+ * 3. One-by-one for each Volunteer marked 'Not Contacted': generate unique webhooks for each volunteer and send them the recruitment email.
+ *    a. After the email is sent, update the 'Volunteer Contact Status' sheet with status 'Waiting for response' and the 'Last Contacted' value
+ *    b. Pick one random volunteer whose email will be BCC'd to volunteer coordinators for quality control.
+ * 4. Mark our task complete in SQLite
+ * 5. If the task has the notify flag turned on, notify slack that the task has been completed.
+ *
+ */
 
 static def recruitmentEmailTask(Vertx vertx, services, Task task, config, Predicate<String> statusPredicate, subject){
     // Fetch all the data we'll need to execute the task
@@ -73,7 +85,7 @@ static def recruitmentEmailTask(Vertx vertx, services, Task task, config, Predic
                 updateVolunteerStatus(services.googleAPI, eventSheetId, volunteer.email, "Waiting for response", null)
             }
 
-            def emailContents = makeShiftRoleEmail(services, volunteer, task, unfilledShiftRoles, eventRoles, eventStartTime, eventName, eventSheetId, eventSlackChannel, eventbriteLink, emailTemplate)
+            def emailContents = makeShiftRoleEmail(services, config, volunteer, task, unfilledShiftRoles, eventRoles, eventStartTime, eventName, eventSheetId, eventSlackChannel, eventbriteLink, emailTemplate)
             return new MassEmailEntry(target: volunteer.email, content: emailContents, subject: subject)
         }
 
@@ -95,7 +107,7 @@ static def recruitmentEmailTask(Vertx vertx, services, Task task, config, Predic
 }
 
 
-private static String makeShiftRoleEmail(services, Volunteer volunteer, Task task, Set<String> unfilledShiftRoles, List<Role> eventRoles, eventStartTime, eventName, eventSheetId, eventSlackChannel, eventbriteLink, emailTemplate){
+private static String makeShiftRoleEmail(services, config, Volunteer volunteer, Task task, Set<String> unfilledShiftRoles, List<Role> eventRoles, eventStartTime, eventName, eventSheetId, eventSlackChannel, eventbriteLink, emailTemplate){
     List<ShiftRole> availableShiftRoles = unfilledShiftRoles.stream()
             .map(shiftRoleString->getShiftRole(shiftRoleString, eventRoles))
             .map(shiftRole->{
@@ -137,14 +149,17 @@ private static String makeShiftRoleEmail(services, Volunteer volunteer, Task tas
                     .put("volunteerName", volunteer.name)
                     .put("volunteerEmail", volunteer.email)
                     .put("eventSheetId", eventSheetId)
+                    .put("eventName", eventName)
+                    .put("eventSlackChannel", eventSlackChannel)
+                    .put("emailTemplateId",task.data.getString("confirmRejectedEmailTemplatedId") )
 
     )
     services.db.insertWebhook(rejectHook)
     services.server.mountWebhook(rejectHook)
 
-    def shiftRoleHTMLTable = buildShiftRoleOptions(availableShiftRoles)
+    def shiftRoleHTMLTable = buildShiftRoleOptions(availableShiftRoles, config)
     def emailContents = emailTemplate.replaceAll("%AVAILABLE_SHIFT_ROLES%", shiftRoleHTMLTable)
-    emailContents = emailContents.replaceAll("%REJECT_LINK%", "<a href=\"http://localhost:8080/${rejectHook.path()}\">Click me if you aren't able to volunteer for this event.</a>")
+    emailContents = emailContents.replaceAll("%REJECT_LINK%", "<a href=\"http://${config.getString("host")}:${config.getInteger("port").toString()}/${rejectHook.path()}\">Click me if you aren't able to volunteer for this event.</a>")
     emailContents = emailContents.replaceAll("%EVENTBRITE_LINK%", "<a href=\"${eventbriteLink}\">eventbrite</a>")
 
     return emailContents

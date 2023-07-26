@@ -149,6 +149,60 @@ class SQLite {
 
     }
 
+    def cancelCampaign(eventId){
+        def cancelTasks = Promise.promise()
+        def cancelWebhooks = Promise.promise();
+        pool.preparedQuery('''
+            UPDATE webhooks 
+            SET invoked = 1, invoked_on = ?
+            WHERE event_id = ?;
+        ''')
+        .execute(Tuple.of(
+                ZonedDateTime.now().format(EventSlurper.eventTimeFormatter),
+                eventId.toString()
+        )).onSuccess{
+            cancelWebhooks.complete()
+        }.onFailure{
+            err->log.error err.getMessage(), err
+                cancelWebhooks.fail(err)
+        }
+
+        pool.preparedQuery('''
+            UPDATE tasks 
+            SET status = ? 
+            WHERE event_id = ?;
+        ''')
+        .execute(Tuple.of(
+                TaskStatus.CANCELLED.toString(),
+                eventId.toString()
+
+        )).onSuccess{
+            cancelTasks.complete()
+        }.onFailure{
+            err->log.error err.getMessage(), err
+                cancelTasks.fail(err)
+        }
+        return CompositeFuture.all(cancelWebhooks.future(), cancelTasks.future())
+    }
+
+    def cancelTaskById(taskId){
+        def promise = Promise.promise();
+        pool.preparedQuery('''
+            UPDATE tasks 
+            SET status = ?
+            WHERE task_id = ?;
+        ''')
+        .execute(Tuple.of(TaskStatus.CANCELLED.toString(), taskId.toString()))
+        .onSuccess{
+            rowSet->promise.complete()
+        }.onFailure{
+            err->log.error err.getMessage(), err
+                promise.fail(err)
+        }
+
+        return promise.future();
+    }
+
     def markTaskComplete(taskId){
         def promise = Promise.promise();
         pool.preparedQuery('''
@@ -159,6 +213,30 @@ class SQLite {
         .execute(Tuple.of(TaskStatus.COMPLETE, taskId.toString()))
         .onSuccess(rs->promise.complete())
         .onFailure {err->log.error err.getMessage(), err}
+        return promise.future()
+    }
+
+    def getWorkByTaskId(taskId){
+        Promise<Task> promise = Promise.promise()
+        pool.preparedQuery('''
+            UPDATE tasks
+            SET status = ?
+            WHERE task_id = ? AND status = ?
+            RETURNING *;
+        ''')
+        .execute(Tuple.of(
+                TaskStatus.IN_PROGRESS,
+                taskId.toString(),
+                TaskStatus.SCHEDULED
+        )).onSuccess {
+            rowSet->
+                if(rowSet.size() != 1){
+                    promise.fail("Already executed or not found!")
+                }else{
+                    promise.complete(taskFromRow(rowSet.iterator().next()))
+                }
+
+        }
         return promise.future()
     }
 

@@ -1,6 +1,7 @@
 package ca.ualberta.autowise
 
 import ca.ualberta.autowise.model.HookType
+import ca.ualberta.autowise.model.TaskStatus
 import ca.ualberta.autowise.model.Webhook
 import ca.ualberta.autowise.scripts.google.EventSlurper
 import io.vertx.core.Vertx
@@ -14,8 +15,11 @@ import org.apache.commons.codec.binary.Base64
 
 import java.time.ZonedDateTime
 
-import static ca.ualberta.autowise.scripts.SignupForRoleShift.*
-import static ca.ualberta.autowise.scripts.CancelShiftRole.*
+import static ca.ualberta.autowise.scripts.webhook.SignupForRoleShift.*
+import static ca.ualberta.autowise.scripts.webhook.CancelShiftRole.*
+import static ca.ualberta.autowise.scripts.webhook.ConfirmForShiftRole.*
+import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateSingleValueAt
+import static ca.ualberta.autowise.scripts.webhook.RejectVolunteeringForEvent.*
 
 /**
  * @Author Alexandru Ianta
@@ -110,11 +114,47 @@ class AutoWiSEServer {
 
             switch (webhook.type){
                 case HookType.ACCEPT_ROLE_SHIFT:
-                    acceptShiftRole(services, webhook)
+                    acceptShiftRole(services, webhook, config)
                     break
                 case HookType.CANCEL_ROLE_SHIFT:
                     cancelShiftRole(services, webhook, config)
                     break
+                case HookType.CONFIRM_ROLE_SHIFT:
+                    confirmShiftRole(services, webhook)
+                    break
+                case HookType.REJECT_VOLUNTEERING_FOR_EVENT:
+                    rejectVolunteeringForEvent(services, webhook);
+                    break
+
+                case HookType.EXECUTE_TASK_NOW:
+
+                    db.getWorkByTaskId(webhook.data.getString("taskId"))
+                        .onSuccess{
+                            task->AutoWiSE.executeTask(task, vertx, services, config)
+                        }.onFailure{
+                        err->
+                            log.error "Error attempting to fetch task to execute now!"
+                            log.error err.getMessage(), err
+                    }
+
+                    break
+                case HookType.CANCEL_TASK:
+                    db.cancelTaskById(webhook.data.getString("taskId"))
+                        .onFailure{
+                            err->log.error err.getMessage(), err
+                        }
+                    break
+                case HookType.CANCEL_CAMPAIGN:
+                    db.cancelCampaign(webhook.eventId).onSuccess{
+                        log.info "Campaign for eventId ${webhook.eventId.toString()} has been cancelled."
+                        updateSingleValueAt(services.googleAPI, webhook.data.getString("eventSheetId"), 'Event!A3', TaskStatus.CANCELLED.toString())
+
+                    }.onFailure{ err->
+                        log.error "Error cancelling campaign for event id: ${webhook.eventId.toString()}"
+                        log.error err.getMessage(), err
+                    }
+                    break
+
 
                 default:log.warn "Unknown hook type! ${webhook.type.toString()}"
             }

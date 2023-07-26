@@ -11,7 +11,8 @@ enum HookType{
     CANCEL_ROLE_SHIFT,
     CANCEL_TASK,
     EXECUTE_TASK_NOW,
-    CANCEL_CAMPAIGN
+    CANCEL_CAMPAIGN,
+    CONFIRM_ROLE_SHIFT
 }
 
 class Webhook {
