@@ -184,20 +184,20 @@ class SQLite {
      * Returns all scheduled tasks that need to be done at the moment ordered by ascending
      * execution times.
      *
-     * TODO - Consider marking tasks as in-progress after fetching to avoid multiple executions
-     *  if a task doesn't finish before the next internal tick. This shouldn't really happen,
-     *  but you know...
+     * Updates status to 'IN_PROGRESS' as tasks are fetched to avoid fetching them on the next tick before they are complete.
      */
     def getWork(){
         def promise = Promise.promise()
         def currentTime = ZonedDateTime.now()
         log.info "getting work"
         pool.preparedQuery('''
-            SELECT * FROM tasks WHERE status = ? and task_execution_time_epoch_milli <= ?
-                ORDER BY task_execution_time_epoch_milli ASC
-            ;
+            UPDATE tasks 
+            SET status = ? 
+            WHERE status = ? and task_execution_time_epoch_milli <= ?
+            RETURNING *;
+            
         ''')
-        .execute(Tuple.of(TaskStatus.SCHEDULED.toString(), currentTime.toInstant().toEpochMilli()),
+        .execute(Tuple.of(TaskStatus.IN_PROGRESS.toString(), TaskStatus.SCHEDULED.toString(), currentTime.toInstant().toEpochMilli()),
                 {result->
                     if(result){
                         RowSet rows = result.result();
@@ -205,6 +205,8 @@ class SQLite {
                         for (Row row: rows){
                             tasks.add(taskFromRow(row))
                         }
+                        //Sort in ascending order, 'oldest' first.
+                        tasks.sort(Comparator.comparingLong(task->((Task)task).taskExecutionTime.toInstant().toEpochMilli()))
 
                         promise.complete(tasks)
                     }else{
@@ -273,18 +275,34 @@ class SQLite {
         return promise.future()
     }
 
-    def getWebhookById(id){
+    /**
+     * Fetches a webhook by id, but also marks it as invoked in the process.
+     * @param id
+     * @return
+     */
+    def invokeAndGetWebhookById(id){
         Promise promise = Promise.promise()
         pool.preparedQuery('''
-            SELECT * FROM webhooks WHERE webhook_id = ?;
+            UPDATE webhooks 
+            SET invoked = 1, 
+                invoked_on = ?
+            WHERE webhook_id = ? AND invoked = 0
+            RETURNING *;
         ''')
-        .execute(Tuple.of(id.toString()))
+        .execute(Tuple.of(ZonedDateTime.now().format(EventSlurper.eventTimeFormatter), id.toString()))
         .onSuccess(rowSet->{
             List<Webhook> result = new ArrayList<>()
             for(Row row: rowSet){
                 Webhook hook = webhookFromRow(row)
                 result.add(hook)
             }
+
+            //If the rowset is of size 0, there was no uninvoked webhook with that id.
+            if(result.size() == 0){
+                promise.fail("Already invoked!")
+                return
+            }
+
             promise.complete(result)
         }).onFailure{
             err->

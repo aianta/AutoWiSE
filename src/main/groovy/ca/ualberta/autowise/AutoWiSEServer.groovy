@@ -2,6 +2,7 @@ package ca.ualberta.autowise
 
 import ca.ualberta.autowise.model.HookType
 import ca.ualberta.autowise.model.Webhook
+import ca.ualberta.autowise.scripts.google.EventSlurper
 import io.vertx.core.Vertx
 import io.vertx.core.http.HttpServer
 import io.vertx.core.http.HttpServerOptions
@@ -10,6 +11,8 @@ import io.vertx.ext.web.RoutingContext
 import org.slf4j.LoggerFactory
 import io.vertx.core.http.HttpMethod;
 import org.apache.commons.codec.binary.Base64
+
+import java.time.ZonedDateTime
 
 import static ca.ualberta.autowise.scripts.SignupForRoleShift.*
 import static ca.ualberta.autowise.scripts.CancelShiftRole.*
@@ -101,14 +104,7 @@ class AutoWiSEServer {
         def webhookId = UUID.fromString(new String(Base64.decodeBase64(encodedHookId)))
         log.info "decoded webhook id: ${webhookId.toString()}"
 
-        db.getWebhookById(webhookId).onSuccess{ Webhook webhook->{
-
-            if(webhook.invoked){
-                log.info "webhook has already been invoked aborting!"
-                return
-            }
-
-            db.markWebhookInvoked(webhookId) //Mark webhook invoked right away, to prevent duplicate invokes
+        db.invokeAndGetWebhookById(webhookId).onSuccess{ Webhook webhook->{
 
             log.info( "hook type match [${webhook.type.toString()}:${HookType.ACCEPT_ROLE_SHIFT.toString()}] ${webhook.type.equals(HookType.ACCEPT_ROLE_SHIFT)}")
 
@@ -125,7 +121,14 @@ class AutoWiSEServer {
 
             rc.response().setStatusCode(200).end("Your request has been processed! Thank you! You may now close this window.")
 
-        }}
+        }}.onFailure {
+            err->
+                if (err.getMessage().equals("Already invoked!")){
+                    rc.response().setStatusCode(400).end("This link has already been used! You may now close this window.")
+                }else{
+                    rc.response().setStatusCode(500).end("Whoops! You should let the WiSER team know you saw this @${ZonedDateTime.now().format(EventSlurper.eventTimeFormatter)}")
+                }
+        }
 
     }
 }

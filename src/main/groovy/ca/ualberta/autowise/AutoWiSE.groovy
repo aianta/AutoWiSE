@@ -7,18 +7,13 @@ import io.vertx.config.ConfigRetriever
 import io.vertx.config.ConfigRetrieverOptions
 import io.vertx.config.ConfigStoreOptions
 import io.vertx.core.CompositeFuture
-import io.vertx.core.Future
 import io.vertx.core.Promise
 import io.vertx.core.json.JsonObject
-import io.vertx.rxjava3.ext.auth.sqlclient.SqlAuthentication;
 import org.slf4j.LoggerFactory
 
 import static ca.ualberta.autowise.scripts.google.GetFilesInFolder.getFiles
 import static ca.ualberta.autowise.scripts.ProcessAutoWiSEEventSheet.processEventSheet
-import static ca.ualberta.autowise.scripts.EventRegistrationEmailTask.eventRegistrationEmailTask
-import static ca.ualberta.autowise.scripts.InitialRecruitmentEmailTask.initialRecruitmentEmailTask
 import static ca.ualberta.autowise.scripts.RecruitmentEmailTask.recruitmentEmailTask
-
 /**
  * @Author Alexandru Ianta
  * This verticle is responsible for bootstrapping all of AutoWiSE's functionality.
@@ -181,12 +176,12 @@ void vertxStart(Promise<Void> startup){
                             case "Initial Recruitment Email":
                                 recruitmentEmailTask(vertx, services, task, config, (status)->{
                                   return status.equals("Not Contacted")
-                                }, "Waiting for response", "[WiSER] Volunteer opportunities for ${task.data.getString("eventName")}!")
+                                }, "[WiSER] Volunteer opportunities for ${task.data.getString("eventName")}!")
                                 break
                             case "Recruitment Email":
                                 recruitmentEmailTask(vertx, services, task, config, (status)->{
                                     return status.equals("Not Contacted") || status.equals("Waiting for response")
-                                }, "Waiting for response", "[WiSER] Volunteer opportunities for ${task.data.getString("eventName")}!")
+                                }, "[WiSER] Volunteer opportunities for ${task.data.getString("eventName")}!")
                                 break
                             case "Follow-up Email":
                                 break

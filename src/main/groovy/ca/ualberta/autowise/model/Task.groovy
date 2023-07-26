@@ -5,7 +5,7 @@ import io.vertx.core.json.JsonObject
 import java.time.ZonedDateTime
 
 enum TaskStatus{
-    SCHEDULED, CANCELLED, COMPLETE
+    SCHEDULED, CANCELLED, COMPLETE, IN_PROGRESS
 }
 
 

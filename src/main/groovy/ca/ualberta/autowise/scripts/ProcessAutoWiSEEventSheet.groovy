@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory
 import static ca.ualberta.autowise.scripts.google.EventSlurper.slurpSheet
 import static ca.ualberta.autowise.scripts.google.EventSlurper.isSlurpable
 import static ca.ualberta.autowise.scripts.RegisterNewEvent.registerNewEvent
-import static ca.ualberta.autowise.scripts.SendEmailWithTemplate.sendEmailWithTemplate
 
 @Field static def log = LoggerFactory.getLogger(ProcessAutoWiSEEventSheet.class)
 @Field static GoogleAPI googleAPI
