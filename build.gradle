@@ -61,9 +61,14 @@ dependencies {
     // https://mvnrepository.com/artifact/org.slf4j/slf4j-api
     implementation 'org.slf4j:slf4j-api:2.0.7'
 
-    //Replace with Log4J before deployment
-    // https://mvnrepository.com/artifact/org.slf4j/slf4j-simple
-    implementation 'org.slf4j:slf4j-simple:2.0.7'
+
+    // https://mvnrepository.com/artifact/org.codehaus.janino/janino
+    implementation 'org.codehaus.janino:janino:3.1.10'
+
+
+// https://mvnrepository.com/artifact/ch.qos.logback/logback-classic
+    implementation 'ch.qos.logback:logback-classic:1.4.8'
+
 
     // https://mvnrepository.com/artifact/jakarta.mail/jakarta.mail-api
     implementation 'jakarta.mail:jakarta.mail-api:2.1.2'

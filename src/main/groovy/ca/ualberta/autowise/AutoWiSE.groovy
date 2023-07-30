@@ -1,6 +1,6 @@
 package ca.ualberta.autowise
 
-
+import ca.ualberta.autowise.scripts.google.EventSlurper
 import com.google.api.services.drive.model.File
 import groovy.transform.Field
 import io.vertx.config.ConfigRetriever
@@ -9,7 +9,10 @@ import io.vertx.config.ConfigStoreOptions
 import io.vertx.core.CompositeFuture
 import io.vertx.core.Promise
 import io.vertx.core.json.JsonObject
+
 import org.slf4j.LoggerFactory
+
+import java.time.ZonedDateTime
 
 import static ca.ualberta.autowise.scripts.google.GetFilesInFolder.getFiles
 import static ca.ualberta.autowise.scripts.ProcessAutoWiSEEventSheet.processEventSheet
@@ -117,13 +120,14 @@ void vertxStart(Promise<Void> startup){
             ]
 
             server.setServices(services)
+            server.loadWebhooks()
 
 
             /**
              * Once all setup is complete start the main loops of the system.
              */
             googleSheetPeriodId = vertx.setPeriodic(config.getLong("external_tick_rate"), id->{
-                log.info "external tick"
+                log.info "external tick - ${ZonedDateTime.now().format(EventSlurper.eventTimeFormatter)}"
 
                 log.info "Refreshing webhooks"
                 server.loadWebhooks() //Load webhooks from database.
@@ -160,7 +164,7 @@ void vertxStart(Promise<Void> startup){
             })
 
             internalPeriodId = vertx.setPeriodic(config.getLong("internal_tick_rate"), id->{
-                log.info "internal tick"
+                log.info "internal tick - ${ZonedDateTime.now().format(EventSlurper.eventTimeFormatter)}"
 
                 db.getWork().onSuccess(taskList->{
                     taskList.forEach( task-> {

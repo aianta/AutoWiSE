@@ -10,6 +10,7 @@ import io.vertx.core.http.HttpServerOptions
 import io.vertx.ext.web.Router
 import io.vertx.ext.web.RoutingContext
 import org.slf4j.LoggerFactory
+import org.slf4j.LoggerFactory
 import io.vertx.core.http.HttpMethod;
 import org.apache.commons.codec.binary.Base64
 

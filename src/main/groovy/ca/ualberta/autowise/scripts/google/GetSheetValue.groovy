@@ -4,7 +4,8 @@ import ca.ualberta.autowise.GoogleAPI
 import groovy.transform.Field
 import org.slf4j.LoggerFactory
 
-@Field static log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.google.GetSheetValue.class)
+
+@Field static log = LoggerFactory.getLogger()
 
 static def getValuesAt(GoogleAPI googleAPI, sheetId, range){
     def response = googleAPI.sheets().spreadsheets().values().get(sheetId, range).execute()

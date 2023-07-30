@@ -17,6 +17,7 @@ import io.vertx.sqlclient.RowSet
 import io.vertx.sqlclient.Tuple
 import org.slf4j.LoggerFactory
 
+
 import java.time.ZonedDateTime
 import java.util.stream.Collectors
 
