@@ -48,5 +48,6 @@ conf/credentials.json
 src/main/groovy/ca/ualberta/wiser-oauth-google.json
 conf/tokens
 conf/autowise-conf.yaml
+conf/autowise-conf-prod.yaml
 autowise.db
 data

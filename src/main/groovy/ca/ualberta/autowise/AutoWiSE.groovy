@@ -130,7 +130,7 @@ void vertxStart(Promise<Void> startup){
                 log.info "external tick - ${ZonedDateTime.now().format(EventSlurper.eventTimeFormatter)}"
 
                 log.info "Refreshing webhooks"
-                server.loadWebhooks() //Load webhooks from database.
+                server.loadWebhooks() //(re)Load webhooks from database.
 
                 /**
                  * On every tick check google drive for new events to process.

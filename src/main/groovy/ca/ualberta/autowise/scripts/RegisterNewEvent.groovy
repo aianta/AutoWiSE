@@ -181,6 +181,11 @@ private static def makeCampaignPlan(Event event){
                 .put("eventName", event.name)
                 .put("eventLeads", event.eventOrganizers.stream().collect(JsonArray::new, JsonArray::add, JsonArray::addAll))
                 .put("volunteerCoordinators", event.volunteerCoordinators.stream().collect(JsonArray::new, JsonArray::add, JsonArray::addAll))
+                .put("confirmAssignedEmailTemplateId", event.confirmAssignedEmailTemplateId)
+                .put("confirmWaitlistEmailTemplateId", event.confrimWaitlistEmailTemplateId)
+                .put("confirmCancelledEmailTemplateId", event.confirmCancelledEmailTemplateId)
+                .put("confirmRejectedEmailTemplatedId", event.confirmRejectedEmailTemplateId)
+                .put("followupEmailTemplateId", event.followupEmailTemplateId)
     )
     plan.add(notifyEventLeadsAndVolCoordinatorsOfEventRegistration)
 
