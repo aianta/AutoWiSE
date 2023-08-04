@@ -10,6 +10,8 @@ resources:
 
 pool:
   name: Default
+  demands:
+    - agent.name -equals hypathia
 
 variables:
   tag: 'aianta/autowise'
