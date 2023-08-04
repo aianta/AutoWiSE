@@ -5,6 +5,8 @@
 trigger:
 - main
 
+pool: Default
+
 resources:
 - repo: self
 
@@ -14,12 +16,10 @@ variables:
 stages:
 - stage: Build_Deploy
   displayName: Build and Deploy
-  pool: Default
+
   jobs:
   - job: Build
     displayName: Build
-    pool:
-      vmImage: ubuntu-latest
     steps:
     - task: Docker@2
       displayName: Build AutoWiSE Image
