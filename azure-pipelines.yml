@@ -1,0 +1,48 @@
+# Docker
+# Build a Docker image
+# https://docs.microsoft.com/azure/devops/pipelines/languages/docker
+
+trigger:
+- main
+
+resources:
+- repo: self
+
+variables:
+  tag: 'aianta/autowise'
+
+stages:
+- stage: Build
+  displayName: Build image
+  jobs:
+  - job: Build
+    displayName: Build
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - task: Docker@2
+      displayName: Build AutoWiSE Image
+      inputs:
+        command: build
+        dockerfile: '$(Build.SourcesDirectory)/Dockerfile'
+        tags: |
+          $(tag)
+
+    - task: Bash@3
+      displayName: Stopping any existing containers
+      inputs:
+        targetType: 'inline'
+        script: |
+          # Write your commands here
+          docker stop autowise
+          echo 'AutoWiSE deployed!'
+
+    - task: Bash@3
+      displayName: Starting docker container
+      inputs:
+        targetType: 'inline'
+        script: |
+          # Write your commands here
+          docker run -p 8001:8001 -p 8002:8002 -v /home/aianta/autowise/conf/:/home/autowise/conf -v /home/aianta/autowise/data/:/home/autowise/data -d --rm --name autowise $(tag)
+          echo 'AutoWiSE deployed!'
+        failOnStderr: true
