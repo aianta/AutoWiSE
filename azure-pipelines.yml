@@ -37,7 +37,7 @@ stages:
         targetType: 'inline'
         script: |
           # Write your commands here
-          sudo docker stop autowise
+          sudo docker stop autowise && docker container rm autowise
           echo 'AutoWiSE deployed!'
 
     - task: Bash@3
