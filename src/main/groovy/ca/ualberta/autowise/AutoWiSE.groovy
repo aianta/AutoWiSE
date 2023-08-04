@@ -18,9 +18,6 @@ import org.slf4j.LoggerFactory
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
-import static ca.ualberta.autowise.scripts.FindAvailableShiftRoles.findAvailableShiftRoles
-import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.syncEventVolunteerContactSheet
-import static ca.ualberta.autowise.scripts.google.DocumentSlurper.slurpDocument
 import static ca.ualberta.autowise.scripts.google.GetFilesInFolder.getFiles
 import static ca.ualberta.autowise.scripts.ProcessAutoWiSEEventSheet.processEventSheet
 import static ca.ualberta.autowise.scripts.tasks.RecruitmentEmailTask.recruitmentEmailTask
@@ -145,6 +142,10 @@ void vertxStart(Promise<Void> startup){
              * Once all setup is complete start the main loops of the system.
              */
             googleSheetPeriodId = vertx.setPeriodic(config.getLong("external_tick_rate"), id->{
+                if (config.getLong("external_tick_rate") > 3600000){ //If the tick rate is greater than 1h, send a heartbeat to slack.
+                    sendSlackMessage(services.slackAPI, config.getString("technical_channel"), "Autowise Heartbeat - ${ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone).format(EventSlurper.eventTimeFormatter)}")
+                }
+
                 log.info "external tick - ${ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone).format(EventSlurper.eventTimeFormatter)}"
 
                 try{
@@ -221,7 +222,7 @@ void vertxStart(Promise<Void> startup){
 
             )
 
-            sendSlackMessage(services.slackAPI, config.getString("technical_channel"), "Autowise started successfully!")
+            sendSlackMessage(services.slackAPI, config.getString("technical_channel"), "Autowise started successfully @${services.server.location()}!")
             /** Notify vertx that verticle deployment is complete */
             startup.complete()
         }
@@ -250,8 +251,9 @@ static def _executeTask(task, vertx, services, config){
                 .onSuccess{
                     log.info "Event registration email task complete."
                 }
-                .onFailure{
+                .onFailure{ err->
                     log.error "Error while executing event registration email task."
+                    log.error err.getMessage(), err
                 }
 
 
@@ -294,4 +296,6 @@ static def _executeTask(task, vertx, services, config){
         default: return Future.failedFuture("Unrecognized task name: ${task.name}")
 
     }
+
+    return Future.failedFuture("Error executing task!")
 }

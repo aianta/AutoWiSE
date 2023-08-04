@@ -141,13 +141,7 @@ static def acceptShiftRole(services, Webhook webhook, config){
 
                                     return slurpDocument(services.googleAPI, webhook.data.getString("confirmAssignedEmailTemplateId")).compose{
                                         emailTemplate ->
-                                            def emailContents = emailTemplate.replaceAll("%EVENT_NAME%", eventName)
-                                            emailContents = emailContents.replaceAll("%ROLE_NAME%", shiftRole.role.name)
-                                            emailContents = emailContents.replaceAll("%SHIFT_INDEX%", Integer.toString(shiftRole.shift.index))
-                                            emailContents = emailContents.replaceAll("%SHIFT_START%", shiftRole.shift.startTime.format(EventSlurper.shiftTimeFormatter))
-                                            emailContents = emailContents.replaceAll("%SHIFT_END%", shiftRole.shift.endTime.format(EventSlurper.shiftTimeFormatter))
-                                            emailContents = emailContents.replaceAll("%EVENT_DATE%", eventStartTime.format(eventDayFormatter))
-                                            emailContents = emailContents.replaceAll("%CANCEL_LINK%", "<a href=\"${config.getString("protocol")}://${config.getString("host")}:${config.getInteger("port").toString()}/${cancelHook.path()}\">Cancel</a>")
+                                            def emailContents = makeAssignedEmail(emailTemplate, shiftRole, eventName, eventStartTime, cancelHook, config)
 
                                             log.info "email contents: \n${emailContents}"
 
@@ -172,10 +166,7 @@ static def acceptShiftRole(services, Webhook webhook, config){
                         ).compose{
                             compositeResult->
                                 def emailTemplate = compositeResult.resultAt(1)
-                                def emailContents = emailTemplate.replaceAll("%EVENT_NAME%", eventName)
-                                emailContents = emailContents.replaceAll("%ROLE_NAME%", shiftRole.role.name)
-                                emailContents = emailContents.replaceAll("%SHIFT_START%", shiftRole.shift.startTime.format(EventSlurper.shiftTimeFormatter))
-                                emailContents = emailContents.replaceAll("%SHIFT_END%", shiftRole.shift.endTime.format(EventSlurper.shiftTimeFormatter))
+                                def emailContents = makeWaitlistEmail(emailTemplate, shiftRole, eventName)
 
                                 return CompositeFuture.all(
                                         sendEmail(services.googleAPI, "AutoWiSE", volunteerEmail, "[WiSER] Volunteer Sign-up Waitlist Confirmation for ${eventName}", emailContents),
@@ -187,8 +178,24 @@ static def acceptShiftRole(services, Webhook webhook, config){
 
         }
 
+}
 
-
+static def makeAssignedEmail(template, ShiftRole shiftRole, eventName, eventStartTime, Webhook cancelHook, config){
+    def emailContents = template.replaceAll("%EVENT_NAME%", eventName)
+    emailContents = emailContents.replaceAll("%ROLE_NAME%", shiftRole.role.name)
+    emailContents = emailContents.replaceAll("%SHIFT_INDEX%", Integer.toString(shiftRole.shift.index))
+    emailContents = emailContents.replaceAll("%SHIFT_START%", shiftRole.shift.startTime.format(EventSlurper.shiftTimeFormatter))
+    emailContents = emailContents.replaceAll("%SHIFT_END%", shiftRole.shift.endTime.format(EventSlurper.shiftTimeFormatter))
+    emailContents = emailContents.replaceAll("%EVENT_DATE%", eventStartTime.format(eventDayFormatter))
+    emailContents = emailContents.replaceAll("%CANCEL_LINK%", "<a href=\"${config.getString("protocol")}://${config.getString("host")}:${config.getInteger("port").toString()}/${cancelHook.path()}\">Cancel</a>")
+    return emailContents
 }
 
 
+static def makeWaitlistEmail(template, ShiftRole shiftRole, eventName){
+    def emailContents = template.replaceAll("%EVENT_NAME%", eventName)
+    emailContents = emailContents.replaceAll("%ROLE_NAME%", shiftRole.role.name)
+    emailContents = emailContents.replaceAll("%SHIFT_START%", shiftRole.shift.startTime.format(EventSlurper.shiftTimeFormatter))
+    emailContents = emailContents.replaceAll("%SHIFT_END%", shiftRole.shift.endTime.format(EventSlurper.shiftTimeFormatter))
+    return emailContents
+}

@@ -6,7 +6,7 @@
     * Handle GoogleAPI 401 - unauthenticated using slack.
     * Add an autowise technical channel, and send errors there
     * Ideally fail safe
-  * Futurize operations done on tick, a tick should complete a future.
+  * ~~Futurize operations done on tick, a tick should complete a future.~~
 * Canary Slack Message
 * ~~Switch to MDT/MST for all timestamps~~
 * ~~Send a confirmation response to the user clicking a webhook link sooner (before the action has been processed).~~
@@ -14,8 +14,7 @@
   * ~~Implement SSL/https with certbot~~
 * ~~Add web request logging with vertx handler.~~
 * Ensure all operations produce meaningful logs.
-  * Started messages.
-  * At least success/failure messages.
+  * ~~At least success/failure messages.~~
 * Campaign registration email updates
   * Concat all email templates
   * Add a pending/approved stage to all campaigns.

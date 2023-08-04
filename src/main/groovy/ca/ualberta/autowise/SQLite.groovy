@@ -241,12 +241,12 @@ class SQLite {
         return promise.future()
     }
 
-    def fetchAllScheduledTasksForEvent(eventId){
+    def fetchAllPendingTasksForEvent(eventId){
         Promise<List<Task>> promise = Promise.promise()
         pool.preparedQuery('''
             SELECT * FROM tasks WHERE event_id = ? AND status = ? ORDER BY task_execution_time_epoch_milli ASC;
         ''')
-        .execute(Tuple.of(eventId.toString(), TaskStatus.SCHEDULED))
+        .execute(Tuple.of(eventId.toString(), TaskStatus.PENDING))
         .onSuccess {rowSet->
             List<Task> result = new ArrayList<>();
             for(Row row: rowSet){
@@ -256,6 +256,26 @@ class SQLite {
             promise.complete(result)
         }
         .onFailure {err->log.error err.getMessage(), err}
+        return promise.future()
+    }
+
+    def beginCampaign(eventId){
+        def promise = Promise.promise();
+        pool.preparedQuery('''
+            UPDATE tasks 
+            SET status = ?
+            WHERE status = ? and event_id = ?
+        ''')
+        .execute(Tuple.of(TaskStatus.SCHEDULED.toString(), TaskStatus.PENDING.toString(), eventId.toString()),{
+            result->
+                if(result){
+                    promise.complete()
+                }else{
+                    log.error(result.cause().getMessage(), result.cause())
+                    promise.fail(result.cause())
+                }
+        })
+
         return promise.future()
     }
 

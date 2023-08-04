@@ -39,7 +39,7 @@ static def rejectVolunteeringForEvent(services, webhook){
                 ).compose{
                     composite->
                         def emailTemplate = composite.resultAt(1)
-                        def emailContents = emailTemplate.replaceAll("%EVENT_NAME%", eventName)
+                        def emailContents = makeRejectedEmail(emailTemplate, eventName)
 
                         return CompositeFuture.all(
                                 sendEmail(services.googleAPI, "AutoWiSE", volunteerEmail, "[WiSER] Confirmation of Volunteer Opportunity Rejection for ${eventName}", emailContents ),
@@ -47,5 +47,9 @@ static def rejectVolunteeringForEvent(services, webhook){
                         )
                 }
         }
+}
+
+static def makeRejectedEmail(template, eventName){
+   return template.replaceAll("%EVENT_NAME%", eventName)
 }
 

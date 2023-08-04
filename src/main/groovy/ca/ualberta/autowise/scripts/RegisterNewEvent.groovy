@@ -1,5 +1,6 @@
 package ca.ualberta.autowise.scripts
 
+import ca.ualberta.autowise.AutoWiSE
 import ca.ualberta.autowise.JsonUtils
 import ca.ualberta.autowise.model.Event
 import ca.ualberta.autowise.model.EventStatus
@@ -44,7 +45,8 @@ static def registerNewEvent(services, event, sheetId, volunteerSheetId, voluntee
      * 1. Assigning it an event id
      * 2. Creating an automated recruitment campaign plan
      *      This will consist of a series of scheduled tasks to execute for this event.
-     * 3. Create 'cancel campaign' webhook
+     * 3. Create a 'begin campaign' webhook
+     * 4. Create 'cancel campaign' webhook
      * 4. Create webhooks to cancel and instantly execute any task.
      * 5. Update 'Event Status' sheet in the event spreadsheet.
      * 6. Initialize the 'Volunteer Contact Status' sheet in the event spreadsheet.
@@ -59,6 +61,18 @@ static def registerNewEvent(services, event, sheetId, volunteerSheetId, voluntee
     // Make campaign plan
     List<Task> plan = makeCampaignPlan(event)
     log.info "plan size: ${plan.size()}"
+
+    Webhook beginHook = new Webhook(
+            id: UUID.randomUUID(),
+            eventId: event.id,
+            type: HookType.BEGIN_CAMPAIGN,
+            data: new JsonObject().put("eventSheetId", event.sheetId),
+            expiry: ZonedDateTime.now(AutoWiSE.timezone).plusDays(3).toInstant().toEpochMilli(), //3 days to begin the campaign after it is registered
+            invoked: false
+    )
+    services.db.insertWebhook(beginHook)
+    services.server.mountWebhook(beginHook)
+    plan.get(0).data.put("campaignBeginHookId", beginHook.id.toString())
 
     // Make, save, and mount cancel campaign webhook
     Webhook cancelHook = new Webhook(
@@ -102,7 +116,7 @@ static def registerNewEvent(services, event, sheetId, volunteerSheetId, voluntee
     return CompositeFuture.all(
             updateColumnValueAt(services.googleAPI, sheetId, EVENT_STATUS_ROLE_SHIFT_CELL_ADDRESS, produceRoleShiftList(event)),        // Update 'Event Status' Sheet
             updateSingleValueAt(services.googleAPI, sheetId, "Event!A2", event.id.toString()),     //Update the event id in the sheet
-            updateSingleValueAt(services.googleAPI, sheetId, "Event!A3", EventStatus.IN_PROGRESS.toString()),     // Update the event status
+            updateSingleValueAt(services.googleAPI, sheetId, "Event!A3", EventStatus.PENDING.toString()),     // Update the event status
             slurpVolunteerList(services.googleAPI, volunteerSheetId, volunteerTableRange) //Get the volunteer list
     ).compose{
         composite->
@@ -176,11 +190,17 @@ private static def makeCampaignPlan(Event event){
             advanceNotifyOffset: 0,
             notify: false,
             taskExecutionTime: ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone),
-            status: TaskStatus.SCHEDULED,
+            status: TaskStatus.SCHEDULED, //This is the only task that is actually scheduled when an event is registered.
             data: new JsonObject()
                 .put("eventName", event.name)
+                .put("eventSheetId", event.sheetId)
+                .put("eventbriteLink", event.eventbriteLink)
+                .put("eventStartTime", event.startTime.format(EventSlurper.eventTimeFormatter))
+                .put("rolesJsonString", JsonUtils.getEventGenerator().toJson(event.roles))
                 .put("eventLeads", event.eventOrganizers.stream().collect(JsonArray::new, JsonArray::add, JsonArray::addAll))
                 .put("volunteerCoordinators", event.volunteerCoordinators.stream().collect(JsonArray::new, JsonArray::add, JsonArray::addAll))
+                .put("initialRecruitmentEmailTemplateId", event.initialRecruitmentEmailTemplateId)
+                .put("recruitmentEmailTemplateId", event.recruitmentEmailTemplateId)
                 .put("confirmAssignedEmailTemplateId", event.confirmAssignedEmailTemplateId)
                 .put("confirmWaitlistEmailTemplateId", event.confrimWaitlistEmailTemplateId)
                 .put("confirmCancelledEmailTemplateId", event.confirmCancelledEmailTemplateId)
@@ -208,7 +228,7 @@ private static def makeCampaignPlan(Event event){
             advanceNotifyOffset: _initialRecruitmentTaskAdvanceNotifyOffset,
             notify: true,
             taskExecutionTime: _initialRecruitmentTaskExecutionTime,
-            status: TaskStatus.SCHEDULED
+            status: TaskStatus.PENDING
     )
     initialRecruitmentEmail.data.put("eventSheetId", event.sheetId)
     initialRecruitmentEmail.data.put("eventSlackChannel", event.eventSlackChannel)
@@ -245,7 +265,7 @@ private static def makeCampaignPlan(Event event){
                     advanceNotifyOffset: Duration.ofDays(1).toMillis(),
                     notify: true,
                     taskExecutionTime: resolicitTime,
-                    status: TaskStatus.SCHEDULED,
+                    status: TaskStatus.PENDING,
                     data: new JsonObject()
                         .put("eventSheetId", event.sheetId)
                         .put("eventSlackChannel", event.eventSlackChannel)
@@ -275,7 +295,7 @@ private static def makeCampaignPlan(Event event){
             advanceNotifyOffset: Duration.ofDays(1).toMillis(),
             notify: true,
             taskExecutionTime: event.startTime.minus(event.followupOffset, ChronoUnit.MILLIS),
-            status: TaskStatus.SCHEDULED,
+            status: TaskStatus.PENDING,
             data: new JsonObject()
                     .put("eventSheetId", event.sheetId)
                     .put("eventSlackChannel", event.eventSlackChannel)

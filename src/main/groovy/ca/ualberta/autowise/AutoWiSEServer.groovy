@@ -104,6 +104,10 @@ class AutoWiSEServer {
 
     }
 
+    def location(){
+        return "${config.getString("protocol")}://${HOST}:${PORT}"
+    }
+
     def loadWebhooks(){
         db.getActiveWebhooks().onSuccess(hooks->{
             router.clear() //Clear any existing webhooks
@@ -208,8 +212,16 @@ class AutoWiSEServer {
                         log.error err.getMessage(), err
                     }
                     break
-
-
+                case HookType.BEGIN_CAMPAIGN:
+                    finishResponse(rc, "The campaign tasks will be scheduled according to plan imminently.")
+                    db.beginCampaign(webhook.eventId).onSuccess{
+                        log.info "Campagin for eventId ${webhook.eventId.toString()} has begun!"
+                        updateSingleValueAt(services.googleAPI, webhook.data.getString("eventSheetId"), "Event!A3", TaskStatus.IN_PROGRESS.toString())
+                    }.onFailure{
+                        err-> log.error "Error starting campaign for event id: ${webhook.eventId.toString()}"
+                            log.error err.getMessage(), err
+                    }
+                    break
                 default:log.warn "Unknown hook type! ${webhook.type.toString()}"
             }
 
@@ -226,7 +238,7 @@ class AutoWiSEServer {
     }
 
     static def finishResponse(rc, customMsg){
-        rc.response().setStatusCode(200).end("Your request has been processed! Thank you!\n\n ${customMsg} \n\nYou may now close this window.")
+        rc.response().setStatusCode(200).end("Your request has been processed! Thank you!\n\n${customMsg}\n\nYou may now close this window.")
     }
 
 
