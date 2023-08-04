@@ -78,19 +78,6 @@ void vertxStart(Promise<Void> startup){
                 if(res){
                     slackAPIInit.complete(res.result())
 
-                    //Initialize Authentication for Google API, do this after slack, so we can use slack as the browser
-                    def googleAPI = GoogleAPI.createInstance(
-                            config.getString("application_name"),
-                            config.getString("credentials_path"),
-                            config.getString("auth_tokens_directory_path"),
-                            config.getString("auth_server_host"),
-                            config.getInteger("auth_server_receiver_port"),
-                            new SlackBrowser(slackAPI: res.result(), config:config)
-                    )
-
-                    googleAPIInit.complete(googleAPIInit)
-
-
                 }else{
                     log.error res.cause().getMessage(), res.cause()
                     slackAPIInit.fail(res.cause())
@@ -113,17 +100,29 @@ void vertxStart(Promise<Void> startup){
         })
 
         CompositeFuture.all([
-                googleAPIInit.future(),
-                slackAPIInit.future(),
-                databaseInit.future(),
-                serverInit.future()
+                googleAPIInit.future().onComplete{log.info "Google API initialized!"},
+                slackAPIInit.future().onSuccess{slackAPI->
+                    //Initialize Authentication for Google API, do this after slack, so we can use slack as the browser
+                    def googleAPI = GoogleAPI.createInstance(
+                            config.getString("application_name"),
+                            config.getString("credentials_path"),
+                            config.getString("auth_tokens_directory_path"),
+                            config.getString("auth_server_host"),
+                            config.getInteger("auth_server_receiver_port"),
+                            new SlackBrowser(slackAPI: slackAPI, config:config)
+                    )
+                    googleAPIInit.complete(googleAPI)
+                }.onComplete{log.info "Slack API initialized!"},
+                databaseInit.future().onComplete{log.info "Database initialized!"},
+                serverInit.future().onComplete{log.info "AutoWise Server initialized!"}
         ]).onComplete { setup->
+            log.info "about to make services map"
 
             GoogleAPI googleApi = setup.result().resultAt(0)
             SlackAPI slackApi = setup.result().resultAt(1)
             SQLite db = setup.result().resultAt(2)
             AutoWiSEServer server = setup.result().resultAt(3)
-
+            log.info "about to make services map"
             //Package all the services into a map for easy passing to scripts
             def services = [
                     googleAPI: googleApi,

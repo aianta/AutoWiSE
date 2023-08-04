@@ -4,7 +4,7 @@ import ca.ualberta.autowise.SlackAPI
 import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp
 import io.vertx.core.json.JsonObject
 
-import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.sendSlackMessage
+import static ca.ualberta.autowise.scripts.slack.BlockingSlackMessage.sendSlackMessage
 
 /**
  * Implements a 'browser' for handling the google auth flow via slack message.
