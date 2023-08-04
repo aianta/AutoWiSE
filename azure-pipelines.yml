@@ -14,8 +14,7 @@ variables:
 stages:
 - stage: Build_Deploy
   displayName: Build and Deploy
-  pool:
-    name: Default
+  pool: Default
   jobs:
   - job: Build
     displayName: Build
