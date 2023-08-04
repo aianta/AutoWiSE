@@ -7,8 +7,10 @@ import ca.ualberta.autowise.scripts.google.EventSlurper
 import io.vertx.core.Vertx
 import io.vertx.core.http.HttpServer
 import io.vertx.core.http.HttpServerOptions
+import io.vertx.core.net.JksOptions
 import io.vertx.ext.web.Router
 import io.vertx.ext.web.RoutingContext
+import io.vertx.ext.web.handler.LoggerHandler
 import org.slf4j.LoggerFactory
 import org.slf4j.LoggerFactory
 import io.vertx.core.http.HttpMethod;
@@ -67,17 +69,39 @@ class AutoWiSEServer {
         this.vertx = vertx
         this.db = db
 
-        HttpServerOptions options = new HttpServerOptions()
-                .setHost(HOST)
-                .setPort(PORT)
+        try{
+            HttpServerOptions options = new HttpServerOptions()
+                    .setHost(HOST)
+                    .setPort(PORT)
+                    .setUseAlpn(true)
+                    .setSsl(true)
+                    .setKeyStoreOptions( new JksOptions()
+                            .setPath(config.getString("jks_path"))
+                            .setPassword(config.getString("jks_password")))
+
+            log.info "AutoWiSE Server using ssl!"
 
 
-        server = vertx.createHttpServer(options)
 
-        router = Router.router(vertx)
-        server.requestHandler(router).listen(PORT)
+            server = vertx.createHttpServer(options)
 
-        log.info "AutoWiSE Server running at ${HOST}:${PORT}"
+            router = Router.router(vertx)
+            server.requestHandler(router).listen(PORT,  listenResult->{
+                if(listenResult){
+                    log.info "AutoWiSE Server running at ${config.getString("protocol")}://${HOST}:${PORT}"
+                }else{
+                    log.error listenResult.cause().getMessage(), listenResult.cause()
+                    throw listenResult.cause()
+                }
+            })
+            router.route().handler(LoggerHandler.create());
+        }catch(Exception err){
+            log.error err.getMessage(), e
+        }
+
+
+
+
     }
 
     def loadWebhooks(){
@@ -91,9 +115,7 @@ class AutoWiSEServer {
 
     def mountWebhook(Webhook hook){
         try{
-            log.info "Mounting webhook!"
             def webhookPath = Base64.encodeBase64URLSafeString(hook.id.toString().getBytes())
-            log.info "mounting webhook to path: ${webhookPath}"
             router.route(HttpMethod.GET, "/"+webhookPath).handler(this::webhookHandler)
 
         }catch (Exception e){
@@ -111,20 +133,34 @@ class AutoWiSEServer {
 
         db.invokeAndGetWebhookById(webhookId).onSuccess{ Webhook webhook->{
 
+            rc.response().setStatusCode(200).end("Your request has been processed! Thank you!\n\nPlease note: If you already signed up for a volunteer shift, clicking a different volunteer link from the recruitment email will NOT do anything. \n\nYou may now close this window.")
+
             log.info( "hook type match [${webhook.type.toString()}:${HookType.ACCEPT_ROLE_SHIFT.toString()}] ${webhook.type.equals(HookType.ACCEPT_ROLE_SHIFT)}")
 
             switch (webhook.type){
                 case HookType.ACCEPT_ROLE_SHIFT:
                     acceptShiftRole(services, webhook, config)
+                            .onSuccess{
+                                log.info "ACCEPT_ROLE_SHIFT webhook ${webhook.id.toString()} executed successfully!"
+                            }
+                            .onFailure{err->webhookFailureHandler(err, webhook)}
                     break
                 case HookType.CANCEL_ROLE_SHIFT:
                     cancelShiftRole(services, webhook, config)
+                        .onSuccess{
+                            log.info "CANCEL_ROLE_SHIFT webhook ${webhook.id.toString()} executed successfully!"
+                        }
+                        .onFailure{ err->webhookFailureHandler(err, webhook)}
                     break
                 case HookType.CONFIRM_ROLE_SHIFT:
                     confirmShiftRole(services, webhook)
+                        .onSuccess{log.info("CONFIRM_ROLE_SHIFT webhook ${webhook.id.toString()} executed successfully!")}
+                        .onFailure(err->webhookFailureHandler(err, webhook))
                     break
                 case HookType.REJECT_VOLUNTEERING_FOR_EVENT:
-                    rejectVolunteeringForEvent(services, webhook);
+                    rejectVolunteeringForEvent(services, webhook)
+                        .onSuccess{log.info("REJECT_VOLUNTEERING_FOR_EVENT webhook ${webhook.id.toString()} executed successfully!")}
+                        .onFailure{err->webhookFailureHandler(err, webhook)}
                     break
 
                 case HookType.EXECUTE_TASK_NOW:
@@ -132,6 +168,12 @@ class AutoWiSEServer {
                     db.getWorkByTaskId(webhook.data.getString("taskId"))
                         .onSuccess{
                             task->AutoWiSE.executeTask(task, vertx, services, config)
+                                    .onSuccess{
+                                        log.info "Successfully executed task ${webhook.data.getString("taskId")} through webhook  ${webhook.id.toString()}!"
+                                    }
+                                    .onFailure{
+                                        log.error "Error executing task  ${webhook.data.getString("taskId")} through webhook ${webhook.id.toString()}!"
+                                    }
                         }.onFailure{
                         err->
                             log.error "Error attempting to fetch task to execute now!"
@@ -141,6 +183,9 @@ class AutoWiSEServer {
                     break
                 case HookType.CANCEL_TASK:
                     db.cancelTaskById(webhook.data.getString("taskId"))
+                        .onSuccess{
+                            log.info "Successfully cancelled task ${webhook.data.getString("taskId")}!"
+                        }
                         .onFailure{
                             err->log.error err.getMessage(), err
                         }
@@ -160,16 +205,21 @@ class AutoWiSEServer {
                 default:log.warn "Unknown hook type! ${webhook.type.toString()}"
             }
 
-            rc.response().setStatusCode(200).end("Your request has been processed! Thank you! You may now close this window.")
 
         }}.onFailure {
             err->
                 if (err.getMessage().equals("Already invoked!")){
                     rc.response().setStatusCode(400).end("This link has already been used! You may now close this window.")
                 }else{
-                    rc.response().setStatusCode(500).end("Whoops! You should let the WiSER team know you saw this @${ZonedDateTime.now().format(EventSlurper.eventTimeFormatter)}")
+                    rc.response().setStatusCode(500).end("Whoops! You should let the WiSER team know you saw this @${ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone).format(EventSlurper.eventTimeFormatter)}")
                 }
         }
 
+    }
+
+
+    static def webhookFailureHandler(Throwable err, webhook){
+        log.error "Error executing webhook ${webhook.id.toString()}!"
+        log.error err.getMessage(), err
     }
 }

@@ -4,6 +4,8 @@ import ca.ualberta.autowise.AutoWiSE
 import ca.ualberta.autowise.GoogleAPI
 import ca.ualberta.autowise.model.Volunteer
 import groovy.transform.Field
+import io.vertx.core.Future
+import io.vertx.core.Promise
 import org.slf4j.LoggerFactory
 
 @Field static log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.google.VolunteerListSlurper.class)
@@ -14,6 +16,7 @@ static def getVolunteerByEmail(String email, Set<Volunteer> volunteers){
 }
 
 static def slurpVolunteerList(GoogleAPI googleAPI, volunteerSheetId, volunteerTableRange){
+    Promise promise = Promise.promise()
     //Store as a set for easy 'contains' operations
     Set<Volunteer> volunteers = new ArrayList<>()
     try{
@@ -21,7 +24,7 @@ static def slurpVolunteerList(GoogleAPI googleAPI, volunteerSheetId, volunteerTa
         def response = googleAPI.sheets().spreadsheets().values().get(volunteerSheetId, volunteerTableRange).execute()
         def data = response.getValues();
         if(data == null || data.isEmpty()){
-            throw new RuntimeException("Volunteer pool data missing from sheet ${volunteerSheetId}@${volunteerTableRange}")
+            return Future.failedFuture("Volunteer pool data missing from sheet ${volunteerSheetId}@${volunteerTableRange}")
         }
 
         ListIterator<List<Object>> it = data.listIterator()
@@ -37,10 +40,15 @@ static def slurpVolunteerList(GoogleAPI googleAPI, volunteerSheetId, volunteerTa
             volunteers.add(volunteer)
         }
 
+        promise.complete(volunteers)
+
     }catch (Exception e){
+        log.error "Error fetching volunteer list!"
         log.error e.getMessage(), e
+        promise.fail(e)
     }
 
-    return volunteers
+
+    return promise.future()
 }
 

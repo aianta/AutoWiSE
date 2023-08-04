@@ -7,6 +7,7 @@ import com.google.api.services.sheets.v4.model.AppendValuesResponse
 import com.google.api.services.sheets.v4.model.UpdateValuesResponse
 import com.google.api.services.sheets.v4.model.ValueRange
 import groovy.transform.Field
+import io.vertx.core.Promise
 import org.slf4j.LoggerFactory
 
 import java.util.stream.Collectors
@@ -29,7 +30,7 @@ def static updateSingleValueAt(GoogleAPI googleAPI, sheetId, cellAddress, value)
     def bodyContent = [[value]]
     ValueRange body = new ValueRange()
             .setValues(bodyContent)
-    updateAt(googleAPI, sheetId, cellAddress, body)
+    return updateAt(googleAPI, sheetId, cellAddress, body)
 }
 
 def static updateRowValueAt(GoogleAPI googleAPI, sheetId, cellAddress, Collection<String> data){
@@ -48,7 +49,7 @@ def static updateRowValueAt(GoogleAPI googleAPI, sheetId, cellAddress, Collectio
                 .setRange(cellAddress)
                 .setValues(data)
                 .setMajorDimension("ROWS")
-        updateAt(googleAPI, sheetId, cellAddress, body)
+        return updateAt(googleAPI, sheetId, cellAddress, body)
 
 }
 
@@ -76,7 +77,7 @@ def static updateColumnValueAt(GoogleAPI googleAPI, sheetId, cellAddress, List<S
                .setRange(cellAddress)
                .setValues(data)
                .setMajorDimension("COLUMNS")
-       updateAt(googleAPI, sheetId, cellAddress, body)
+       return updateAt(googleAPI, sheetId, cellAddress, body)
 
    }catch (Exception e){
        log.error e.getMessage(), e
@@ -84,22 +85,25 @@ def static updateColumnValueAt(GoogleAPI googleAPI, sheetId, cellAddress, List<S
 }
 
 static def appendAt(GoogleAPI googleAPI, sheetId, cellAddress, body){
+    Promise promise = Promise.promise()
     try{
         AppendValuesResponse response = googleAPI.sheets().spreadsheets().values().append(sheetId, cellAddress, body)
                 .setValueInputOption("RAW")
                 .setIncludeValuesInResponse(true)
                 .execute()
         log.info response.toPrettyString()
-
+        promise.complete()
     }catch (GoogleJsonResponseException | Exception e) {
         // TODO(developer) - handle error appropriately
         //GoogleJsonError error = e.getDetails();
         log.error e.getMessage(), e
-        throw e
+        promise.fail(e)
     }
+    return promise.future()
 }
 
 static def updateAt(GoogleAPI googleAPI, sheetId, cellAddress, body){
+    Promise promise = Promise.promise()
     try{
         UpdateValuesResponse response = googleAPI.sheets().spreadsheets().values().update(sheetId, cellAddress, body)
                 .setValueInputOption("RAW") // See: https://developers.google.com/sheets/api/reference/rest/v4/ValueInputOption
@@ -107,11 +111,14 @@ static def updateAt(GoogleAPI googleAPI, sheetId, cellAddress, body){
                 .execute()
 
         log.info response.toPrettyString()
+        promise.complete()
     } catch (GoogleJsonResponseException | Exception e) {
+        log.error "Error updating value at ${sheetId}@${cellAddress}!"
         // TODO(developer) - handle error appropriately
         //GoogleJsonError error = e.getDetails();
         log.error e.getMessage(), e
-        throw e
+        promise.fail(e)
     }
+    return promise.future()
 }
 

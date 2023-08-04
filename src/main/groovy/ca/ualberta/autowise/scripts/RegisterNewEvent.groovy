@@ -12,6 +12,7 @@ import ca.ualberta.autowise.model.Webhook
 import ca.ualberta.autowise.scripts.google.EventSlurper
 import com.google.api.services.sheets.v4.model.ValueRange
 import groovy.transform.Field
+import io.vertx.core.CompositeFuture
 import io.vertx.core.Promise
 import io.vertx.core.json.JsonObject
 import org.slf4j.LoggerFactory
@@ -35,7 +36,6 @@ import static ca.ualberta.autowise.scripts.google.VolunteerListSlurper.slurpVolu
 @Field static def EVENT_STATUS_WAITLIST_CELL_ADDRESS = "\'Event Status\'!F4"
 
 static def registerNewEvent(services, event, sheetId, volunteerSheetId, volunteerTableRange){
-    Promise promise = Promise.promise();
 
     log.info "Starting new event registration!"
     /**
@@ -95,31 +95,31 @@ static def registerNewEvent(services, event, sheetId, volunteerSheetId, voluntee
     // Persist plan in sqlite, make sure to do this after webhook generation, so webhook info makes it into the db.
     services.db.insertPlan(plan)
 
-    // Update 'Event Status' Sheet
-    // TODO - batch these
-    updateColumnValueAt(services.googleAPI, sheetId, EVENT_STATUS_ROLE_SHIFT_CELL_ADDRESS, produceRoleShiftList(event))
-    //updateRowValueAt(services.googleAPI, sheetId, EVENT_STATUS_WAITLIST_CELL_ADDRESS, produceRoleShiftSet(event))
 
-    //Update the event id in the sheet
-    updateSingleValueAt(services.googleAPI, sheetId, "Event!A2", event.id.toString())
-    // Update the event status
-    updateSingleValueAt(services.googleAPI, sheetId, "Event!A3", EventStatus.IN_PROGRESS.toString())
-    try{
-        def volunteers = slurpVolunteerList(services.googleAPI, volunteerSheetId, volunteerTableRange)
-        log.info "got volunteers! ${volunteers}"
-        def volunteerContactStatusData = makeInitialVolunteerContactStatus(volunteers)
-        def volunteerContactStatusCellAddress = "\'Volunteer Contact Status\'!A2"
-        ValueRange valueRange = new ValueRange()
-        valueRange.setMajorDimension("ROWS")
-        valueRange.setRange(volunteerContactStatusCellAddress)
-        valueRange.setValues(volunteerContactStatusData)
-        updateAt(services.googleAPI, sheetId, volunteerContactStatusCellAddress, valueRange)
-    }catch (Exception e){
-        log.error e.getMessage(), e
+
+
+    // TODO - batch these
+    return CompositeFuture.all(
+            updateColumnValueAt(services.googleAPI, sheetId, EVENT_STATUS_ROLE_SHIFT_CELL_ADDRESS, produceRoleShiftList(event)),        // Update 'Event Status' Sheet
+            updateSingleValueAt(services.googleAPI, sheetId, "Event!A2", event.id.toString()),     //Update the event id in the sheet
+            updateSingleValueAt(services.googleAPI, sheetId, "Event!A3", EventStatus.IN_PROGRESS.toString()),     // Update the event status
+            slurpVolunteerList(services.googleAPI, volunteerSheetId, volunteerTableRange) //Get the volunteer list
+    ).compose{
+        composite->
+
+            def volunteers = composite.resultAt(3)
+            log.info "got volunteers! ${volunteers}"
+            def volunteerContactStatusData = makeInitialVolunteerContactStatus(volunteers)
+            def volunteerContactStatusCellAddress = "\'Volunteer Contact Status\'!A2"
+            ValueRange valueRange = new ValueRange()
+            valueRange.setMajorDimension("ROWS")
+            valueRange.setRange(volunteerContactStatusCellAddress)
+            valueRange.setValues(volunteerContactStatusData)
+            return updateAt(services.googleAPI, sheetId, volunteerContactStatusCellAddress, valueRange)
+
+
     }
 
-
-    return promise.future();
 }
 
 private static def produceRoleShiftSet(Event event){
@@ -175,7 +175,7 @@ private static def makeCampaignPlan(Event event){
             advanceNotify: false,
             advanceNotifyOffset: 0,
             notify: false,
-            taskExecutionTime: ZonedDateTime.now(),
+            taskExecutionTime: ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone),
             status: TaskStatus.SCHEDULED,
             data: new JsonObject()
                 .put("eventName", event.name)
@@ -193,8 +193,8 @@ private static def makeCampaignPlan(Event event){
     def _initialRecruitmentTaskExecutionTime = event.startTime.minus(event.campaignStartOffset, ChronoUnit.MILLIS)
     def _initialRecruitmentTaskAdvanceNotifyOffset = Duration.ofDays(1).toMillis() // 1-day before
     def _initialRecruitmentTaskAdvancedNotify = true
-    if(_initialRecruitmentTaskExecutionTime.isBefore(ZonedDateTime.now())){
-        _initialRecruitmentTaskExecutionTime = ZonedDateTime.now()
+    if(_initialRecruitmentTaskExecutionTime.isBefore(ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone))){
+        _initialRecruitmentTaskExecutionTime = ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone)
         _initialRecruitmentTaskAdvanceNotifyOffset = 0L //No more advanced notification
         _initialRecruitmentTaskAdvancedNotify = false
 
@@ -236,7 +236,7 @@ private static def makeCampaignPlan(Event event){
     while(resolicitTime.isBefore(reminderEmailsCutoffTime)){
 
         //It's possible an event is being registered late, and the start of the campaign has already passed.
-        if (resolicitTime.isAfter(ZonedDateTime.now())){
+        if (resolicitTime.isAfter(ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone))){
             Task reminder = new Task(
                     taskId: UUID.randomUUID(),
                     eventId: event.id,

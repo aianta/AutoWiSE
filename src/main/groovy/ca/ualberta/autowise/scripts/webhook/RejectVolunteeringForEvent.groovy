@@ -1,6 +1,9 @@
 package ca.ualberta.autowise.scripts.webhook
 
 import groovy.transform.Field
+import io.vertx.core.CompositeFuture
+import io.vertx.core.Future
+import io.vertx.core.Promise
 import org.slf4j.LoggerFactory
 
 import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.hasVolunteerAlreadyCancelled
@@ -18,25 +21,31 @@ static def rejectVolunteeringForEvent(services, webhook){
     def eventSheetId = webhook.data.getString("eventSheetId")
     def volunteerEmail = webhook.data.getString("volunteerEmail")
 
-    if(hasVolunteerAlreadyCancelled(services.googleAPI, eventSheetId, volunteerEmail)){
-        log.info "${volunteerEmail} has already cancelled or rejected for this event."
-        return
-    }
+    return hasVolunteerAlreadyCancelled(services.googleAPI, eventSheetId, volunteerEmail)
+        .compose{
+            alreadyCancelled->
+                if (alreadyCancelled){
+                    log.info "${volunteerEmail} has already cancelled or rejected for this event."
+                    return Future.failedFuture("You have already cancelled one or rejected all volunteer opportunities for this event!")
+                }
 
-    def volunteerName = webhook.data.getString("volunteerName")
-    def eventName = webhook.data.getString("eventName")
-    def eventSlackChannel = webhook.data.getString("eventSlackChannel")
+                def volunteerName = webhook.data.getString("volunteerName")
+                def eventName = webhook.data.getString("eventName")
+                def eventSlackChannel = webhook.data.getString("eventSlackChannel")
 
+                return CompositeFuture.all(
+                        updateVolunteerStatus(services.googleAPI, eventSheetId, volunteerEmail, "Rejected", "-" ),      //Update the status
+                        slurpDocument(services.googleAPI, webhook.data.getString("emailTemplateId"))
+                ).compose{
+                    composite->
+                        def emailTemplate = composite.resultAt(1)
+                        def emailContents = emailTemplate.replaceAll("%EVENT_NAME%", eventName)
 
-    //Update the status
-    updateVolunteerStatus(services.googleAPI, eventSheetId, volunteerEmail, "Rejected", "-" )
-
-    def emailTemplate = slurpDocument(services.googleAPI, webhook.data.getString("emailTemplateId"))
-    def emailContents = emailTemplate.replaceAll("%EVENT_NAME%", eventName)
-
-    sendEmail(services.googleAPI, "AutoWiSE", volunteerEmail, "[WiSER] Confirmation of Volunteer Opportunity Rejection for ${eventName}", emailContents )
-
-    sendSlackMessage(services.slackAPI, eventSlackChannel, "${volunteerName} has indicated they are not interested or unable to volunteer for ${eventName}!")
-
+                        return CompositeFuture.all(
+                                sendEmail(services.googleAPI, "AutoWiSE", volunteerEmail, "[WiSER] Confirmation of Volunteer Opportunity Rejection for ${eventName}", emailContents ),
+                                sendSlackMessage(services.slackAPI, eventSlackChannel, "${volunteerName} has indicated they are not interested or unable to volunteer for ${eventName}!")
+                        )
+                }
+        }
 }
 

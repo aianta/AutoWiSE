@@ -11,6 +11,6 @@ static def updateEventStatusTable(GoogleAPI googleAPI, sheetId, data){
     valueRange.setRange(FindAvailableShiftRoles.EVENT_STATUS_RANGE)
     valueRange.setValues(data)
     valueRange.setMajorDimension("ROWS")
-    updateAt(googleAPI, sheetId,FindAvailableShiftRoles.EVENT_STATUS_RANGE, valueRange)
+    return updateAt(googleAPI, sheetId,FindAvailableShiftRoles.EVENT_STATUS_RANGE, valueRange)
 }
 

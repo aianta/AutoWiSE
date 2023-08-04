@@ -4,6 +4,7 @@ import ca.ualberta.autowise.GoogleAPI
 import com.google.api.client.googleapis.json.GoogleJsonError
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import groovy.transform.Field
+import io.vertx.core.Promise
 import jakarta.mail.Message
 import jakarta.mail.Session
 import jakarta.mail.internet.InternetAddress
@@ -35,42 +36,44 @@ static def sendEmailToGroup(googleAPI, from, to, subject, content ){
                 email.addRecipient(Message.RecipientType.TO, new InternetAddress(recipient))
             }
     )
-    _sendEmail(googleAPI, email)
+    return _sendEmail(googleAPI, email)
 }
 
 static def sendEmail(googleAPI, from, to, subject, content){
     MimeMessage email = createMimeMessage(from, subject, content)
     email.addRecipient(Message.RecipientType.TO, new InternetAddress(to))
-    _sendEmail(googleAPI, email)
+    return _sendEmail(googleAPI, email)
 }
 
 static def sendEmail(googleAPI, from, to, bcc, subject, content){
     MimeMessage email = createMimeMessage(from, subject, content)
     email.addRecipient(Message.RecipientType.TO, new InternetAddress(to))
     email.addRecipient(Message.RecipientType.BCC, new InternetAddress(bcc))
-    _sendEmail(googleAPI, email)
+    return _sendEmail(googleAPI, email)
 }
 
 private static def _sendEmail(GoogleAPI googleAPI, MimeMessage email){
+    Promise promise = Promise.promise();
     log.info "Sending email"
     try{
         ByteArrayOutputStream buffer = new ByteArrayOutputStream()
         email.writeTo(buffer)
         byte[] rawMessageBytes = buffer.toByteArray()
         String encodedEmail = Base64.encodeBase64URLSafeString(rawMessageBytes)
+        log.info "encodedEmail: ${encodedEmail}"
         GMessage message = new GMessage()
         message.setRaw(encodedEmail)
-        googleAPI.gmail().users().messages().send("me", message).execute()
+        message = googleAPI.gmail().users().messages().send("me", message).execute()
         log.info "Message Id: ${message.getId()}"
         log.info "${message.toPrettyString()}"
-
+        promise.complete()
     }catch (GoogleJsonResponseException | Exception e ) {
         // TODO(developer) - handle error appropriately
         GoogleJsonError error = e.getDetails();
         log.error e.getMessage(), e
-        throw e
+        promise.fail(e)
     }
-
+    return promise.future()
 }
 
 private static def createMimeMessage(from, subject, text){

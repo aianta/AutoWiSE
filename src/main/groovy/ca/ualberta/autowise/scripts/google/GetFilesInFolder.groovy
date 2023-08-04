@@ -1,9 +1,15 @@
 package ca.ualberta.autowise.scripts.google
 
 import ca.ualberta.autowise.GoogleAPI
+import com.google.api.client.googleapis.json.GoogleJsonError
+import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.services.drive.model.File
 import com.google.api.services.drive.model.FileList
+import groovy.transform.Field
+import io.vertx.core.Promise
 import org.slf4j.LoggerFactory
+
+@Field static log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.google.GetFilesInFolder.class)
 
 /**
  * Retrieves all files in a certain folder of a given type.
@@ -31,34 +37,42 @@ static def getFiles(googleAPI, folderId ){
  * @return A list of all files matching the given query.
  */
 private static def _getFiles(GoogleAPI googleAPI, query){
-    def log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.google.GetFilesInFolder.class)
-    def final PAGE_SIZE = 35 //Files to fetch at once.
+    Promise promise = Promise.promise();
+    try{
+        def final PAGE_SIZE = 35 //Files to fetch at once.
 
-    //Store fetched files in results list
-    def result = new ArrayList<File>()
+        //Store fetched files in results list
+        def result = new ArrayList<File>()
 
-    //Make an initial request for the files
-    FileList fileList = googleAPI.drive().files()
-            .list()
-            .setQ(query)
-            .setPageSize(PAGE_SIZE)
-            .execute()
-
-    result.addAll(fileList.getFiles())
-
-    //If there are more files to fetch, get them too.
-    while(fileList.getNextPageToken() != null){
-        fileList = googleAPI.drive().files()
+        //Make an initial request for the files
+        FileList fileList = googleAPI.drive().files()
                 .list()
                 .setQ(query)
                 .setPageSize(PAGE_SIZE)
-                .setPageToken(fileList.getNextPageToken())
                 .execute()
 
         result.addAll(fileList.getFiles())
+
+        //If there are more files to fetch, get them too.
+        while(fileList.getNextPageToken() != null){
+            fileList = googleAPI.drive().files()
+                    .list()
+                    .setQ(query)
+                    .setPageSize(PAGE_SIZE)
+                    .setPageToken(fileList.getNextPageToken())
+                    .execute()
+
+            result.addAll(fileList.getFiles())
+        }
+
+        promise.complete(result)
+    }catch(GoogleJsonResponseException e){
+        GoogleJsonError error = e.getDetails();
+        log.error e.getMessage(), e
+        promise.fail(e)
     }
 
-    return result
+    return promise.future()
 }
 
 

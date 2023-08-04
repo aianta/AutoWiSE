@@ -1,6 +1,7 @@
 package ca.ualberta.autowise.scripts.google
 
 import ca.ualberta.autowise.GoogleAPI
+import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.services.docs.v1.model.Document
 import com.google.api.services.docs.v1.model.ParagraphElement
 import com.google.api.services.docs.v1.model.StructuralElement
@@ -8,6 +9,7 @@ import com.google.api.services.docs.v1.model.TableCell
 import com.google.api.services.docs.v1.model.TableRow
 import com.google.api.services.docs.v1.model.TextRun
 import groovy.transform.Field
+import io.vertx.core.Promise
 import org.slf4j.LoggerFactory
 
 @Field static log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.google.DocumentSlurper.class)
@@ -18,10 +20,22 @@ import org.slf4j.LoggerFactory
  * <a href="https://developers.google.com/docs/api/samples/extract-text"></a>
  */
 static def slurpDocument(GoogleAPI googleAPI, documentId){
+    Promise promise = Promise.promise();
+    try{
+        Document doc = googleAPI.docs().documents().get(documentId).execute()
 
-    Document doc = googleAPI.docs().documents().get(documentId).execute()
-    return readStructuralElements(doc.getBody().getContent())
+        def documentData = readStructuralElements(doc.getBody().getContent())
+        log.info "Slurped document ${documentId}: ${documentData}"
+        promise.complete(documentData)
+    }catch (GoogleJsonResponseException | Exception e) {
+        log.error "Error slurping document ${documentId}"
+        // TODO(developer) - handle error appropriately
+        //GoogleJsonError error = e.getDetails();
+        log.error e.getMessage(), e
+        promise.fail(e)
+    }
 
+    return promise.future()
 }
 
 private static def readParagraphElement(element){

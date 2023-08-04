@@ -41,6 +41,7 @@ class GoogleAPI {
     static CREDENTIALS_PATH = "credentials.json"
     static APPLICATION_NAME = "AutoWiSE"
     static AUTH_SERVER_PORT = 8888
+    static AUTH_SERVER_HOST = "localhost"
 
     static instance = null
 
@@ -50,10 +51,11 @@ class GoogleAPI {
     def _sheets
     def _gmail
 
-    static GoogleAPI createInstance(applicationName, credentialsPath, tokensDirPath, authServerPort){
+    static GoogleAPI createInstance(applicationName, credentialsPath, tokensDirPath, authServerHost, authServerPort){
         APPLICATION_NAME = applicationName
         CREDENTIALS_PATH = credentialsPath
         TOKENS_DIRECTORY_PATH = tokensDirPath
+        AUTH_SERVER_HOST = authServerHost
         AUTH_SERVER_PORT = authServerPort
 
         def credentialsStream = new FileInputStream(new java.io.File(CREDENTIALS_PATH))
@@ -67,7 +69,7 @@ class GoogleAPI {
         .setAccessType("offline")
         .build()
 
-        def authServerReceiver = new LocalServerReceiver.Builder().setPort(AUTH_SERVER_PORT).build()
+        def authServerReceiver = new LocalServerReceiver.Builder().setHost(AUTH_SERVER_HOST).setPort(AUTH_SERVER_PORT).build()
         def credentials = new AuthorizationCodeInstalledApp(authFlow, authServerReceiver).authorize("user")
 
         instance = new GoogleAPI(credentials)

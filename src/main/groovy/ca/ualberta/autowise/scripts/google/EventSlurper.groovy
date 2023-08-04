@@ -15,6 +15,9 @@ import com.google.api.client.googleapis.json.GoogleJsonError
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.services.sheets.v4.model.ValueRange
 import groovy.transform.Field
+import io.vertx.core.CompositeFuture
+import io.vertx.core.Future
+import io.vertx.core.Promise
 import org.slf4j.LoggerFactory
 
 import java.time.Duration
@@ -22,6 +25,8 @@ import java.time.LocalTime
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.stream.Collectors
+
+import static ca.ualberta.autowise.scripts.google.GetSheetValue.getValuesAt
 
 @Field static GoogleAPI api
 @Field static sheetId
@@ -69,39 +74,45 @@ static def slurpSheet(GoogleAPI googleAPI, spreadsheetId){
             "confirmRejectedEmailTemplateId": "Event!B25",
     ]
 
-    def slurped = slurpStaticSingleValues(staticSingleValues)
-    slurped.forEach {key,value-> log.info "${key}: ${value}"}
+    return CompositeFuture.all(
+            slurpStaticSingleValues(staticSingleValues),
+            slurpRolesAndShifts()
+    ).compose{
+        composite->
+            def slurped = composite.resultAt(0)
+            List<Role> roles = composite.resultAt(1)
 
-    List<Role> roles = slurpRolesAndShifts()
-
-    Event result = new Event(
-            id: slurped.get("id") == null?null:UUID.fromString(slurped.get("id")),
-            sheetId: sheetId,
-            status: EventStatus.valueOf(slurped.get("status")),
-            name: slurped.get("name"),
-            description: slurped.get("description"),
-            startTime: ZonedDateTime.parse(slurped.get("eventStartTime"), eventTimeFormatter),
-            endTime: ZonedDateTime.parse(slurped.get("eventEndTime"), eventTimeFormatter),
-            eventbriteLink: slurped.get("eventbriteLink"),
-            eventSlackChannel: slurped.get("eventSlackChannel"),
-            eventOrganizers: slurpEmailsHorizontally("Event!7:7"),
-            volunteerCoordinators: slurpEmailsHorizontally("Event!8:8"),
-            executiveRatio: Double.parseDouble(slurped.get("executiveRatio")),
-            campaignStartOffset: Duration.ofDays(Long.parseLong(slurped.get("campaignStartOffset"))).toMillis(), //Convert days to ms
-            resolicitFrequency: Duration.ofDays(Long.parseLong(slurped.get("resolicitFrequency"))).toMillis(),   //Convert days to ms
-            followupOffset: Duration.ofHours(Long.parseLong(slurped.get("followupOffset"))).toMillis(),          //Convert hours to ms
-            initialRecruitmentEmailTemplateId: slurped.get("initialRecruitmentEmailTemplateId"),
-            recruitmentEmailTemplateId: slurped.get("recruitmentEmailTemplateId"),
-            followupEmailTemplateId: slurped.get("followupEmailTemplateId"),
-            confirmAssignedEmailTemplateId: slurped.get("confirmAssignedEmailTemplateId"),
-            confirmCancelledEmailTemplateId: slurped.get("confirmCancelledEmailTemplateId"),
-            confrimWaitlistEmailTemplateId: slurped.get("confirmWaitlistEmailTemplateId"),
-            confirmRejectedEmailTemplateId: slurped.get("confirmRejectedEmailTemplateId"),
-            roles: roles
-    )
+            Event result = new Event(
+                    id: slurped.get("id") == null?null:UUID.fromString(slurped.get("id")),
+                    sheetId: sheetId,
+                    status: EventStatus.valueOf(slurped.get("status")),
+                    name: slurped.get("name"),
+                    description: slurped.get("description"),
+                    startTime: ZonedDateTime.parse(slurped.get("eventStartTime"), eventTimeFormatter),
+                    endTime: ZonedDateTime.parse(slurped.get("eventEndTime"), eventTimeFormatter),
+                    eventbriteLink: slurped.get("eventbriteLink"),
+                    eventSlackChannel: slurped.get("eventSlackChannel"),
+                    eventOrganizers: slurpEmailsHorizontally("Event!7:7"),
+                    volunteerCoordinators: slurpEmailsHorizontally("Event!8:8"),
+                    executiveRatio: Double.parseDouble(slurped.get("executiveRatio")),
+                    campaignStartOffset: Duration.ofDays(Long.parseLong(slurped.get("campaignStartOffset"))).toMillis(), //Convert days to ms
+                    resolicitFrequency: Duration.ofDays(Long.parseLong(slurped.get("resolicitFrequency"))).toMillis(),   //Convert days to ms
+                    followupOffset: Duration.ofHours(Long.parseLong(slurped.get("followupOffset"))).toMillis(),          //Convert hours to ms
+                    initialRecruitmentEmailTemplateId: slurped.get("initialRecruitmentEmailTemplateId"),
+                    recruitmentEmailTemplateId: slurped.get("recruitmentEmailTemplateId"),
+                    followupEmailTemplateId: slurped.get("followupEmailTemplateId"),
+                    confirmAssignedEmailTemplateId: slurped.get("confirmAssignedEmailTemplateId"),
+                    confirmCancelledEmailTemplateId: slurped.get("confirmCancelledEmailTemplateId"),
+                    confrimWaitlistEmailTemplateId: slurped.get("confirmWaitlistEmailTemplateId"),
+                    confirmRejectedEmailTemplateId: slurped.get("confirmRejectedEmailTemplateId"),
+                    roles: roles
+            )
 
 
-    return result
+            return Future.succeededFuture(result)
+    }
+
+
 }
 
 private static def mapValuesToList(LinkedHashMap map){
@@ -111,6 +122,7 @@ private static def mapValuesToList(LinkedHashMap map){
 }
 
 private static def slurpStaticSingleValues(LinkedHashMap values){
+    Promise promise = Promise.promise()
     //Create a new map storing the slurped results.
     def slurped = new LinkedHashMap<String,String>()
 
@@ -122,22 +134,25 @@ private static def slurpStaticSingleValues(LinkedHashMap values){
         Iterator<Map.Entry<String,String>> valuesIt = values.iterator()
         //These two maps should be of the same size, freak out if not.
         if (values.size() != response.getValueRanges().size()){
+            promise.fail("Got ${response.getValueRanges().size()} values back but expected ${values.size()} when slurping event data from sheet:${sheetId}")
             throw new RuntimeException("Got ${response.getValueRanges().size()} values back but expected ${values.size()} when slurping event data from sheet:${sheetId}")
+
         }
 
         while (it.hasNext()){
-            int index = it.nextIndex();
             ValueRange curr = it.next();
             slurped.put(valuesIt.next().getKey(), curr.getValues() == null?null:curr.getValues().get(0).get(0) )
         }
 
+        promise.complete(slurped)
     }catch (GoogleJsonResponseException e){
         GoogleJsonError error = e.getDetails()
         log.error error.getMessage()
-        throw e
+        promise.fail(e)
     }
 
-    return slurped
+
+    return promise.future()
 }
 
 /**
@@ -171,15 +186,12 @@ private static def slurpEmailsHorizontally(range){
 
 
 private static def slurpRolesAndShifts(){
-    //Make a list of roles to store the result
-    List<Role> roles = new ArrayList()
 
-    try{
-        def response = api.sheets().spreadsheets().values().get(sheetId, ROLES_AND_SHIFTS_RANGE).execute()
-        def data = response.getValues();
-        if(data == null || data.isEmpty()){
-            throw new RuntimeException("Could not find role and shift information in ${sheetId}")
-        }else{
+
+    return getValuesAt(api, sheetId, ROLES_AND_SHIFTS_RANGE).compose{
+        data->
+            //Make a list of roles to store the result
+            List<Role> roles = new ArrayList()
 
             ListIterator rowIt = data.listIterator();
             while (rowIt.hasNext()){
@@ -258,15 +270,11 @@ private static def slurpRolesAndShifts(){
 
             }
 
-        }
-
-    }catch (GoogleJsonResponseException e){
-        GoogleJsonError error = e.getDetails()
-        log.error error.getMessage()
-        throw e
+            return Future.succeededFuture(roles)
     }
 
-    return roles
+
+
 }
 
 private static def getRoleByName(List<Role> roles, String name){

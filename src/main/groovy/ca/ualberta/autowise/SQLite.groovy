@@ -137,7 +137,7 @@ class SQLite {
                 invoked_on = ?
             WHERE webhook_id = ?;
         ''')
-        .execute(Tuple.of(ZonedDateTime.now().format(EventSlurper.eventTimeFormatter), webhookId.toString()))
+        .execute(Tuple.of(ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone).format(EventSlurper.eventTimeFormatter), webhookId.toString()))
         .onSuccess{
             promise.complete()
         }
@@ -159,7 +159,7 @@ class SQLite {
             WHERE event_id = ?;
         ''')
         .execute(Tuple.of(
-                ZonedDateTime.now().format(EventSlurper.eventTimeFormatter),
+                ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone).format(EventSlurper.eventTimeFormatter),
                 eventId.toString()
         )).onSuccess{
             cancelWebhooks.complete()
@@ -267,8 +267,7 @@ class SQLite {
      */
     def getWork(){
         def promise = Promise.promise()
-        def currentTime = ZonedDateTime.now()
-        log.info "getting work"
+        def currentTime = ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone)
         pool.preparedQuery('''
             UPDATE tasks 
             SET status = ? 
@@ -338,7 +337,7 @@ class SQLite {
         pool.preparedQuery('''
             SELECT * FROM webhooks WHERE expiry >= ? AND invoked = 0;
         ''')
-        .execute(Tuple.of(ZonedDateTime.now().toInstant().toEpochMilli()))
+        .execute(Tuple.of(ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone).toInstant().toEpochMilli()))
         .onSuccess(rowSet->{
             Set<Webhook> webhooks = new HashSet<>()
             for (Row row: rowSet){
@@ -368,7 +367,7 @@ class SQLite {
             WHERE webhook_id = ? AND invoked = 0
             RETURNING *;
         ''')
-        .execute(Tuple.of(ZonedDateTime.now().format(EventSlurper.eventTimeFormatter), id.toString()))
+        .execute(Tuple.of(ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone).format(EventSlurper.eventTimeFormatter), id.toString()))
         .onSuccess(rowSet->{
             List<Webhook> result = new ArrayList<>()
             for(Row row: rowSet){

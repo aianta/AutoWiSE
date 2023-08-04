@@ -11,6 +11,9 @@ import ca.ualberta.autowise.model.Volunteer
 import ca.ualberta.autowise.model.Webhook
 import ca.ualberta.autowise.scripts.google.EventSlurper
 import groovy.transform.Field
+import io.vertx.core.CompositeFuture
+import io.vertx.core.Future
+import io.vertx.core.Promise
 import io.vertx.core.Vertx
 import io.vertx.core.json.JsonObject
 import org.slf4j.LoggerFactory
@@ -50,60 +53,111 @@ import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.upda
  */
 
 static def recruitmentEmailTask(Vertx vertx, services, Task task, config, Predicate<String> statusPredicate, subject){
+    log.info "In recruitment email task!"
     // Fetch all the data we'll need to execute the task
-    def volunteers = slurpVolunteerList(services.googleAPI, config.getString("autowise_volunteer_pool_id"), config.getString("autowise_volunteer_table_range"))
-    def eventName = task.data.getString("eventName")
-    def eventSheetId = task.data.getString("eventSheetId")
-    def eventbriteLink = task.data.getString("eventbriteLink")
-    def eventSlackChannel  = task.data.getString("eventSlackChannel")
-    List<Role> eventRoles = slurpRolesJson(task.data.getString("rolesJsonString"))
-    def eventStartTime = ZonedDateTime.parse(task.data.getString("eventStartTime"), EventSlurper.eventTimeFormatter)
-    def volunteerContactStatusData = syncEventVolunteerContactSheet(services.googleAPI, eventSheetId, volunteers)
-    def emailTemplate = slurpDocument(services.googleAPI, task.data.getString("emailTemplateId"))
-    def unfilledShiftRoles = findAvailableShiftRoles(services.googleAPI, eventSheetId)
+    return slurpVolunteerList(services.googleAPI, config.getString("autowise_volunteer_pool_id"), config.getString("autowise_volunteer_table_range"))
+        .compose {
+            volunteers->
 
-    if(unfilledShiftRoles == 0){
-        handleNoAvailableShiftRoles(services, task, eventName)
-    }
+                log.info "got volunteers"
 
-    MassEmailSender sender = new MassEmailSender(vertx, services, config, volunteerContactStatusData)
+                def eventName = task.data.getString("eventName")
+                def eventSheetId = task.data.getString("eventSheetId")
+                def eventbriteLink = task.data.getString("eventbriteLink")
+                def eventSlackChannel  = task.data.getString("eventSlackChannel")
+                List<Role> eventRoles = slurpRolesJson(task.data.getString("rolesJsonString"))
+                def eventStartTime = ZonedDateTime.parse(task.data.getString("eventStartTime"), EventSlurper.eventTimeFormatter)
+                log.info "About to enter composite future"
 
-    sender.sendMassEmail((rowData, rowFuture)->{
-        if(rowData.get(0).toLowerCase().equals("Volunteers".toLowerCase())){ //Ignore case, just in case...
-            return null //Return a null email entry to skip this row as it is the header row
+                return CompositeFuture.all(
+                        syncEventVolunteerContactSheet(services.googleAPI, eventSheetId, volunteers),
+                        slurpDocument(services.googleAPI, task.data.getString("emailTemplateId")),
+                        findAvailableShiftRoles(services.googleAPI, eventSheetId)
+                ).onFailure{
+                    err->log.error err.getMessage(), err
+                }
+                        .compose{
+                    composite->
+                        def volunteerContactStatusData = composite.resultAt(0)
+                        def emailTemplate = composite.resultAt(1)
+                        def unfilledShiftRoles = composite.resultAt(2)
+
+                        log.info "Synced volunteer contact status sheet, slurped email template, and got unfilled shift roles!"
+
+                        if(unfilledShiftRoles.size() == 0){
+                            return handleNoAvailableShiftRoles(services, task, eventName)
+                        }
+
+                        log.info "Unfilled shift roles exist for ${eventName}"
+
+                        Promise promise = Promise.promise()
+                        MassEmailSender sender = new MassEmailSender(vertx, services, config, volunteerContactStatusData)
+
+                        sender.sendMassEmail((rowData, rowFuture)->{
+                            if(rowData.get(0).toLowerCase().equals("Volunteers".toLowerCase())){ //Ignore case, just in case...
+                                return null//Return a null email entry to skip this row as it is the header row
+                            }
+
+                            if(statusPredicate.test(rowData.get(2))){
+                                def volunteer = getVolunteerByEmail(rowData.get(0), volunteers)
+                                if(volunteer == null){
+                                    log.warn "Volunteer with email ${rowData.get(0)} does not appear in WiSER volunteer pool, skipping recruitment email"
+                                    sendSlackMessage(services.slackAPI, eventSlackChannel, "${rowData.get(0)} appears on the ${eventName}' volunteer contact status' sheet but does not appear in the WiSER general volunteer list. No email will be sent to ${rowData.get(0)}.")
+                                    return null //Return a null email entry to skip this row as we don't recognize the volunteer
+                                }
+
+                                rowFuture.onSuccess{
+                                    updateVolunteerStatus(services.googleAPI, eventSheetId, volunteer.email, "Waiting for response", null)
+                                        .onSuccess{
+                                            log.info "volunteer contact status updated"
+                                        }
+                                        .onFailure{
+                                            log.error "Error updating volunteer contact status"
+                                        }
+                                }
+
+                                def emailContents = makeShiftRoleEmail(services, config, volunteer, task, unfilledShiftRoles, eventRoles, eventStartTime, eventName, eventSheetId, eventSlackChannel, eventbriteLink, emailTemplate)
+                                return new MassEmailEntry(target: volunteer.email, content: emailContents, subject: subject)
+
+
+                            }
+
+                        }, taskComplete->{
+                            taskComplete.onSuccess{
+                                log.info "Sent all recruitment emails for ${eventName} completing task ${task.taskId.toString()}"
+                                services.db.markTaskComplete(task.taskId)
+
+                                if(task.notify){
+                                    sendSlackMessage(services.slackAPI, eventSlackChannel, "Sent recruitment emails for ${eventName} successfully!")
+                                        .onSuccess{
+                                            promise.tryComplete()
+                                        }
+                                        .onFailure{
+                                            err->log.error err.getMessage(), err
+                                                promise.fail(err)
+                                        }
+                                }
+
+                                promise.tryComplete()
+
+
+                            }.onFailure{err->
+                                log.info "Error sending recruitment emails for ${eventName}, task ${task.taskId.toString()}"
+                                log.error err.getMessage(), err
+                                sendSlackMessage(services.slackAPI, eventSlackChannel, "Error while sending recruitment emails for ${eventName}.  TaskId: ${task.taskId.toString()}. Error Message: ${err.getMessage()}")
+                                promise.fail(err)
+                            }
+
+                        })
+
+                        return promise.future()
+                }
+
+
         }
 
-        if(statusPredicate.test(rowData.get(2))){
-            def volunteer = getVolunteerByEmail(rowData.get(0), volunteers)
-            if(volunteer == null){
-                log.warn "Volunteer with email ${rowData.get(0)} does not appear in WiSER volunteer pool, skipping recruitment email"
-                sendSlackMessage(services.slackAPI, eventSlackChannel, "${rowData.get(0)} appears on the ${eventName}' volunteer contact status' sheet but does not appear in the WiSER general volunteer list. No email will be sent to ${rowData.get(0)}.")
-                return null //Return a null email entry to skip this row as we don't recognize the volunteer
-            }
 
-            rowFuture.onSuccess{
-                updateVolunteerStatus(services.googleAPI, eventSheetId, volunteer.email, "Waiting for response", null)
-            }
 
-            def emailContents = makeShiftRoleEmail(services, config, volunteer, task, unfilledShiftRoles, eventRoles, eventStartTime, eventName, eventSheetId, eventSlackChannel, eventbriteLink, emailTemplate)
-            return new MassEmailEntry(target: volunteer.email, content: emailContents, subject: subject)
-        }
-
-    }, taskComplete->{
-        taskComplete.onSuccess{
-            log.info "Sent all recruitment emails for ${eventName} completing task ${task.taskId.toString()}"
-            services.db.markTaskComplete(task.taskId)
-
-            if(task.notify){
-                sendSlackMessage(services.slackAPI, eventSlackChannel, "Sent recruitment emails for ${eventName} successfully!")
-            }
-        }.onFailure{err->
-            log.info "Error sending recruitment emails for ${eventName}, task ${task.taskId.toString()}"
-            log.error err.getMessage(), err
-            sendSlackMessage(services.slackAPI, eventSlackChannel, "Error while sending recruitment emails for ${eventName}.  TaskId: ${task.taskId.toString()}. Error Message: ${err.getMessage()}")
-        }
-
-    })
 }
 
 
@@ -159,7 +213,7 @@ private static String makeShiftRoleEmail(services, config, Volunteer volunteer, 
 
     def shiftRoleHTMLTable = buildShiftRoleOptions(availableShiftRoles, config)
     def emailContents = emailTemplate.replaceAll("%AVAILABLE_SHIFT_ROLES%", shiftRoleHTMLTable)
-    emailContents = emailContents.replaceAll("%REJECT_LINK%", "<a href=\"http://${config.getString("host")}:${config.getInteger("port").toString()}/${rejectHook.path()}\">Click me if you aren't able to volunteer for this event.</a>")
+    emailContents = emailContents.replaceAll("%REJECT_LINK%", "<a href=\"${config.getString("protocol")}://${config.getString("host")}:${config.getInteger("port").toString()}/${rejectHook.path()}\">Click me if you aren't able to volunteer for this event.</a>")
     emailContents = emailContents.replaceAll("%EVENTBRITE_LINK%", "<a href=\"${eventbriteLink}\">eventbrite</a>")
 
     return emailContents
@@ -168,7 +222,7 @@ private static String makeShiftRoleEmail(services, config, Volunteer volunteer, 
 private static def handleNoAvailableShiftRoles(services, Task task, eventName){
     services.db.markTaskComplete(task.taskId)
     if(task.notify){
-        sendSlackMessage(services.slackAPI, task.data.getString("eventSlackChannel"), "No unfilled shifts for ${eventName}. Aborting recruitment email task.")
+        return sendSlackMessage(services.slackAPI, task.data.getString("eventSlackChannel"), "No unfilled shifts for ${eventName}. Aborting recruitment email task.")
     }
-    return
+    return Future.succeededFuture()
 }

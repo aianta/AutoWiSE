@@ -66,26 +66,31 @@ class MassEmailSender {
                 Promise emailEntryPromise = Promise.promise() //Completes when this specific email has been sent.
                 MassEmailEntry emailEntry = rowFunction.apply(rowData, emailEntryPromise.future())
                 if(emailEntry == null){
-                    emailEntryPromise.complete()
+                    emailEntryPromise.complete() // Complete the email entry promise
                     blocking.complete() //If we're given a null email entry, this row must not require an email so we move on to the next.
+                    return
+                }else{
+                    //Otherwise there is an email to send so let's do that.
+                    send(services.googleAPI, config, emailEntry.subject, emailEntry.content, emailEntry.target)
+                            .onSuccess{
+                                log.info "Email (${emailEntry.subject}) sent to  ${emailEntry.target}"
+                                emailEntryPromise.complete()
+                                blocking.complete()
+                            }
+                            .onFailure{
+                                err->
+                                    log.error "Error sending email (${emailEntry.subject}) to ${emailEntry.target}"
+                                    log.error err.getMessage(), err
+                                    blocking.fail(err)
+                                    emailEntryPromise.fail(err)
+                            }
                 }
-                send(services.googleAPI, config, emailEntry.subject, emailEntry.content, emailEntry.target)
-                    .onSuccess{
-                        log.info "Email (${emailEntry.subject}) sent to  ${emailEntry.target}"
-                        emailEntryPromise.complete()
-                        blocking.complete()
-                    }
-                    .onFailure{
-                        err->
-                            log.error "Error sending email (${emailEntry.subject}) to ${emailEntry.target}"
-                            log.error err.getMessage(), err
-                            blocking.fail(err)
-                            emailEntryPromise.fail(err)
-                    }
+
+
             })
 
             if(lastFuture != null){
-                lastFuture.compose(done->future)
+                lastFuture.compose { return future }
             }
 
             lastFuture = future
@@ -109,13 +114,11 @@ class MassEmailSender {
      * @return
      */
     private Future send(GoogleAPI googleAPI,  config, subject, emailBody, target){
-        Promise promise = Promise.promise()
-
         Thread.sleep(config.getLong("mass_email_delay"))
-        sendEmail(googleAPI, "AutoWiSE", target, subject, emailBody)
-        promise.complete()
+        return sendEmail(googleAPI, "AutoWiSE", target, subject, emailBody)
 
-        return promise.future();
+
+
     }
 
 }

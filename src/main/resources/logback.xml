@@ -14,9 +14,9 @@
     <appender name="STDOUT" class="ConsoleAppender">
         <filter class="ch.qos.logback.core.filter.EvaluatorFilter">
             <evaluator>
-                <expression>return logger.contains("${package}")</expression>
+                <expression>return logger.contains("${package}");</expression>
             </evaluator>
-            <OnMismatch>DENY</OnMismatch>
+            <OnMismatch>NEUTRAL</OnMismatch>
             <OnMatch>NEUTRAL</OnMatch>
         </filter>
         <encoder class="PatternLayoutEncoder">
