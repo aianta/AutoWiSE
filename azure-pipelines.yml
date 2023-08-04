@@ -8,17 +8,14 @@ trigger:
 resources:
 - repo: self
 
-pool:
-  name: Default
-  demands:
-    - agent.name -equals hypathia
-
 variables:
   tag: 'aianta/autowise'
 
 stages:
-- stage: Build
-  displayName: Build image
+- stage: Build and Deply
+  displayName: Build and Deploy
+  pool:
+    name: Default
   jobs:
   - job: Build
     displayName: Build
