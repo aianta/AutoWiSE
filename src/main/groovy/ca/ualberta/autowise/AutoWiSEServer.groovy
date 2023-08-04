@@ -108,6 +108,9 @@ class AutoWiSEServer {
         db.getActiveWebhooks().onSuccess(hooks->{
             router.clear() //Clear any existing webhooks
             hooks.forEach(hook->this.mountWebhook(hook))
+            router.route().handler(rc->{
+                rc.response().setStatusCode(200).end("This link may have expired or is invalid.")
+            })
         }).onFailure(err->{
             log.error err.getMessage(), err
         })
@@ -133,12 +136,12 @@ class AutoWiSEServer {
 
         db.invokeAndGetWebhookById(webhookId).onSuccess{ Webhook webhook->{
 
-            rc.response().setStatusCode(200).end("Your request has been processed! Thank you!\n\nPlease note: If you already signed up for a volunteer shift, clicking a different volunteer link from the recruitment email will NOT do anything. \n\nYou may now close this window.")
 
             log.info( "hook type match [${webhook.type.toString()}:${HookType.ACCEPT_ROLE_SHIFT.toString()}] ${webhook.type.equals(HookType.ACCEPT_ROLE_SHIFT)}")
 
             switch (webhook.type){
                 case HookType.ACCEPT_ROLE_SHIFT:
+                    finishResponse(rc, "Please note: If you already signed up for a volunteer shift, clicking a different volunteer link from the recruitment email will NOT do anything.")
                     acceptShiftRole(services, webhook, config)
                             .onSuccess{
                                 log.info "ACCEPT_ROLE_SHIFT webhook ${webhook.id.toString()} executed successfully!"
@@ -146,6 +149,7 @@ class AutoWiSEServer {
                             .onFailure{err->webhookFailureHandler(err, webhook)}
                     break
                 case HookType.CANCEL_ROLE_SHIFT:
+                    finishResponse(rc, "We are cancelling your shift and will send you a confirmation soon.")
                     cancelShiftRole(services, webhook, config)
                         .onSuccess{
                             log.info "CANCEL_ROLE_SHIFT webhook ${webhook.id.toString()} executed successfully!"
@@ -153,18 +157,20 @@ class AutoWiSEServer {
                         .onFailure{ err->webhookFailureHandler(err, webhook)}
                     break
                 case HookType.CONFIRM_ROLE_SHIFT:
+                    finishResponse(rc,"Your availability for your volunteer shift has been confirmed.")
                     confirmShiftRole(services, webhook)
                         .onSuccess{log.info("CONFIRM_ROLE_SHIFT webhook ${webhook.id.toString()} executed successfully!")}
                         .onFailure(err->webhookFailureHandler(err, webhook))
                     break
                 case HookType.REJECT_VOLUNTEERING_FOR_EVENT:
+                    finishResponse(rc,"Sorry it didn't work out this time.")
                     rejectVolunteeringForEvent(services, webhook)
                         .onSuccess{log.info("REJECT_VOLUNTEERING_FOR_EVENT webhook ${webhook.id.toString()} executed successfully!")}
                         .onFailure{err->webhookFailureHandler(err, webhook)}
                     break
 
                 case HookType.EXECUTE_TASK_NOW:
-
+                    finishResponse(rc, "The specified task will begin execution imminently")
                     db.getWorkByTaskId(webhook.data.getString("taskId"))
                         .onSuccess{
                             task->AutoWiSE.executeTask(task, vertx, services, config)
@@ -182,6 +188,7 @@ class AutoWiSEServer {
 
                     break
                 case HookType.CANCEL_TASK:
+                    finishResponse(rc, "The specified task will be cancelled imminently. If you'd like to cancel the entire campaign click the campaign cancellation link instead.")
                     db.cancelTaskById(webhook.data.getString("taskId"))
                         .onSuccess{
                             log.info "Successfully cancelled task ${webhook.data.getString("taskId")}!"
@@ -191,6 +198,7 @@ class AutoWiSEServer {
                         }
                     break
                 case HookType.CANCEL_CAMPAIGN:
+                    finishResponse(rc, "The campaign will be cancelled imminently.")
                     db.cancelCampaign(webhook.eventId).onSuccess{
                         log.info "Campaign for eventId ${webhook.eventId.toString()} has been cancelled."
                         updateSingleValueAt(services.googleAPI, webhook.data.getString("eventSheetId"), 'Event!A3', TaskStatus.CANCELLED.toString())
@@ -215,6 +223,10 @@ class AutoWiSEServer {
                 }
         }
 
+    }
+
+    static def finishResponse(rc, customMsg){
+        rc.response().setStatusCode(200).end("Your request has been processed! Thank you!\n\n ${customMsg} \n\nYou may now close this window.")
     }
 
 
