@@ -8,7 +8,8 @@ trigger:
 resources:
 - repo: self
 
-pool: Default
+pool:
+  name: Default
 
 variables:
   tag: 'aianta/autowise'
