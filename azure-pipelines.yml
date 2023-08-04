@@ -19,15 +19,17 @@ stages:
 
   jobs:
   - job: Build
-    displayName: Build
+    displayName: Build and Deploy
     steps:
-    - task: Docker@2
+    - task: Bash@3
       displayName: Build AutoWiSE Image
       inputs:
-        command: build
-        dockerfile: '$(Build.SourcesDirectory)/Dockerfile'
-        tags: |
-          $(tag)
+        targetType: 'inline'
+        script: |
+          # Write your commands here
+          sudo docker build . -t $(tag)
+          echo 'AutoWiSE image built!'
+
 
     - task: Bash@3
       displayName: Stopping any existing containers
@@ -35,7 +37,7 @@ stages:
         targetType: 'inline'
         script: |
           # Write your commands here
-          docker stop autowise
+          sudo docker stop autowise
           echo 'AutoWiSE deployed!'
 
     - task: Bash@3
@@ -44,6 +46,6 @@ stages:
         targetType: 'inline'
         script: |
           # Write your commands here
-          docker run -p 8001:8001 -p 8002:8002 -v /home/aianta/autowise/conf/:/home/autowise/conf -v /home/aianta/autowise/data/:/home/autowise/data -d --rm --name autowise $(tag)
+          sudo docker run -p 8001:8001 -p 8002:8002 -v /home/aianta/autowise/conf/:/home/autowise/conf -v /home/aianta/autowise/data/:/home/autowise/data -d --rm --name autowise $(tag)
           echo 'AutoWiSE deployed!'
         failOnStderr: true
