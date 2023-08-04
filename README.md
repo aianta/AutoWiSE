@@ -1,16 +1,16 @@
 # AutoWiSE
 
 # TODO
-* Futurize operations 
+* ~~Futurize operations~~
   * Error handling, especially with API calls.
     * Handle GoogleAPI 401 - unauthenticated using slack.
     * Add an autowise technical channel, and send errors there
     * Ideally fail safe
   * Futurize operations done on tick, a tick should complete a future.
-* Canary Email Message
+* Canary Slack Message
 * ~~Switch to MDT/MST for all timestamps~~
 * ~~Send a confirmation response to the user clicking a webhook link sooner (before the action has been processed).~~
-* Possible warning appears on links sent to yahoo mail addresses. 
+* ~~Possible warning appears on links sent to yahoo mail addresses.~~ 
   * ~~Implement SSL/https with certbot~~
 * ~~Add web request logging with vertx handler.~~
 * Ensure all operations produce meaningful logs.

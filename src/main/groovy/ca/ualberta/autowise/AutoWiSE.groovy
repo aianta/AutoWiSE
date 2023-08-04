@@ -1,5 +1,6 @@
 package ca.ualberta.autowise
 
+import ca.ualberta.autowise.model.SlackBrowser
 import ca.ualberta.autowise.model.Volunteer
 import ca.ualberta.autowise.scripts.google.EventSlurper
 import com.google.api.services.drive.model.File
@@ -69,28 +70,27 @@ void vertxStart(Promise<Void> startup){
         //Make config values available for initializing AutoWiSE systems
         config = configResult.result()
 
-        //Initialize Authentication for Google API
-        vertx.executeBlocking(blocking->blocking.complete(GoogleAPI.createInstance(
-                config.getString("application_name"),
-                config.getString("credentials_path"),
-                config.getString("auth_tokens_directory_path"),
-                config.getString("auth_server_host"),
-                config.getInteger("auth_server_receiver_port")
-        ))){
-            res->
-                if(res){
-                    googleAPIInit.complete(res.result())
-                }else{
-                    log.error res.cause().getMessage(), res.cause()
-                    googleAPIInit.fail(res.cause())
-                }
-        }
+
 
         //Initialize Authentication for Slack API
         vertx.executeBlocking(blocking->blocking.complete(SlackAPI.createInstance(config.getString("slack_token")))){
             res->
                 if(res){
                     slackAPIInit.complete(res.result())
+
+                    //Initialize Authentication for Google API, do this after slack, so we can use slack as the browser
+                    def googleAPI = GoogleAPI.createInstance(
+                            config.getString("application_name"),
+                            config.getString("credentials_path"),
+                            config.getString("auth_tokens_directory_path"),
+                            config.getString("auth_server_host"),
+                            config.getInteger("auth_server_receiver_port"),
+                            new SlackBrowser(slackAPI: res.result(), config:config)
+                    )
+
+                    googleAPIInit.complete(googleAPIInit)
+
+
                 }else{
                     log.error res.cause().getMessage(), res.cause()
                     slackAPIInit.fail(res.cause())

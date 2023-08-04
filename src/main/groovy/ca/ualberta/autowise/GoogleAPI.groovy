@@ -1,5 +1,6 @@
 package ca.ualberta.autowise
 
+import ca.ualberta.autowise.model.SlackBrowser
 import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp
 import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow
@@ -51,7 +52,7 @@ class GoogleAPI {
     def _sheets
     def _gmail
 
-    static GoogleAPI createInstance(applicationName, credentialsPath, tokensDirPath, authServerHost, authServerPort){
+    static GoogleAPI createInstance(applicationName, credentialsPath, tokensDirPath, authServerHost, authServerPort, SlackBrowser browser){
         APPLICATION_NAME = applicationName
         CREDENTIALS_PATH = credentialsPath
         TOKENS_DIRECTORY_PATH = tokensDirPath
@@ -70,7 +71,7 @@ class GoogleAPI {
         .build()
 
         def authServerReceiver = new LocalServerReceiver.Builder().setHost(AUTH_SERVER_HOST).setPort(AUTH_SERVER_PORT).build()
-        def credentials = new AuthorizationCodeInstalledApp(authFlow, authServerReceiver).authorize("user")
+        def credentials = new AuthorizationCodeInstalledApp(authFlow, authServerReceiver, browser).authorize("user")
 
         instance = new GoogleAPI(credentials)
     }
