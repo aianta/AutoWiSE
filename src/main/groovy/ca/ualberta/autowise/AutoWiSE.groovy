@@ -25,6 +25,7 @@ import static ca.ualberta.autowise.scripts.ProcessAutoWiSEEventSheet.processEven
 import static ca.ualberta.autowise.scripts.tasks.RecruitmentEmailTask.recruitmentEmailTask
 import static ca.ualberta.autowise.scripts.tasks.ConfirmationEmailTask.confirmationEmailTask
 import static ca.ualberta.autowise.scripts.tasks.EventRegistrationEmailTask.eventRegistrationEmailTask
+import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.*
 /**
  * @Author Alexandru Ianta
  * This verticle is responsible for bootstrapping all of AutoWiSE's functionality.
@@ -138,22 +139,6 @@ void vertxStart(Promise<Void> startup){
             volunteers.add(new Volunteer(email: "ianta@ualberta.ca", name: "Alex Ianta"))
             volunteers.add(new Volunteer(email: "aianta03@gmail.com", name:"Tim tom"))
 
-//            try{
-//                CompositeFuture.all(
-//                        syncEventVolunteerContactSheet(services.googleAPI, "1iF2JvYvI_VUmhwraFdcgX9DuifPivjHfYykSsx4ms3Y", volunteers).onFailure{err->log.error "sync failed"},
-//                        slurpDocument(services.googleAPI, "1rKlMxnlmWEMkAKmWWnXabtbU9KfHqKZ7pHJeTF41zMg").onFailure{err->log.error "slurp failed"},
-//                        findAvailableShiftRoles(services.googleAPI, "1iF2JvYvI_VUmhwraFdcgX9DuifPivjHfYykSsx4ms3Y").onFailure {err->log.error "find shiftrole failed"}
-//                ).onSuccess{
-//                    composite->
-//                        log.info "woohoo"
-//                }
-//                        .onFailure{
-//                            err->
-//                                log.error err.getMessage(), err
-//                        }
-//            }catch(Exception e){
-//                log.error e.getMessage(),e
-//            }
 
 
 
@@ -237,6 +222,7 @@ void vertxStart(Promise<Void> startup){
 
             )
 
+            sendSlackMessage(services.slackAPI, config.getString("technical_channel"), "Autowise started successfully!")
             /** Notify vertx that verticle deployment is complete */
             startup.complete()
         }
