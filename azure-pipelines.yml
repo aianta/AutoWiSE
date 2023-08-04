@@ -12,7 +12,7 @@ variables:
   tag: 'aianta/autowise'
 
 stages:
-- stage: Build and Deply
+- stage: Build_Deploy
   displayName: Build and Deploy
   pool:
     name: Default
