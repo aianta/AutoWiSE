@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
+import static ca.ualberta.autowise.scripts.ProcessAutoWiSEEventSheet.googleAPI
 import static ca.ualberta.autowise.scripts.google.GetFilesInFolder.getFiles
 import static ca.ualberta.autowise.scripts.ProcessAutoWiSEEventSheet.processEventSheet
 import static ca.ualberta.autowise.scripts.tasks.RecruitmentEmailTask.recruitmentEmailTask
@@ -222,6 +223,15 @@ void vertxStart(Promise<Void> startup){
 
 
             )
+
+            try{
+                log.info "about to refresh google api token"
+                def refreshResult = googleAPI.credentials.refreshToken()
+                log.info "refresh result: ${refreshResult}"
+            }catch(Exception e){
+                log.error e.getMessage(),e
+            }
+
 
             sendSlackMessage(services.slackAPI, config.getString("technical_channel"), "Autowise started successfully @${services.server.location()}!")
             /** Notify vertx that verticle deployment is complete */
