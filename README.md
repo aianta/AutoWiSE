@@ -66,3 +66,7 @@ https://community.letsencrypt.org/t/how-could-i-get-the-password-for-keyfile/470
 
 For simplicity, all keystore related passwords are just `autowise`. 
 
+# A note on Google OAuth2
+The refresh token which is necessary to refresh access tokens that normally expire within 1 hour is only returned on the first authorization.
+This means that if you want to use the same Google account to authorize multiple instances of AutoWiSE (say a local dev and the prod version), you will need to manually delete the refresh token from the database.
+In practice the refresh token should go to the prod version, as the local dev version should be fine with the hour long access tokens.
