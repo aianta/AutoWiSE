@@ -65,6 +65,7 @@ void vertxStart(Promise<Void> startup){
         }
 
         //Make config values available for initializing AutoWiSE systems
+        //Lol jk, this doesn't work for some reason, proably async shenanigans
         config = configResult.result()
 
 
@@ -99,7 +100,7 @@ void vertxStart(Promise<Void> startup){
         CompositeFuture.all([
                 googleAPIInit.future().onComplete{log.info "Google API initialized!"},
                 slackAPIInit.future().onSuccess{slackAPI->
-                    //Initialize Authentication for Google API, do this after slack, so we can use slack as the browser
+                    //Initialize Authentication for Google API, do this after slack, so we can use slack to send the auth link
                     def googleAPI = GoogleAPI.createInstance(
                             config.getString("application_name"),
                             config.getString("credentials_path"),

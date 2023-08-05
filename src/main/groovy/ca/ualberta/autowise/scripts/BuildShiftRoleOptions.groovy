@@ -8,7 +8,12 @@ import java.util.stream.Collectors
 
 import static ca.ualberta.autowise.scripts.FindAvailableShiftRoles.*
 
-
+/**
+ *
+ * @param shiftRoles
+ * @param config
+ * @return
+ */
 static def buildShiftRoleOptions(List<ShiftRole> shiftRoles, config){
     StringBuilder sb = new StringBuilder()
     sb.append("<table><thead><tr><th>Role</th><th>Start Time</th><th>End Time</th><th>Description</th><th>Volunteer Link</th></tr></thead>")
@@ -27,4 +32,3 @@ static def buildShiftRoleOptions(List<ShiftRole> shiftRoles, config){
     sb.append("</table>")
     return sb.toString()
 }
-

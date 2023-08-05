@@ -86,6 +86,9 @@ class GoogleAPI {
 
     private void validateCredentials(){
         try{
+            log.info "Validating credentials";
+            log.info "credentials expiry: ${credentials.getExpirationTimeMilliseconds()}}"
+            log.info "current time: ${Instant.now().toEpochMilli()}"
             if(Instant.now().toEpochMilli() >= credentials.getExpirationTimeMilliseconds()){
                 credentials.refreshToken()
             }
