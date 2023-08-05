@@ -45,6 +45,10 @@ dependencies {
     implementation 'com.google.apis:google-api-services-docs:v1-rev20220609-2.0.0'
     implementation 'com.google.apis:google-api-services-gmail:v1-rev20220404-2.0.0'
 
+    implementation("com.slack.api:bolt:1.1.+")
+    implementation("com.slack.api:bolt-servlet:1.1.+")
+    implementation("com.slack.api:bolt-jetty:1.1.+")
+
     implementation("com.slack.api:slack-api-client:1.30.0")
     // Absolutely NEED groovy 4.x, promises and futures are broken with anything older!!!
     // https://github.com/vert-x3/vertx-lang-groovy/issues/113

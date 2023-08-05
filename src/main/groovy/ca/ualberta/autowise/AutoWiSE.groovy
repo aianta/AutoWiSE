@@ -147,56 +147,7 @@ void vertxStart(Promise<Void> startup){
                     sendSlackMessage(services.slackAPI, config.getString("technical_channel"), "Autowise Heartbeat - ${ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone).format(EventSlurper.eventTimeFormatter)}")
                 }
 
-                log.info "external tick - ${ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone).format(EventSlurper.eventTimeFormatter)}"
-
-                try{
-                    log.info "Refreshing webhooks"
-                    server.loadWebhooks() //(re)Load webhooks from database.
-
-
-                    /**
-                     * On every tick check google drive for new events to process.
-                     */
-                    /**
-                     * Start going through all the google sheets in the autowise folder on google drive.
-                     */
-                    getFiles(googleApi, config.getString("autowise_drive_folder_id"), "application/vnd.google-apps.spreadsheet")
-                        .onSuccess {
-                            files->
-                                files.forEach {f->
-                                    log.info "${f.getName()} - ${f.getMimeType()} - ${f.getId()}"
-                                    /**
-                                     * If the sheet name starts with the specified autowise_event_prefix process it
-                                     */
-                                    if (f.getName().startsWith(config.getString("autowise_event_prefix"))){
-
-                                        // Do processing in separate thread to avoid blocking the main loop.
-                                        vertx.executeBlocking(blocking->{
-
-                                            processEventSheet(services, f.getId(), config.getString("autowise_volunteer_pool_id"), config.getString("autowise_volunteer_table_range"))
-                                                    .onSuccess {
-                                                blocking.complete()
-                                            }.onFailure{err->
-                                                log.error err.getMessage(), err
-                                            }
-                                        }, true){
-                                            log.info "Allegedly done processing"
-                                        }
-
-
-                                    }
-                                }
-                        }
-                        .onFailure { err->
-                            log.error "Error getting files from google drive!"
-                            log.error err.getMessage(), err
-                        }
-
-
-                }catch(Exception e){
-                    log.error e.getMessage(), e
-
-                }
+                doExternalTick(services)
 
 
             })
@@ -232,6 +183,62 @@ void vertxStart(Promise<Void> startup){
 
 
 
+}
+
+static def doExternalTick(services){
+    def server = services.server
+    def googleApi = services.googleAPI
+
+    log.info "external tick - ${ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone).format(EventSlurper.eventTimeFormatter)}"
+
+    try{
+        log.info "Refreshing webhooks"
+        server.loadWebhooks() //(re)Load webhooks from database.
+
+
+        /**
+         * On every tick check google drive for new events to process.
+         */
+        /**
+         * Start going through all the google sheets in the autowise folder on google drive.
+         */
+        getFiles(googleApi, config.getString("autowise_drive_folder_id"), "application/vnd.google-apps.spreadsheet")
+                .onSuccess {
+                    files->
+                        files.forEach {f->
+                            log.info "${f.getName()} - ${f.getMimeType()} - ${f.getId()}"
+                            /**
+                             * If the sheet name starts with the specified autowise_event_prefix process it
+                             */
+                            if (f.getName().startsWith(config.getString("autowise_event_prefix"))){
+
+                                // Do processing in separate thread to avoid blocking the main loop.
+                                vertx.executeBlocking(blocking->{
+
+                                    processEventSheet(services, f.getId(), config.getString("autowise_volunteer_pool_id"), config.getString("autowise_volunteer_table_range"))
+                                            .onSuccess {
+                                                blocking.complete()
+                                            }.onFailure{err->
+                                        log.error err.getMessage(), err
+                                    }
+                                }, true){
+                                    log.info "Allegedly done processing"
+                                }
+
+
+                            }
+                        }
+                }
+                .onFailure { err->
+                    log.error "Error getting files from google drive!"
+                    log.error err.getMessage(), err
+                }
+
+
+    }catch(Exception e){
+        log.error e.getMessage(), e
+
+    }
 }
 
 
