@@ -226,7 +226,7 @@ void vertxStart(Promise<Void> startup){
 
             try{
                 log.info "about to refresh google api token"
-                def refreshResult = googleAPI.credentials.refreshToken()
+                def refreshResult = googleApi.credentials.refreshToken()
                 log.info "refresh result: ${refreshResult}"
             }catch(Exception e){
                 log.error e.getMessage(),e
