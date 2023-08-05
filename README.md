@@ -7,7 +7,7 @@
     * Add an autowise technical channel, and send errors there
     * Ideally fail safe
   * ~~Futurize operations done on tick, a tick should complete a future.~~
-* Canary Slack Message
+* ~~Canary Slack Message~~
 * ~~Switch to MDT/MST for all timestamps~~
 * ~~Send a confirmation response to the user clicking a webhook link sooner (before the action has been processed).~~
 * ~~Possible warning appears on links sent to yahoo mail addresses.~~ 
@@ -15,9 +15,9 @@
 * ~~Add web request logging with vertx handler.~~
 * Ensure all operations produce meaningful logs.
   * ~~At least success/failure messages.~~
-* Campaign registration email updates
-  * Concat all email templates
-  * Add a pending/approved stage to all campaigns.
+* ~~Campaign registration email updates~~
+  * ~~Concat all email templates~~
+  * ~~Add a pending/approved stage to all campaigns.~~
 * Add a thank you stage post-event.
 * Finish Readme
   * Include instructions for setting up an event through Google Sheets
@@ -38,7 +38,7 @@
 
 ## On Hypathia with aianta user
 
-`docker run -p 8001:8001 -p 8002:8002 -v /home/aianta/autowise/conf/:/home/autowise/conf -v /home/aianta/autowise/data/:/home/autowise/data -d --name autowise aianta/autowise`
+`docker run -p 8001:8001 -p 8002:8002 --rm -v /home/aianta/autowise/conf/:/home/autowise/conf -v /home/aianta/autowise/data/:/home/autowise/data -d --name autowise aianta/autowise`
 
 
 # SSL Setup 

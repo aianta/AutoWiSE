@@ -1,10 +1,12 @@
 package ca.ualberta.autowise
 
 import ca.ualberta.autowise.model.SlackBrowser
+import com.google.api.client.auth.oauth2.Credential
 import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp
 import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets
+import com.google.api.client.googleapis.auth.oauth2.GoogleCredential
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.client.util.store.FileDataStoreFactory
@@ -16,6 +18,13 @@ import com.google.api.services.gmail.Gmail
 import com.google.api.services.gmail.GmailScopes
 import com.google.api.services.sheets.v4.Sheets
 import com.google.api.services.sheets.v4.SheetsScopes
+import groovy.transform.Field
+import org.slf4j.LoggerFactory
+
+import java.time.Instant
+import java.time.ZonedDateTime
+
+
 
 /**
  * @Author Alexandru Ianta
@@ -23,7 +32,7 @@ import com.google.api.services.sheets.v4.SheetsScopes
  * Handles authentication.
  */
 class GoogleAPI {
-
+    static log = LoggerFactory.getLogger(GoogleAPI.class)
     static JSON_FACTORY = GsonFactory.getDefaultInstance()
     static HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport()
     static TOKENS_DIRECTORY_PATH = "tokens"
@@ -46,7 +55,7 @@ class GoogleAPI {
 
     static instance = null
 
-    def credentials
+    Credential credentials
     def _drive
     def _docs
     def _sheets
@@ -72,8 +81,18 @@ class GoogleAPI {
 
         def authServerReceiver = new LocalServerReceiver.Builder().setHost(AUTH_SERVER_HOST).setPort(AUTH_SERVER_PORT).build()
         def credentials = new AuthorizationCodeInstalledApp(authFlow, authServerReceiver, browser).authorize("user")
-
         instance = new GoogleAPI(credentials)
+    }
+
+    private void validateCredentials(){
+        try{
+            if(Instant.now().toEpochMilli() >= credentials.getExpirationTimeMilliseconds()){
+                credentials.refreshToken()
+            }
+        }catch(Exception e){
+            log.error e.getMessage(), e
+        }
+
     }
 
     static GoogleAPI getInstance(){
@@ -88,6 +107,7 @@ class GoogleAPI {
     }
 
     Drive drive(){
+        validateCredentials()
         if (_drive == null) {
             _drive = new Drive.Builder(HTTP_TRANSPORT, JSON_FACTORY, credentials)
                     .setApplicationName(APPLICATION_NAME).build()
@@ -96,6 +116,7 @@ class GoogleAPI {
     }
 
     Sheets sheets(){
+        validateCredentials()
         if(_sheets == null){
             _sheets = new Sheets.Builder(HTTP_TRANSPORT, JSON_FACTORY, credentials)
                     .setApplicationName(APPLICATION_NAME).build()
@@ -104,6 +125,7 @@ class GoogleAPI {
     }
 
     Gmail gmail(){
+        validateCredentials()
         if(_gmail == null){
             _gmail = new Gmail.Builder(HTTP_TRANSPORT, JSON_FACTORY, credentials)
                     .setApplicationName(APPLICATION_NAME).build()
@@ -112,6 +134,7 @@ class GoogleAPI {
     }
 
     Docs docs(){
+        validateCredentials()
         if(_docs == null){
             _docs = new Docs.Builder(HTTP_TRANSPORT, JSON_FACTORY, credentials)
                     .setApplicationName(APPLICATION_NAME).build()
