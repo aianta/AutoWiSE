@@ -110,6 +110,8 @@ class AutoWiSEServer {
 
     def loadWebhooks(){
         db.getActiveWebhooks().onSuccess(hooks->{
+            log.info "Mounting ${hooks.size()} active webhooks"
+
             router.clear() //Clear any existing webhooks
             hooks.forEach(hook->this.mountWebhook(hook))
             router.route().handler(rc->{
@@ -123,6 +125,7 @@ class AutoWiSEServer {
     def mountWebhook(Webhook hook){
         try{
             def webhookPath = Base64.encodeBase64URLSafeString(hook.id.toString().getBytes())
+            log.info "Mounting webhook ${hook.id.toString()} at ${webhookPath}"
             router.route(HttpMethod.GET, "/"+webhookPath).handler(this::webhookHandler)
 
         }catch (Exception e){
