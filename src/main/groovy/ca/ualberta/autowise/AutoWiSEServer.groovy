@@ -115,7 +115,7 @@ class AutoWiSEServer {
             router.clear() //Clear any existing webhooks
             router.route().handler(LoggerHandler.create());
             hooks.forEach(hook->this.mountWebhook(hook))
-            router.route().handler(rc->{
+            router.route().last().handler(rc->{
                 rc.response().setStatusCode(200).end("This link may have expired or is invalid.")
             })
         }).onFailure(err->{
