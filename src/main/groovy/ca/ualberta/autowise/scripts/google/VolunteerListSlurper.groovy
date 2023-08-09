@@ -30,12 +30,14 @@ static def slurpVolunteerList(GoogleAPI googleAPI, volunteerSheetId, volunteerTa
         ListIterator<List<Object>> it = data.listIterator()
         while(it.hasNext()){
             def currRow = it.next();
-            if (currRow.get(0).equals("Name")){ //If the first column of the row contains 'Name' then this is the header row
-                continue //Move on to the actual volunteers
-            }
             if (currRow.isEmpty()){
                 continue //Skip empty rows
             }
+
+            if (currRow.get(0).equals("Name")){ //If the first column of the row contains 'Name' then this is the header row
+                continue //Move on to the actual volunteers
+            }
+
             Volunteer volunteer = new Volunteer(name: currRow.get(0), email: currRow.get(1))
             volunteers.add(volunteer)
         }

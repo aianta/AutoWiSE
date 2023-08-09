@@ -26,7 +26,7 @@ static def buildShiftRoleOptions(List<ShiftRole> shiftRoles, config){
                 "<td>${curr.shift.startTime.format(EventSlurper.shiftTimeFormatter)}</td>" +
                 "<td>${curr.shift.endTime.format(EventSlurper.shiftTimeFormatter)}</td>" +
                 "<td>${curr.role.description}</td>" +
-                "<td><a href=\"${config.getString("protocol")}://${config.getString("host")}:${config.getInteger("port").toString()}/${curr.acceptHook.path()}\">Click to Volunteer!</a></td>" +
+                "<td><a href=\"${config.getString("protocol")}://${config.getString("host")}:${config.getInteger("port").toString()}/${curr.acceptHook.path()}\">Sign-up</a></td>" +
                 "</tr>")
     }
     sb.append("</table>")

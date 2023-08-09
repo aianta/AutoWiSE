@@ -114,7 +114,7 @@ static Future eventRegistrationEmailTask(services, Task t, emailTemplateId, conf
                     ))
 
                     //TODO - Error handling
-                    return sendEmailToGroup(services.googleAPI, "AutoWiSE", recipients, "AutoWiSE Automated Campaign Plan for ${eventName}", emailContents)
+                    return sendEmailToGroup(config, services.googleAPI, config.getString("sender_email"), recipients, "AutoWiSE Automated Campaign Plan for ${eventName}", emailContents)
 
             }.compose{
                 services.db.markTaskComplete(t.taskId)

@@ -29,8 +29,8 @@ import org.slf4j.LoggerFactory
 
 @Field static def log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.google.SendEmail.class)
 
-static def sendEmailToGroup(googleAPI, from, to, subject, content ){
-    MimeMessage email = createMimeMessage(from, subject, content)
+static def sendEmailToGroup(config, googleAPI, from, to, subject, content ){
+    MimeMessage email = createMimeMessage(config, from, subject, content)
     to.forEach(
             recipient->{
                 email.addRecipient(Message.RecipientType.TO, new InternetAddress(recipient))
@@ -39,14 +39,14 @@ static def sendEmailToGroup(googleAPI, from, to, subject, content ){
     return _sendEmail(googleAPI, email)
 }
 
-static def sendEmail(googleAPI, from, to, subject, content){
-    MimeMessage email = createMimeMessage(from, subject, content)
+static def sendEmail(config, googleAPI, from, to, subject, content){
+    MimeMessage email = createMimeMessage(config, from, subject, content)
     email.addRecipient(Message.RecipientType.TO, new InternetAddress(to))
     return _sendEmail(googleAPI, email)
 }
 
-static def sendEmail(googleAPI, from, to, bcc, subject, content){
-    MimeMessage email = createMimeMessage(from, subject, content)
+static def sendEmail(config, googleAPI, from, to, bcc, subject, content){
+    MimeMessage email = createMimeMessage(config, from, subject, content)
     email.addRecipient(Message.RecipientType.TO, new InternetAddress(to))
     email.addRecipient(Message.RecipientType.BCC, new InternetAddress(bcc))
     return _sendEmail(googleAPI, email)
@@ -76,12 +76,13 @@ private static def _sendEmail(GoogleAPI googleAPI, MimeMessage email){
     return promise.future()
 }
 
-private static def createMimeMessage(from, subject, text){
+private static def createMimeMessage(config, from, subject, text){
     try{
         log.info "Creating MimeMessage"
         Properties props = new Properties();
         Session session = Session.getDefaultInstance(props)
         MimeMessage email =  new MimeMessage(session)
+        email.setHeader("List-Unsubscribe", "<mailto:${config.getString("sender_email")}?subject=unsubscribe-from-autowise>".toString())
         email.setFrom(from)
         email.setSubject(subject.toString()) //toString any GStrings that made it here
         email.setText(text.toString(), "utf-8", "html") //toString any GStrings that made it here

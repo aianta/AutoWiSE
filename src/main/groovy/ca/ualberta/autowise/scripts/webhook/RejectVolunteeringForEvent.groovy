@@ -16,7 +16,7 @@ import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.sendSlackMessa
 @Field static def log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.webhook.RejectVolunteeringForEvent.class)
 
 
-static def rejectVolunteeringForEvent(services, webhook){
+static def rejectVolunteeringForEvent(services, webhook, config){
 
     def eventSheetId = webhook.data.getString("eventSheetId")
     def volunteerEmail = webhook.data.getString("volunteerEmail")
@@ -42,7 +42,7 @@ static def rejectVolunteeringForEvent(services, webhook){
                         def emailContents = makeRejectedEmail(emailTemplate, eventName)
 
                         return CompositeFuture.all(
-                                sendEmail(services.googleAPI, "AutoWiSE", volunteerEmail, "[WiSER] Confirmation of Volunteer Opportunity Rejection for ${eventName}", emailContents ),
+                                sendEmail(config, services.googleAPI, config.getString("sender_email"), volunteerEmail, "[WiSER] Confirmation of Volunteer Opportunity Rejection for ${eventName}", emailContents ),
                                 sendSlackMessage(services.slackAPI, eventSlackChannel, "${volunteerName} has indicated they are not interested or unable to volunteer for ${eventName}!")
                         )
                 }

@@ -146,7 +146,7 @@ static def acceptShiftRole(services, Webhook webhook, config){
                                             log.info "email contents: \n${emailContents}"
 
                                             return CompositeFuture.all(
-                                                    sendEmail(services.googleAPI, "AutoWiSE", volunteerEmail, "[WiSER] Volunteer Sign-up Confirmation for ${eventName}", emailContents),
+                                                    sendEmail(config, services.googleAPI, config.getString("sender_email"), volunteerEmail, "[WiSER] Volunteer Sign-up Confirmation for ${eventName}", emailContents),
                                                     sendSlackMessage(services.slackAPI, eventSlackChannel, "${volunteerName} has expressed interest in volunteering for ${eventName} as ${shiftRole.role.name}. They have been successfully assigned shift ${shiftRole.shift.index} starting at ${shiftRole.shift.startTime.format(EventSlurper.shiftTimeFormatter)} and ending at ${shiftRole.shift.endTime.format(EventSlurper.shiftTimeFormatter)}. "  ) // Notify Slack
                                             )
                                     }
@@ -169,7 +169,7 @@ static def acceptShiftRole(services, Webhook webhook, config){
                                 def emailContents = makeWaitlistEmail(emailTemplate, shiftRole, eventName)
 
                                 return CompositeFuture.all(
-                                        sendEmail(services.googleAPI, "AutoWiSE", volunteerEmail, "[WiSER] Volunteer Sign-up Waitlist Confirmation for ${eventName}", emailContents),
+                                        sendEmail(config, services.googleAPI, config.getString("sender_email"), volunteerEmail, "[WiSER] Volunteer Sign-up Waitlist Confirmation for ${eventName}", emailContents),
                                         sendSlackMessage(services.slackAPI, eventSlackChannel, "${volunteerName} has expressed interest in volunteering for ${eventName} as ${shiftRole.role.name}. However there were no matching free slots for this volunteer, so they have been waitlisted and notified that they will be contacted if a slot frees up.")
                                 )
                         }

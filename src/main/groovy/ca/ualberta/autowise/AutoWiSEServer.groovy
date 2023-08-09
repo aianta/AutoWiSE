@@ -149,7 +149,7 @@ class AutoWiSEServer {
 
             switch (webhook.type){
                 case HookType.ACCEPT_ROLE_SHIFT:
-                    finishResponse(rc, "Please note: If you already signed up for a volunteer shift, clicking a different volunteer link from the recruitment email will NOT do anything.")
+                    finishResponse(rc, "Please note: If you've already been assigned for a volunteer shift, clicking a different volunteer link from the recruitment email will NOT do anything. However if you've only been waitlisted you can still signup for something else.")
                     acceptShiftRole(services, webhook, config)
                             .onSuccess{
                                 log.info "ACCEPT_ROLE_SHIFT webhook ${webhook.id.toString()} executed successfully!"
@@ -172,7 +172,7 @@ class AutoWiSEServer {
                     break
                 case HookType.REJECT_VOLUNTEERING_FOR_EVENT:
                     finishResponse(rc,"Sorry it didn't work out this time.")
-                    rejectVolunteeringForEvent(services, webhook)
+                    rejectVolunteeringForEvent(services, webhook, config)
                         .onSuccess{log.info("REJECT_VOLUNTEERING_FOR_EVENT webhook ${webhook.id.toString()} executed successfully!")}
                         .onFailure{err->webhookFailureHandler(err, webhook)}
                     break
