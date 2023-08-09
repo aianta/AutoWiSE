@@ -4,7 +4,7 @@
 * ~~Futurize operations~~
   * Error handling, especially with API calls.
     * Handle GoogleAPI 401 - unauthenticated using slack.
-    * Add an autowise technical channel, and send errors there
+    * ~~Add an autowise technical channel, and send errors there~~
     * Ideally fail safe
   * ~~Futurize operations done on tick, a tick should complete a future.~~
 * ~~Canary Slack Message~~
@@ -23,6 +23,7 @@
   * Include instructions for setting up an event through Google Sheets
 * Creating events using JSON.
 * ~~Log web requests~~
+* Add List-unsubscribe header only to recruitment emails.
 
 # Building Docker image
 
