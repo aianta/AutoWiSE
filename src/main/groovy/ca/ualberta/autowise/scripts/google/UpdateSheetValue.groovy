@@ -7,8 +7,11 @@ import com.google.api.services.sheets.v4.model.AppendValuesResponse
 import com.google.api.services.sheets.v4.model.UpdateValuesResponse
 import com.google.api.services.sheets.v4.model.ValueRange
 import groovy.transform.Field
+import io.vertx.core.Future
 import io.vertx.core.Promise
 import org.slf4j.LoggerFactory
+
+import static ca.ualberta.autowise.scripts.google.GetSheetValue.getValuesAt
 
 import java.util.stream.Collectors
 
@@ -82,6 +85,32 @@ def static updateColumnValueAt(GoogleAPI googleAPI, sheetId, cellAddress, List<S
    }catch (Exception e){
        log.error e.getMessage(), e
    }
+}
+
+static def clearRange(GoogleAPI googleAPI, sheetId, cellAddress){
+    return getValuesAt(googleAPI, sheetId, cellAddress).compose(
+        values->{
+            def rowIt = values.iterator()
+            while (rowIt.hasNext()){
+                def row = (List<Object>)rowIt.next()
+                for(int i = 0; i < row.size(); i++){
+                    row.set(i, "")
+                }
+            }
+            ValueRange body = new ValueRange()
+                    .setRange(cellAddress)
+                    .setValues(values)
+                    .setMajorDimension("ROWS")
+            return updateAt(googleAPI, sheetId, cellAddress, body)
+
+    }, err->{
+        //If the error is that there aren't values at the ranges we're trying to clear, then we're set!
+        if (err.getMessage().contains("No value found")){
+            return Future.succeededFuture()
+        }else{
+            return Future.failedFuture(err)
+        }
+    })
 }
 
 static def appendAt(GoogleAPI googleAPI, sheetId, cellAddress, body){

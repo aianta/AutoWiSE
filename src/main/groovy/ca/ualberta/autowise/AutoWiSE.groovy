@@ -25,6 +25,7 @@ import static ca.ualberta.autowise.scripts.tasks.RecruitmentEmailTask.recruitmen
 import static ca.ualberta.autowise.scripts.tasks.ConfirmationEmailTask.confirmationEmailTask
 import static ca.ualberta.autowise.scripts.tasks.EventRegistrationEmailTask.eventRegistrationEmailTask
 import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.*
+
 /**
  * @Author Alexandru Ianta
  * This verticle is responsible for bootstrapping all of AutoWiSE's functionality.
@@ -174,7 +175,7 @@ void vertxStart(Promise<Void> startup){
                                         // Do processing in separate thread to avoid blocking the main loop.
                                         vertx.executeBlocking(blocking->{
 
-                                            processEventSheet(services, f.getId(), config.getString("autowise_volunteer_pool_id"), config.getString("autowise_volunteer_table_range"))
+                                            processEventSheet(services, f.getId(), config)
                                                     .onSuccess {
                                                 blocking.complete()
                                             }.onFailure{err->

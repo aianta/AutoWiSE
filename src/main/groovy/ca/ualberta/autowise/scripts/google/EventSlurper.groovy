@@ -31,7 +31,7 @@ import static ca.ualberta.autowise.scripts.google.GetSheetValue.getValuesAt
 @Field static GoogleAPI api
 @Field static sheetId
 @Field static log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.google.EventSlurper.class)
-@Field static ROLES_AND_SHIFTS_RANGE = "Event!A23:D200"
+@Field static ROLES_AND_SHIFTS_RANGE = "Event!A29:D200"
 
 
 
@@ -61,7 +61,6 @@ static def slurpSheet(GoogleAPI googleAPI, spreadsheetId){
             "eventEndTime": "Event!B10",
             "eventbriteLink": "Event!B11",
             "eventSlackChannel": "Event!B12",
-            "executiveRatio": "Event!B15",
             "campaignStartOffset": "Event!B16",
             "resolicitFrequency": "Event!B17",
             "followupOffset": "Event!B18",
@@ -94,7 +93,6 @@ static def slurpSheet(GoogleAPI googleAPI, spreadsheetId){
                     eventSlackChannel: slurped.get("eventSlackChannel"),
                     eventOrganizers: slurpEmailsHorizontally("Event!7:7"),
                     volunteerCoordinators: slurpEmailsHorizontally("Event!8:8"),
-                    executiveRatio: Double.parseDouble(slurped.get("executiveRatio")),
                     campaignStartOffset: Duration.ofDays(Long.parseLong(slurped.get("campaignStartOffset"))).toMillis(), //Convert days to ms
                     resolicitFrequency: Duration.ofDays(Long.parseLong(slurped.get("resolicitFrequency"))).toMillis(),   //Convert days to ms
                     followupOffset: Duration.ofHours(Long.parseLong(slurped.get("followupOffset"))).toMillis(),          //Convert hours to ms
@@ -206,7 +204,7 @@ private static def slurpRolesAndShifts(){
 
                 switch (rowData.get(0)){
                     case "Roles": //Roles header
-                        rowIndex = rowIt.nextIndex()
+                        log.info "${rowData}"
                         rowData = rowIt.next()
                         while (!rowData.isEmpty() && !rowData.get(0).equals("Shifts")){
                             Role r = new Role(
@@ -214,17 +212,16 @@ private static def slurpRolesAndShifts(){
                                     description: rowData.get(1)
                             )
                             roles.add(r)
-                            rowIndex = rowIt.nextIndex()
                             rowData = rowIt.next()
                         }
                         //Back-up one row to allow next if we went all the way to shifts, so that the switch clause can do the processing appropriately.
                         if (!rowData.isEmpty() && rowData.get(0).equals("Shifts")){
-                            rowIndex = rowIt.previousIndex()
+
                             rowData = rowIt.previous()
                         }
                         break;
                     case "Shifts": //Shifts header
-                        rowIndex = rowIt.nextIndex()
+
                         rowData = rowIt.next()
 
                         do{
@@ -232,7 +229,6 @@ private static def slurpRolesAndShifts(){
 
 
 
-                            rowIndex = rowIt.nextIndex()
                             rowData = rowIt.next()
                             while(!rowData.isEmpty() && rowData.get(0).matches("\\d+")){ //While the first column contains a number.
                                 Shift s = new Shift(
@@ -244,7 +240,7 @@ private static def slurpRolesAndShifts(){
                                 r.shifts.add(s)
 
                                 if (rowIt.hasNext()){
-                                    rowIndex = rowIt.nextIndex()
+
                                     rowData = rowIt.next()
                                 }else{
                                     break;
@@ -254,7 +250,7 @@ private static def slurpRolesAndShifts(){
 
                             //Skip blank rows between roles
                             while(rowIt.hasNext() && rowData.isEmpty()){
-                                rowIndex = rowIt.nextIndex()
+
                                 rowData = rowIt.next()
                             }
 
