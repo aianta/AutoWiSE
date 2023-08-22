@@ -74,7 +74,7 @@ static def recruitmentEmailTask(Vertx vertx, services, Task task, config, Predic
                         slurpDocument(services.googleAPI, task.data.getString("emailTemplateId")),
                         findAvailableShiftRoles(services.googleAPI, eventSheetId)
                 ).onFailure{
-                    err->log.error err.getMessage(), err
+                    err->Future.failedFuture(err)
                 }
                         .compose{
                     composite->

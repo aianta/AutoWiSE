@@ -22,8 +22,13 @@
 * Finish Readme
   * Include instructions for setting up an event through Google Sheets
 * Creating events using JSON.
+* Creating events via slack. 
 * ~~Log web requests~~
 * Add List-unsubscribe header only to recruitment emails.
+~~* Abort a campaign if the underlying event sheet is no longer accessible.~~
+* Add template descriptions in this readme. 
+* Don't break if there are no volunteer coordinators or event organizers. But break if there are neither.
+* Don't create events that happen in the past. 
 
 # Building Docker image
 

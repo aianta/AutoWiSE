@@ -14,7 +14,7 @@
     <appender name="STDOUT" class="ConsoleAppender">
         <filter class="ch.qos.logback.core.filter.EvaluatorFilter">
             <evaluator>
-                <expression>return logger.contains("${package}");</expression>
+                <expression>return logger.contains("${package}") || logger.contains("${vertx}");</expression>
             </evaluator>
             <OnMismatch>NEUTRAL</OnMismatch>
             <OnMatch>NEUTRAL</OnMatch>
@@ -27,7 +27,7 @@
     <appender name="FILE" class="RollingFileAppender">
         <filter class="ch.qos.logback.core.filter.EvaluatorFilter">
             <evaluator>
-                <expression>return logger.contains("${package}");</expression>
+                <expression>return logger.contains("${package}") || logger.contains("${vertx}");</expression>
             </evaluator>
             <OnMismatch>DENY</OnMismatch>
             <OnMatch>NEUTRAL</OnMatch>
@@ -45,7 +45,7 @@
     <appender name="ERROR_FILE" class="RollingFileAppender">
         <filter class="ch.qos.logback.core.filter.EvaluatorFilter">
             <evaluator>
-                <expression>return logger.contains("${package}");</expression>
+                <expression>return logger.contains("${package}") || logger.contains("${vertx}");</expression>
             </evaluator>
             <OnMismatch>DENY</OnMismatch>
             <OnMatch>NEUTRAL</OnMatch>

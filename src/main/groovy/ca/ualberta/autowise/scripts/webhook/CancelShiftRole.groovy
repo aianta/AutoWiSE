@@ -194,6 +194,7 @@ static def cancelShiftRole(services, Webhook webhook, config){
                                                     err->
                                                         log.error "Error updating volunteer status to cancelled."
                                                         log.error err.getMessage(), err
+                                                        return Future.failedFuture(err)
 
                                                 }
                                     }
