@@ -47,31 +47,38 @@ import static ca.ualberta.autowise.scripts.google.GetSheetValue.getValuesAt
  */
 @Field static DateTimeFormatter shiftTimeFormatter = DateTimeFormatter.ofPattern("H:mm");
 
+@Field static def dynamicRanges = [
+        "eventOrganizers": "Event!7:7",
+        "volunteerCoordinators": "Event!8:8",
+        "roles": ROLES_AND_SHIFTS_RANGE
+]
+
+@Field static def staticSingleValues = [
+        "id": "Event!A2",
+        "status":"Event!A3",
+        "name": "Event!B5",
+        "description":"Event!B6",
+        "eventStartTime": "Event!B9",
+        "eventEndTime": "Event!B10",
+        "eventbriteLink": "Event!B11",
+        "eventSlackChannel": "Event!B12",
+        "campaignStartOffset": "Event!B16",
+        "resolicitFrequency": "Event!B17",
+        "followupOffset": "Event!B18",
+        "initialRecruitmentEmailTemplateId": "Event!B19",
+        "recruitmentEmailTemplateId": "Event!B20",
+        "followupEmailTemplateId": "Event!B21",
+        "confirmAssignedEmailTemplateId": "Event!B22",
+        "confirmCancelledEmailTemplateId": "Event!B23",
+        "confirmWaitlistEmailTemplateId": "Event!B24",
+        "confirmRejectedEmailTemplateId": "Event!B25",
+]
 
 static def slurpSheet(GoogleAPI googleAPI, spreadsheetId){
     api = googleAPI
     sheetId = spreadsheetId
 
-    def staticSingleValues = [
-            "id": "Event!A2",
-            "status":"Event!A3",
-            "name": "Event!B5",
-            "description":"Event!B6",
-            "eventStartTime": "Event!B9",
-            "eventEndTime": "Event!B10",
-            "eventbriteLink": "Event!B11",
-            "eventSlackChannel": "Event!B12",
-            "campaignStartOffset": "Event!B16",
-            "resolicitFrequency": "Event!B17",
-            "followupOffset": "Event!B18",
-            "initialRecruitmentEmailTemplateId": "Event!B19",
-            "recruitmentEmailTemplateId": "Event!B20",
-            "followupEmailTemplateId": "Event!B21",
-            "confirmAssignedEmailTemplateId": "Event!B22",
-            "confirmCancelledEmailTemplateId": "Event!B23",
-            "confirmWaitlistEmailTemplateId": "Event!B24",
-            "confirmRejectedEmailTemplateId": "Event!B25",
-    ]
+
 
     return CompositeFuture.all(
             slurpStaticSingleValues(staticSingleValues),
@@ -91,8 +98,8 @@ static def slurpSheet(GoogleAPI googleAPI, spreadsheetId){
                     endTime: ZonedDateTime.parse(slurped.get("eventEndTime"), eventTimeFormatter),
                     eventbriteLink: slurped.get("eventbriteLink"),
                     eventSlackChannel: slurped.get("eventSlackChannel"),
-                    eventOrganizers: slurpEmailsHorizontally("Event!7:7"),
-                    volunteerCoordinators: slurpEmailsHorizontally("Event!8:8"),
+                    eventOrganizers: slurpEmailsHorizontally(dynamicRanges.get("eventOrganizers")),
+                    volunteerCoordinators: slurpEmailsHorizontally(dynamicRanges.get("volunteerCoordinators")),
                     campaignStartOffset: Duration.ofDays(Long.parseLong(slurped.get("campaignStartOffset"))).toMillis(), //Convert days to ms
                     resolicitFrequency: Duration.ofDays(Long.parseLong(slurped.get("resolicitFrequency"))).toMillis(),   //Convert days to ms
                     followupOffset: Duration.ofHours(Long.parseLong(slurped.get("followupOffset"))).toMillis(),          //Convert hours to ms
@@ -101,7 +108,7 @@ static def slurpSheet(GoogleAPI googleAPI, spreadsheetId){
                     followupEmailTemplateId: slurped.get("followupEmailTemplateId"),
                     confirmAssignedEmailTemplateId: slurped.get("confirmAssignedEmailTemplateId"),
                     confirmCancelledEmailTemplateId: slurped.get("confirmCancelledEmailTemplateId"),
-                    confrimWaitlistEmailTemplateId: slurped.get("confirmWaitlistEmailTemplateId"),
+                    confirmWaitlistEmailTemplateId: slurped.get("confirmWaitlistEmailTemplateId"),
                     confirmRejectedEmailTemplateId: slurped.get("confirmRejectedEmailTemplateId"),
                     roles: roles
             )

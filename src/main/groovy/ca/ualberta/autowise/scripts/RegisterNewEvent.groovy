@@ -14,7 +14,6 @@ import ca.ualberta.autowise.scripts.google.EventSlurper
 import com.google.api.services.sheets.v4.model.ValueRange
 import groovy.transform.Field
 import io.vertx.core.CompositeFuture
-import io.vertx.core.Promise
 import io.vertx.core.json.JsonObject
 import org.slf4j.LoggerFactory
 
@@ -26,7 +25,6 @@ import java.util.stream.Stream
 
 import io.vertx.core.json.JsonArray
 
-import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateRowValueAt
 import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateSingleValueAt
 import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateColumnValueAt
 import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateAt
@@ -210,7 +208,7 @@ private static def makeCampaignPlan(Event event){
                 .put("initialRecruitmentEmailTemplateId", event.initialRecruitmentEmailTemplateId)
                 .put("recruitmentEmailTemplateId", event.recruitmentEmailTemplateId)
                 .put("confirmAssignedEmailTemplateId", event.confirmAssignedEmailTemplateId)
-                .put("confirmWaitlistEmailTemplateId", event.confrimWaitlistEmailTemplateId)
+                .put("confirmWaitlistEmailTemplateId", event.confirmWaitlistEmailTemplateId)
                 .put("confirmCancelledEmailTemplateId", event.confirmCancelledEmailTemplateId)
                 .put("confirmRejectedEmailTemplatedId", event.confirmRejectedEmailTemplateId)
                 .put("followupEmailTemplateId", event.followupEmailTemplateId)
@@ -244,7 +242,7 @@ private static def makeCampaignPlan(Event event){
     initialRecruitmentEmail.data.put("eventStartTime", event.startTime.format(EventSlurper.eventTimeFormatter))
     initialRecruitmentEmail.data.put("emailTemplateId", event.initialRecruitmentEmailTemplateId)
     initialRecruitmentEmail.data.put("confirmAssignedEmailTemplateId", event.confirmAssignedEmailTemplateId)
-    initialRecruitmentEmail.data.put("confirmWaitlistEmailTemplateId", event.confrimWaitlistEmailTemplateId)
+    initialRecruitmentEmail.data.put("confirmWaitlistEmailTemplateId", event.confirmWaitlistEmailTemplateId)
     initialRecruitmentEmail.data.put("confirmCancelledEmailTemplateId", event.confirmCancelledEmailTemplateId)
     initialRecruitmentEmail.data.put("confirmRejectedEmailTemplatedId", event.confirmRejectedEmailTemplateId)
     initialRecruitmentEmail.data.put("eventbriteLink", event.eventbriteLink)
@@ -281,7 +279,7 @@ private static def makeCampaignPlan(Event event){
                         .put("eventStartTime", event.startTime.format(EventSlurper.eventTimeFormatter))
                         .put("emailTemplateId", event.recruitmentEmailTemplateId)
                         .put("confirmAssignedEmailTemplateId", event.confirmAssignedEmailTemplateId)
-                        .put("confirmWaitlistEmailTemplateId", event.confrimWaitlistEmailTemplateId)
+                        .put("confirmWaitlistEmailTemplateId", event.confirmWaitlistEmailTemplateId)
                         .put("confirmCancelledEmailTemplateId", event.confirmCancelledEmailTemplateId)
                         .put("confirmRejectedEmailTemplateId", event.confirmRejectedEmailTemplateId)
                         .put("eventbriteLink", event.eventbriteLink)

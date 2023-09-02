@@ -10,6 +10,7 @@ import static ca.ualberta.autowise.scripts.google.EventSlurper.slurpSheet
 import static ca.ualberta.autowise.scripts.google.EventSlurper.isSlurpable
 import static ca.ualberta.autowise.scripts.RegisterNewEvent.registerNewEvent
 import static ca.ualberta.autowise.scripts.google.GetSheetValue.getValueAt
+import static ca.ualberta.autowise.scripts.google.CreateEventSheet.createEventSheet
 
 @Field static def log = LoggerFactory.getLogger(ProcessAutoWiSEEventSheet.class)
 @Field static GoogleAPI googleAPI

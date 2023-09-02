@@ -4,6 +4,7 @@ import ca.ualberta.autowise.GoogleAPI
 import com.google.api.client.googleapis.json.GoogleJsonError
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.services.sheets.v4.model.AppendValuesResponse
+import com.google.api.services.sheets.v4.model.BatchUpdateValuesRequest
 import com.google.api.services.sheets.v4.model.UpdateValuesResponse
 import com.google.api.services.sheets.v4.model.ValueRange
 import groovy.transform.Field
@@ -151,3 +152,19 @@ static def updateAt(GoogleAPI googleAPI, sheetId, cellAddress, body){
     return promise.future()
 }
 
+static def batchUpdate(GoogleAPI googleAPI, sheetId,  List<ValueRange> updates){
+    Promise promise = Promise.promise();
+    try{
+        BatchUpdateValuesRequest request = new BatchUpdateValuesRequest()
+                .setValueInputOption("RAW")
+                .setData(updates)
+        def result = googleAPI.sheets().spreadsheets().values().batchUpdate(sheetId, request).execute()
+        log.info "Updated ${result.getTotalUpdatedCells().toString()} cells in ${sheetId}"
+        promise.complete()
+
+    }catch (GoogleJsonResponseException e){
+        log.error "Error batch updating values in ${sheetId}"
+        promise.fail(e)
+    }
+    return promise.future()
+}

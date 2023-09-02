@@ -28,7 +28,6 @@ public static void handleGoogleAPIError(config, services, GoogleJsonResponseExce
                 log.error errorString
                 sendSlackMessage(services.slackAPI, config.getString("technical_channel"), errorString)
             }
-
             break;
         default:
             log.error "Unhandled google API error code: ${googleError.getCode()}"
