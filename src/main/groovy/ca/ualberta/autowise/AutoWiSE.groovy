@@ -138,9 +138,14 @@ void vertxStart(Promise<Void> startup){
             server.setServices(services)
             server.loadWebhooks()
 
-            Set<Volunteer> volunteers = [] as Set
-            volunteers.add(new Volunteer(email: "ianta@ualberta.ca", name: "Alex Ianta"))
-            volunteers.add(new Volunteer(email: "aianta03@gmail.com", name:"Tim tom"))
+            //Bolt app needs to run in a separate thread so as to not block AutoWiSE main loop.
+            SlackBolt boltApp = new SlackBolt(services, config, this)
+            Thread boltThread = new Thread(boltApp)
+            boltThread.start()
+
+//            Set<Volunteer> volunteers = [] as Set
+//            volunteers.add(new Volunteer(email: "ianta@ualberta.ca", name: "Alex Ianta"))
+//            volunteers.add(new Volunteer(email: "aianta03@gmail.com", name:"Tim tom"))
 
 
 
@@ -153,7 +158,7 @@ void vertxStart(Promise<Void> startup){
                     sendSlackMessage(services.slackAPI, config.getString("technical_channel"), "Autowise Heartbeat - ${ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone).format(EventSlurper.eventTimeFormatter)}")
                 }
 
-                doExternalTick(services)
+                doExternalTick(services, config)
 
 
             })
@@ -201,7 +206,7 @@ void vertxStart(Promise<Void> startup){
 
 }
 
-static def doExternalTick(services){
+def doExternalTick(services, config){
     def server = services.server
     def googleApi = services.googleAPI
 
