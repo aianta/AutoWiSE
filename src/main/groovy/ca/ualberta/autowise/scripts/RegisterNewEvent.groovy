@@ -14,7 +14,6 @@ import ca.ualberta.autowise.scripts.google.EventSlurper
 import com.google.api.services.sheets.v4.model.ValueRange
 import groovy.transform.Field
 import io.vertx.core.CompositeFuture
-import io.vertx.core.Promise
 import io.vertx.core.json.JsonObject
 import org.slf4j.LoggerFactory
 
@@ -26,17 +25,16 @@ import java.util.stream.Stream
 
 import io.vertx.core.json.JsonArray
 
-import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateRowValueAt
 import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateSingleValueAt
 import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateColumnValueAt
 import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateAt
 import static ca.ualberta.autowise.scripts.google.VolunteerListSlurper.slurpVolunteerList
+import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.clearRange
 
 @Field static def log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.RegisterNewEvent.class)
 @Field static def EVENT_STATUS_ROLE_SHIFT_CELL_ADDRESS = "\'Event Status\'!A5"
-@Field static def EVENT_STATUS_WAITLIST_CELL_ADDRESS = "\'Event Status\'!F4"
 
-static def registerNewEvent(services, event, sheetId, volunteerSheetId, volunteerTableRange){
+static def registerNewEvent(services, event, sheetId, config){
 
     log.info "Starting new event registration!"
     /**
@@ -106,33 +104,41 @@ static def registerNewEvent(services, event, sheetId, volunteerSheetId, voluntee
         }
     }
 
-    // Persist plan in sqlite, make sure to do this after webhook generation, so webhook info makes it into the db.
-    services.db.insertPlan(plan)
 
 
 
-
-    // TODO - batch these
     return CompositeFuture.all(
-            updateColumnValueAt(services.googleAPI, sheetId, EVENT_STATUS_ROLE_SHIFT_CELL_ADDRESS, produceRoleShiftList(event)),        // Update 'Event Status' Sheet
-            updateSingleValueAt(services.googleAPI, sheetId, "Event!A2", event.id.toString()),     //Update the event id in the sheet
-            updateSingleValueAt(services.googleAPI, sheetId, "Event!A3", EventStatus.PENDING.toString()),     // Update the event status
-            slurpVolunteerList(services.googleAPI, volunteerSheetId, volunteerTableRange) //Get the volunteer list
+            clearRange(services.googleAPI, sheetId, config.getString("volunteer_contact_status_clearing_range")), // Clear volunteer contact status
+            clearRange(services.googleAPI, sheetId, config.getString("event_status_clearing_range")), // Clear the event status range
+            clearRange(services.googleAPI, sheetId, config.getString("confirmation_status_clearing_range")) // Clear the confirmation status range
     ).compose{
-        composite->
+        log.info "Cleared ranges! Now updating"
+        return CompositeFuture.all(
+                updateColumnValueAt(services.googleAPI, sheetId, EVENT_STATUS_ROLE_SHIFT_CELL_ADDRESS, produceRoleShiftList(event)),        // Update 'Event Status' Sheet
+                updateSingleValueAt(services.googleAPI, sheetId, "Event!A2", event.id.toString()),     //Update the event id in the sheet
+                updateSingleValueAt(services.googleAPI, sheetId, "Event!A3", EventStatus.PENDING.toString()),     // Update the event status
+                slurpVolunteerList(services.googleAPI, config.getString("autowise_volunteer_pool_id"), config.getString("autowise_volunteer_table_range")) //Get the volunteer list
+        ).compose{
+            composite->
 
-            def volunteers = composite.resultAt(3)
-            log.info "got volunteers! ${volunteers}"
-            def volunteerContactStatusData = makeInitialVolunteerContactStatus(volunteers)
-            def volunteerContactStatusCellAddress = "\'Volunteer Contact Status\'!A2"
-            ValueRange valueRange = new ValueRange()
-            valueRange.setMajorDimension("ROWS")
-            valueRange.setRange(volunteerContactStatusCellAddress)
-            valueRange.setValues(volunteerContactStatusData)
-            return updateAt(services.googleAPI, sheetId, volunteerContactStatusCellAddress, valueRange)
+                def volunteers = composite.resultAt(3)
+                log.info "got volunteers! ${volunteers}"
+                def volunteerContactStatusData = makeInitialVolunteerContactStatus(volunteers)
+                def volunteerContactStatusCellAddress = "\'Volunteer Contact Status\'!A2"
+                ValueRange valueRange = new ValueRange()
+                valueRange.setMajorDimension("ROWS")
+                valueRange.setRange(volunteerContactStatusCellAddress)
+                valueRange.setValues(volunteerContactStatusData)
+                return updateAt(services.googleAPI, sheetId, volunteerContactStatusCellAddress, valueRange).onSuccess{
+                    // Persist plan in sqlite, make sure to do this after webhook generation, so webhook info makes it into the db.
+                    services.db.insertPlan(plan)
+                }
 
 
+        }
     }
+
+
 
 }
 
@@ -202,7 +208,7 @@ private static def makeCampaignPlan(Event event){
                 .put("initialRecruitmentEmailTemplateId", event.initialRecruitmentEmailTemplateId)
                 .put("recruitmentEmailTemplateId", event.recruitmentEmailTemplateId)
                 .put("confirmAssignedEmailTemplateId", event.confirmAssignedEmailTemplateId)
-                .put("confirmWaitlistEmailTemplateId", event.confrimWaitlistEmailTemplateId)
+                .put("confirmWaitlistEmailTemplateId", event.confirmWaitlistEmailTemplateId)
                 .put("confirmCancelledEmailTemplateId", event.confirmCancelledEmailTemplateId)
                 .put("confirmRejectedEmailTemplatedId", event.confirmRejectedEmailTemplateId)
                 .put("followupEmailTemplateId", event.followupEmailTemplateId)
@@ -236,7 +242,7 @@ private static def makeCampaignPlan(Event event){
     initialRecruitmentEmail.data.put("eventStartTime", event.startTime.format(EventSlurper.eventTimeFormatter))
     initialRecruitmentEmail.data.put("emailTemplateId", event.initialRecruitmentEmailTemplateId)
     initialRecruitmentEmail.data.put("confirmAssignedEmailTemplateId", event.confirmAssignedEmailTemplateId)
-    initialRecruitmentEmail.data.put("confirmWaitlistEmailTemplateId", event.confrimWaitlistEmailTemplateId)
+    initialRecruitmentEmail.data.put("confirmWaitlistEmailTemplateId", event.confirmWaitlistEmailTemplateId)
     initialRecruitmentEmail.data.put("confirmCancelledEmailTemplateId", event.confirmCancelledEmailTemplateId)
     initialRecruitmentEmail.data.put("confirmRejectedEmailTemplatedId", event.confirmRejectedEmailTemplateId)
     initialRecruitmentEmail.data.put("eventbriteLink", event.eventbriteLink)
@@ -273,7 +279,7 @@ private static def makeCampaignPlan(Event event){
                         .put("eventStartTime", event.startTime.format(EventSlurper.eventTimeFormatter))
                         .put("emailTemplateId", event.recruitmentEmailTemplateId)
                         .put("confirmAssignedEmailTemplateId", event.confirmAssignedEmailTemplateId)
-                        .put("confirmWaitlistEmailTemplateId", event.confrimWaitlistEmailTemplateId)
+                        .put("confirmWaitlistEmailTemplateId", event.confirmWaitlistEmailTemplateId)
                         .put("confirmCancelledEmailTemplateId", event.confirmCancelledEmailTemplateId)
                         .put("confirmRejectedEmailTemplateId", event.confirmRejectedEmailTemplateId)
                         .put("eventbriteLink", event.eventbriteLink)

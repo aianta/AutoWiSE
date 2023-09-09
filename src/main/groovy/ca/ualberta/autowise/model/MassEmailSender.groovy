@@ -115,7 +115,7 @@ class MassEmailSender {
      */
     private Future send(GoogleAPI googleAPI,  config, subject, emailBody, target){
         Thread.sleep(config.getLong("mass_email_delay"))
-        return sendEmail(googleAPI, "AutoWiSE", target, subject, emailBody)
+        return sendEmail(config, googleAPI, config.getString("sender_email"), target, subject, emailBody)
 
 
 

@@ -1,8 +1,11 @@
 package ca.ualberta.autowise
 
 import ca.ualberta.autowise.model.SlackBrowser
+import ca.ualberta.autowise.model.Task
 import ca.ualberta.autowise.model.Volunteer
 import ca.ualberta.autowise.scripts.google.EventSlurper
+import com.google.api.client.googleapis.json.GoogleJsonError
+import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.services.drive.model.File
 import groovy.transform.Field
 import io.vertx.config.ConfigRetriever
@@ -18,12 +21,15 @@ import org.slf4j.LoggerFactory
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
+import static ca.ualberta.autowise.scripts.ProcessAutoWiSEEventSheet.googleAPI
 import static ca.ualberta.autowise.scripts.google.GetFilesInFolder.getFiles
 import static ca.ualberta.autowise.scripts.ProcessAutoWiSEEventSheet.processEventSheet
 import static ca.ualberta.autowise.scripts.tasks.RecruitmentEmailTask.recruitmentEmailTask
 import static ca.ualberta.autowise.scripts.tasks.ConfirmationEmailTask.confirmationEmailTask
 import static ca.ualberta.autowise.scripts.tasks.EventRegistrationEmailTask.eventRegistrationEmailTask
 import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.*
+import static ca.ualberta.autowise.scripts.google.ErrorHandling.handleGoogleAPIError;
+
 /**
  * @Author Alexandru Ianta
  * This verticle is responsible for bootstrapping all of AutoWiSE's functionality.
@@ -174,6 +180,16 @@ void vertxStart(Promise<Void> startup){
 
             )
 
+            try{
+
+                log.info "about to refresh google api token"
+                def refreshResult = googleApi.credentials.refreshToken()
+                log.info "refresh result: ${refreshResult}"
+            }catch(Exception e){
+                log.error e.getMessage(),e
+            }
+
+
             sendSlackMessage(services.slackAPI, config.getString("technical_channel"), "Autowise started successfully @${services.server.location()}!")
             /** Notify vertx that verticle deployment is complete */
             startup.complete()
@@ -258,13 +274,7 @@ static def _executeTask(task, vertx, services, config){
             return eventRegistrationEmailTask(services, task, config.getString("autowise_new_recruitment_campaign_email_template"), config)
                 .onSuccess{
                     log.info "Event registration email task complete."
-                }
-                .onFailure{ err->
-                    log.error "Error while executing event registration email task."
-                    log.error err.getMessage(), err
-                }
-
-
+                }.onFailure{err-> handleTaskError(config, services, err, task)}
             break
         case "Initial Recruitment Email":
             return recruitmentEmailTask(vertx, services, task, config, (status)->{
@@ -272,11 +282,7 @@ static def _executeTask(task, vertx, services, config){
             }, "[WiSER] Volunteer opportunities for ${task.data.getString("eventName")}!")
             .onSuccess{
                 log.info "Initial Recruitment Email task executed successfully!"
-            }
-            .onFailure{ err->
-                log.error "Error during initial recruitment email task!"
-                log.error err.getMessage(), err
-            }
+            }.onFailure{err-> handleTaskError(config, services, err, task)}
             break
         case "Recruitment Email":
             return recruitmentEmailTask(vertx, services, task, config, (status)->{
@@ -284,22 +290,14 @@ static def _executeTask(task, vertx, services, config){
             }, "[WiSER] Volunteer opportunities for ${task.data.getString("eventName")}!")
             .onSuccess{
                 log.info "Recruitment email task executed successfully!"
-            }
-            .onFailure{ err->
-                log.error "Error during recruitment email task!"
-                log.error err.getMessage(), err
-            }
+            }.onFailure{err-> handleTaskError(config, services, err, task)}
 
             break
         case "Follow-up Email":
             return confirmationEmailTask(vertx, services, task, config, "[WiSER] Confirm your upcomming volunteer shift for ${task.data.getString("eventName")}!" )
                 .onSuccess{
                     log.info "Confirmation email task completed successfully!"
-                }
-                .onFailure{err->
-                    log.error "Error during confirmation email task!"
-                    log.error err.getMessage(), err
-                }
+                }.onFailure{err-> handleTaskError(config, services, err, task)}
             break
         default: return Future.failedFuture("Unrecognized task name: ${task.name}")
 
@@ -307,3 +305,14 @@ static def _executeTask(task, vertx, services, config){
 
     return Future.failedFuture("Error executing task!")
 }
+
+static void handleTaskError(config, services, Throwable err, Task task){
+    log.error "Error executing task ${task.name} [${task.taskId.toString()}]", err
+
+    if (err instanceof GoogleJsonResponseException){
+        //Handle google API exception.
+        handleGoogleAPIError(config, services, (GoogleJsonResponseException)err, task.eventId, task.name, "task")
+    }
+
+}
+

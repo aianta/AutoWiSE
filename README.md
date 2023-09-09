@@ -4,7 +4,7 @@
 * ~~Futurize operations~~
   * Error handling, especially with API calls.
     * Handle GoogleAPI 401 - unauthenticated using slack.
-    * Add an autowise technical channel, and send errors there
+    * ~~Add an autowise technical channel, and send errors there~~
     * Ideally fail safe
   * ~~Futurize operations done on tick, a tick should complete a future.~~
 * ~~Canary Slack Message~~
@@ -22,7 +22,13 @@
 * Finish Readme
   * Include instructions for setting up an event through Google Sheets
 * Creating events using JSON.
+* Creating events via slack. 
 * ~~Log web requests~~
+* Add List-unsubscribe header only to recruitment emails.
+~~* Abort a campaign if the underlying event sheet is no longer accessible.~~
+* Add template descriptions in this readme. 
+* Don't break if there are no volunteer coordinators or event organizers. But break if there are neither.
+* Don't create events that happen in the past. 
 
 # Building Docker image
 
@@ -65,4 +71,21 @@ Let's encrypt private keys do not have export passwords, however the keytool whi
 https://community.letsencrypt.org/t/how-could-i-get-the-password-for-keyfile/4703
 
 For simplicity, all keystore related passwords are just `autowise`. 
+
+# A note on Google OAuth2
+The refresh token which is necessary to refresh access tokens that normally expire within 1 hour is only returned on the first authorization.
+This means that if you want to use the same Google account to authorize multiple instances of AutoWiSE (say a local dev and the prod version), you will need to manually delete the refresh token from the database.
+In practice the refresh token should go to the prod version, as the local dev version should be fine with the hour long access tokens.
+
+
+# Error Handling
+
+| Source         |Code| Description                                                                                                                                                                                                                                                                                                                                                                                                   | Behavior                                                                                                                                                            | Implemented |
+|----------------|-|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------|
+| GoogleAPI Call | 404 | Returned when trying to access a resource on google drive (doc, sheet, etc.) that does not or no longer exists. Exhibited if a google sheet for an active event is deleted.                                                                                                                                                                                                                                   | Cancel the entire campaign.                                                                                                                                         | Yes         |    
+| GoogleAPI Call | 400 | Bad request                                                                                                                                                                                                                                                                                                                                                                                                   | Report error to technical slack channel.<br/> TODO: Case by case handling if error occurs during:<br/> <ul><li>Scheduled task</li><li>Link triggered task</li></ul> | TODO        |
+| GoogleAPI Call | 401 | Invalid credentials                                                                                                                                                                                                                                                                                                                                                                                           | Likely an expired token. Try re-authing through slack. Consider implications of waiting for auth link click during whatever operation was going on.                 | TODO        |
+| GoogleAPI Call | 403 | The daily limit was exceeded.<br/>The user rate limit was exceeded.<br/>The project rate limit was exceeded.<br/>The sharing rate limit was exceeded.<br/>The user hasn't granted your app rights to a file.<br/>The user doesn't have sufficient permissions for a file.<br/> Your app can't be used within the signed in user's domain.<br/>Number of items in a folder was exceeded.<br/> [More details](https://developers.google.com/drive/api/guides/handle-errors#resolve_a_403_error) | TODO | TODO        |
+| GoogleAPI Call | 429 | Too Many Requests. | Exponential back-off and retry the call. | TODO |
+| GoogleAPI Call | 5xx | Google side error | Exponential back-off to 5 minutes, then reschedule operation in 3 hours. | TODO |
 

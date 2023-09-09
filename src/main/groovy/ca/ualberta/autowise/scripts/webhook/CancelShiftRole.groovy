@@ -154,10 +154,10 @@ static def cancelShiftRole(services, Webhook webhook, config){
                                                                         slackMessage = slackMessage + " ${replacementName} has automatically been moved from the waitlist into the freed slot and notified of their role assignment."
 
                                                                         return CompositeFuture.all(
-                                                                                sendEmail(services.googleAPI, "AutoWiSE", replacementEmail, "[WiSER] Moved off waitlist, assigned volunteer role for ${eventName}",emailContent),
+                                                                                sendEmail(config, services.googleAPI, config.getString("sender_email"), replacementEmail, "[WiSER] Moved off waitlist, assigned volunteer role for ${eventName}",emailContent),
                                                                                 updateVolunteerStatus(services.googleAPI, eventSheetId, replacementEmail, "Accepted", targetShiftRoleString ),
                                                                                 sendSlackMessage(services.slackAPI, eventSlackChannel, slackMessage),
-                                                                                sendEmail(services.googleAPI, "AutoWiSE", volunteerEmail,"[WiSER] Volunteering Cancellation Confirmation for ${eventName}", confirmCancelEmailTemplate)
+                                                                                sendEmail(config, services.googleAPI, config.getString("sender_email"), volunteerEmail,"[WiSER] Volunteering Cancellation Confirmation for ${eventName}", confirmCancelEmailTemplate)
                                                                         )
 
                                                                 }
@@ -179,7 +179,7 @@ static def cancelShiftRole(services, Webhook webhook, config){
                                                                     def emailTemplate = compositeResult.resultAt(1)
 
                                                                     return CompositeFuture.all(
-                                                                            sendEmail(services.googleAPI, "AutoWiSE", volunteerEmail, "[WiSER] Volunteering Cancellation Confirmation for ${eventName}", emailTemplate),
+                                                                            sendEmail(config, services.googleAPI, config.getString("sender_email"), volunteerEmail, "[WiSER] Volunteering Cancellation Confirmation for ${eventName}", emailTemplate),
                                                                             sendSlackMessage(services.slackAPI, eventSlackChannel, slackMessage)
                                                                     )
                                                             }
@@ -194,6 +194,7 @@ static def cancelShiftRole(services, Webhook webhook, config){
                                                     err->
                                                         log.error "Error updating volunteer status to cancelled."
                                                         log.error err.getMessage(), err
+                                                        return Future.failedFuture(err)
 
                                                 }
                                     }

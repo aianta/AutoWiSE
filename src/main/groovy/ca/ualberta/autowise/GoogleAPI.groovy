@@ -10,6 +10,7 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleCredential
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.client.util.store.FileDataStoreFactory
+import com.google.api.client.util.store.MemoryDataStoreFactory
 import com.google.api.services.docs.v1.Docs
 import com.google.api.services.docs.v1.DocsScopes
 import com.google.api.services.drive.Drive
@@ -75,7 +76,11 @@ class GoogleAPI {
                 JSON_FACTORY,
                 clientSecrets,
                 SCOPES
-        ).setDataStoreFactory(new FileDataStoreFactory(new java.io.File(TOKENS_DIRECTORY_PATH)))
+        )
+//        .setDataStoreFactory(MemoryDataStoreFactory.getDefaultInstance())
+        //TODO: If the memory data store factory works, then this is a permission issue with the file system and we have to talk to david to resolve it.
+        // should do that before live deployment to minimize the number of times we need to auth through slack.
+        .setDataStoreFactory(new FileDataStoreFactory(new java.io.File(TOKENS_DIRECTORY_PATH)))
         .setAccessType("offline")
         .build()
 

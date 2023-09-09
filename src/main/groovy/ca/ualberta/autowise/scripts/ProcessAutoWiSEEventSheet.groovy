@@ -10,11 +10,12 @@ import static ca.ualberta.autowise.scripts.google.EventSlurper.slurpSheet
 import static ca.ualberta.autowise.scripts.google.EventSlurper.isSlurpable
 import static ca.ualberta.autowise.scripts.RegisterNewEvent.registerNewEvent
 import static ca.ualberta.autowise.scripts.google.GetSheetValue.getValueAt
+import static ca.ualberta.autowise.scripts.google.CreateEventSheet.createEventSheet
 
 @Field static def log = LoggerFactory.getLogger(ProcessAutoWiSEEventSheet.class)
 @Field static GoogleAPI googleAPI
 
-static def processEventSheet(services, sheetId, volunteerSheetId, volunteerTableRange){
+static def processEventSheet(services, sheetId, config){
 
     googleAPI = services.googleAPI
 
@@ -38,7 +39,7 @@ static def processEventSheet(services, sheetId, volunteerSheetId, volunteerTable
                 switch(status){
                     case EventStatus.READY.toString():
                         assert event.id == null //Event Id should be null at this stage
-                        return registerNewEvent(services, event, sheetId, volunteerSheetId, volunteerTableRange)
+                        return registerNewEvent(services, event, sheetId, config)
                     default:
                         log.warn "Unrecognized event status!"
                         return Future.succeededFuture()

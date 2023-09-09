@@ -32,7 +32,7 @@ class Event {
     String recruitmentEmailTemplateId
     String followupEmailTemplateId
     String confirmAssignedEmailTemplateId
-    String confrimWaitlistEmailTemplateId
+    String confirmWaitlistEmailTemplateId
     String confirmCancelledEmailTemplateId
     String confirmRejectedEmailTemplateId
 

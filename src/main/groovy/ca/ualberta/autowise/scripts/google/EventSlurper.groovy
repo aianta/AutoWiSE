@@ -31,7 +31,7 @@ import static ca.ualberta.autowise.scripts.google.GetSheetValue.getValuesAt
 @Field static GoogleAPI api
 @Field static sheetId
 @Field static log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.google.EventSlurper.class)
-@Field static ROLES_AND_SHIFTS_RANGE = "Event!A23:D200"
+@Field static ROLES_AND_SHIFTS_RANGE = "Event!A29:D200"
 
 
 
@@ -47,32 +47,38 @@ import static ca.ualberta.autowise.scripts.google.GetSheetValue.getValuesAt
  */
 @Field static DateTimeFormatter shiftTimeFormatter = DateTimeFormatter.ofPattern("H:mm");
 
+@Field static def dynamicRanges = [
+        "eventOrganizers": "Event!7:7",
+        "volunteerCoordinators": "Event!8:8",
+        "roles": ROLES_AND_SHIFTS_RANGE
+]
+
+@Field static def staticSingleValues = [
+        "id": "Event!A2",
+        "status":"Event!A3",
+        "name": "Event!B5",
+        "description":"Event!B6",
+        "eventStartTime": "Event!B9",
+        "eventEndTime": "Event!B10",
+        "eventbriteLink": "Event!B11",
+        "eventSlackChannel": "Event!B12",
+        "campaignStartOffset": "Event!B16",
+        "resolicitFrequency": "Event!B17",
+        "followupOffset": "Event!B18",
+        "initialRecruitmentEmailTemplateId": "Event!B19",
+        "recruitmentEmailTemplateId": "Event!B20",
+        "followupEmailTemplateId": "Event!B21",
+        "confirmAssignedEmailTemplateId": "Event!B22",
+        "confirmCancelledEmailTemplateId": "Event!B23",
+        "confirmWaitlistEmailTemplateId": "Event!B24",
+        "confirmRejectedEmailTemplateId": "Event!B25",
+]
 
 static def slurpSheet(GoogleAPI googleAPI, spreadsheetId){
     api = googleAPI
     sheetId = spreadsheetId
 
-    def staticSingleValues = [
-            "id": "Event!A2",
-            "status":"Event!A3",
-            "name": "Event!B5",
-            "description":"Event!B6",
-            "eventStartTime": "Event!B9",
-            "eventEndTime": "Event!B10",
-            "eventbriteLink": "Event!B11",
-            "eventSlackChannel": "Event!B12",
-            "executiveRatio": "Event!B15",
-            "campaignStartOffset": "Event!B16",
-            "resolicitFrequency": "Event!B17",
-            "followupOffset": "Event!B18",
-            "initialRecruitmentEmailTemplateId": "Event!B19",
-            "recruitmentEmailTemplateId": "Event!B20",
-            "followupEmailTemplateId": "Event!B21",
-            "confirmAssignedEmailTemplateId": "Event!B22",
-            "confirmCancelledEmailTemplateId": "Event!B23",
-            "confirmWaitlistEmailTemplateId": "Event!B24",
-            "confirmRejectedEmailTemplateId": "Event!B25",
-    ]
+
 
     return CompositeFuture.all(
             slurpStaticSingleValues(staticSingleValues),
@@ -92,9 +98,8 @@ static def slurpSheet(GoogleAPI googleAPI, spreadsheetId){
                     endTime: ZonedDateTime.parse(slurped.get("eventEndTime"), eventTimeFormatter),
                     eventbriteLink: slurped.get("eventbriteLink"),
                     eventSlackChannel: slurped.get("eventSlackChannel"),
-                    eventOrganizers: slurpEmailsHorizontally("Event!7:7"),
-                    volunteerCoordinators: slurpEmailsHorizontally("Event!8:8"),
-                    executiveRatio: Double.parseDouble(slurped.get("executiveRatio")),
+                    eventOrganizers: slurpEmailsHorizontally(dynamicRanges.get("eventOrganizers")),
+                    volunteerCoordinators: slurpEmailsHorizontally(dynamicRanges.get("volunteerCoordinators")),
                     campaignStartOffset: Duration.ofDays(Long.parseLong(slurped.get("campaignStartOffset"))).toMillis(), //Convert days to ms
                     resolicitFrequency: Duration.ofDays(Long.parseLong(slurped.get("resolicitFrequency"))).toMillis(),   //Convert days to ms
                     followupOffset: Duration.ofHours(Long.parseLong(slurped.get("followupOffset"))).toMillis(),          //Convert hours to ms
@@ -103,7 +108,7 @@ static def slurpSheet(GoogleAPI googleAPI, spreadsheetId){
                     followupEmailTemplateId: slurped.get("followupEmailTemplateId"),
                     confirmAssignedEmailTemplateId: slurped.get("confirmAssignedEmailTemplateId"),
                     confirmCancelledEmailTemplateId: slurped.get("confirmCancelledEmailTemplateId"),
-                    confrimWaitlistEmailTemplateId: slurped.get("confirmWaitlistEmailTemplateId"),
+                    confirmWaitlistEmailTemplateId: slurped.get("confirmWaitlistEmailTemplateId"),
                     confirmRejectedEmailTemplateId: slurped.get("confirmRejectedEmailTemplateId"),
                     roles: roles
             )
@@ -206,7 +211,7 @@ private static def slurpRolesAndShifts(){
 
                 switch (rowData.get(0)){
                     case "Roles": //Roles header
-                        rowIndex = rowIt.nextIndex()
+                        log.info "${rowData}"
                         rowData = rowIt.next()
                         while (!rowData.isEmpty() && !rowData.get(0).equals("Shifts")){
                             Role r = new Role(
@@ -214,17 +219,16 @@ private static def slurpRolesAndShifts(){
                                     description: rowData.get(1)
                             )
                             roles.add(r)
-                            rowIndex = rowIt.nextIndex()
                             rowData = rowIt.next()
                         }
                         //Back-up one row to allow next if we went all the way to shifts, so that the switch clause can do the processing appropriately.
                         if (!rowData.isEmpty() && rowData.get(0).equals("Shifts")){
-                            rowIndex = rowIt.previousIndex()
+
                             rowData = rowIt.previous()
                         }
                         break;
                     case "Shifts": //Shifts header
-                        rowIndex = rowIt.nextIndex()
+
                         rowData = rowIt.next()
 
                         do{
@@ -232,7 +236,6 @@ private static def slurpRolesAndShifts(){
 
 
 
-                            rowIndex = rowIt.nextIndex()
                             rowData = rowIt.next()
                             while(!rowData.isEmpty() && rowData.get(0).matches("\\d+")){ //While the first column contains a number.
                                 Shift s = new Shift(
@@ -244,7 +247,7 @@ private static def slurpRolesAndShifts(){
                                 r.shifts.add(s)
 
                                 if (rowIt.hasNext()){
-                                    rowIndex = rowIt.nextIndex()
+
                                     rowData = rowIt.next()
                                 }else{
                                     break;
@@ -254,7 +257,7 @@ private static def slurpRolesAndShifts(){
 
                             //Skip blank rows between roles
                             while(rowIt.hasNext() && rowData.isEmpty()){
-                                rowIndex = rowIt.nextIndex()
+
                                 rowData = rowIt.next()
                             }
 

@@ -4,11 +4,15 @@ import ca.ualberta.autowise.GoogleAPI
 import com.google.api.client.googleapis.json.GoogleJsonError
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.services.sheets.v4.model.AppendValuesResponse
+import com.google.api.services.sheets.v4.model.BatchUpdateValuesRequest
 import com.google.api.services.sheets.v4.model.UpdateValuesResponse
 import com.google.api.services.sheets.v4.model.ValueRange
 import groovy.transform.Field
+import io.vertx.core.Future
 import io.vertx.core.Promise
 import org.slf4j.LoggerFactory
+
+import static ca.ualberta.autowise.scripts.google.GetSheetValue.getValuesAt
 
 import java.util.stream.Collectors
 
@@ -84,6 +88,32 @@ def static updateColumnValueAt(GoogleAPI googleAPI, sheetId, cellAddress, List<S
    }
 }
 
+static def clearRange(GoogleAPI googleAPI, sheetId, cellAddress){
+    return getValuesAt(googleAPI, sheetId, cellAddress).compose(
+        values->{
+            def rowIt = values.iterator()
+            while (rowIt.hasNext()){
+                def row = (List<Object>)rowIt.next()
+                for(int i = 0; i < row.size(); i++){
+                    row.set(i, "")
+                }
+            }
+            ValueRange body = new ValueRange()
+                    .setRange(cellAddress)
+                    .setValues(values)
+                    .setMajorDimension("ROWS")
+            return updateAt(googleAPI, sheetId, cellAddress, body)
+
+    }, err->{
+        //If the error is that there aren't values at the ranges we're trying to clear, then we're set!
+        if (err.getMessage().contains("No value found")){
+            return Future.succeededFuture()
+        }else{
+            return Future.failedFuture(err)
+        }
+    })
+}
+
 static def appendAt(GoogleAPI googleAPI, sheetId, cellAddress, body){
     Promise promise = Promise.promise()
     try{
@@ -122,3 +152,19 @@ static def updateAt(GoogleAPI googleAPI, sheetId, cellAddress, body){
     return promise.future()
 }
 
+static def batchUpdate(GoogleAPI googleAPI, sheetId,  List<ValueRange> updates){
+    Promise promise = Promise.promise();
+    try{
+        BatchUpdateValuesRequest request = new BatchUpdateValuesRequest()
+                .setValueInputOption("RAW")
+                .setData(updates)
+        def result = googleAPI.sheets().spreadsheets().values().batchUpdate(sheetId, request).execute()
+        log.info "Updated ${result.getTotalUpdatedCells().toString()} cells in ${sheetId}"
+        promise.complete()
+
+    }catch (GoogleJsonResponseException e){
+        log.error "Error batch updating values in ${sheetId}"
+        promise.fail(e)
+    }
+    return promise.future()
+}

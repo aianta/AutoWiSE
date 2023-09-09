@@ -4,9 +4,11 @@ import ca.ualberta.autowise.model.HookType
 import ca.ualberta.autowise.model.TaskStatus
 import ca.ualberta.autowise.model.Webhook
 import ca.ualberta.autowise.scripts.google.EventSlurper
+import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import io.vertx.core.Vertx
 import io.vertx.core.http.HttpServer
 import io.vertx.core.http.HttpServerOptions
+import io.vertx.core.json.JsonObject
 import io.vertx.core.net.JksOptions
 import io.vertx.ext.web.Router
 import io.vertx.ext.web.RoutingContext
@@ -23,6 +25,7 @@ import static ca.ualberta.autowise.scripts.webhook.CancelShiftRole.*
 import static ca.ualberta.autowise.scripts.webhook.ConfirmForShiftRole.*
 import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateSingleValueAt
 import static ca.ualberta.autowise.scripts.webhook.RejectVolunteeringForEvent.*
+import static ca.ualberta.autowise.scripts.google.ErrorHandling.handleGoogleAPIError;
 
 /**
  * @Author Alexandru Ianta
@@ -110,9 +113,12 @@ class AutoWiSEServer {
 
     def loadWebhooks(){
         db.getActiveWebhooks().onSuccess(hooks->{
+            log.info "Mounting ${hooks.size()} active webhooks"
+
             router.clear() //Clear any existing webhooks
+            router.route().handler(LoggerHandler.create());
             hooks.forEach(hook->this.mountWebhook(hook))
-            router.route().handler(rc->{
+            router.route().last().handler(rc->{
                 rc.response().setStatusCode(200).end("This link may have expired or is invalid.")
             })
         }).onFailure(err->{
@@ -123,6 +129,7 @@ class AutoWiSEServer {
     def mountWebhook(Webhook hook){
         try{
             def webhookPath = Base64.encodeBase64URLSafeString(hook.id.toString().getBytes())
+            log.info "Mounting webhook ${hook.id.toString()} at ${webhookPath}"
             router.route(HttpMethod.GET, "/"+webhookPath).handler(this::webhookHandler)
 
         }catch (Exception e){
@@ -141,16 +148,14 @@ class AutoWiSEServer {
         db.invokeAndGetWebhookById(webhookId).onSuccess{ Webhook webhook->{
 
 
-            log.info( "hook type match [${webhook.type.toString()}:${HookType.ACCEPT_ROLE_SHIFT.toString()}] ${webhook.type.equals(HookType.ACCEPT_ROLE_SHIFT)}")
-
             switch (webhook.type){
                 case HookType.ACCEPT_ROLE_SHIFT:
-                    finishResponse(rc, "Please note: If you already signed up for a volunteer shift, clicking a different volunteer link from the recruitment email will NOT do anything.")
+                    finishResponse(rc, "Please note: If you've already been assigned for a volunteer shift, clicking a different volunteer link from the recruitment email will NOT do anything. However if you've only been waitlisted you can still signup for something else.")
                     acceptShiftRole(services, webhook, config)
                             .onSuccess{
                                 log.info "ACCEPT_ROLE_SHIFT webhook ${webhook.id.toString()} executed successfully!"
                             }
-                            .onFailure{err->webhookFailureHandler(err, webhook)}
+                            .onFailure{err->webhookFailureHandler(config, services, err, webhook)}
                     break
                 case HookType.CANCEL_ROLE_SHIFT:
                     finishResponse(rc, "We are cancelling your shift and will send you a confirmation soon.")
@@ -158,19 +163,19 @@ class AutoWiSEServer {
                         .onSuccess{
                             log.info "CANCEL_ROLE_SHIFT webhook ${webhook.id.toString()} executed successfully!"
                         }
-                        .onFailure{ err->webhookFailureHandler(err, webhook)}
+                        .onFailure{ err->webhookFailureHandler(config, services, err, webhook)}
                     break
                 case HookType.CONFIRM_ROLE_SHIFT:
                     finishResponse(rc,"Your availability for your volunteer shift has been confirmed.")
                     confirmShiftRole(services, webhook)
                         .onSuccess{log.info("CONFIRM_ROLE_SHIFT webhook ${webhook.id.toString()} executed successfully!")}
-                        .onFailure(err->webhookFailureHandler(err, webhook))
+                        .onFailure(err->webhookFailureHandler(config, services, err, webhook))
                     break
                 case HookType.REJECT_VOLUNTEERING_FOR_EVENT:
                     finishResponse(rc,"Sorry it didn't work out this time.")
-                    rejectVolunteeringForEvent(services, webhook)
+                    rejectVolunteeringForEvent(services, webhook, config)
                         .onSuccess{log.info("REJECT_VOLUNTEERING_FOR_EVENT webhook ${webhook.id.toString()} executed successfully!")}
-                        .onFailure{err->webhookFailureHandler(err, webhook)}
+                        .onFailure{err->webhookFailureHandler(config, services, err, webhook)}
                     break
 
                 case HookType.EXECUTE_TASK_NOW:
@@ -181,8 +186,9 @@ class AutoWiSEServer {
                                     .onSuccess{
                                         log.info "Successfully executed task ${webhook.data.getString("taskId")} through webhook  ${webhook.id.toString()}!"
                                     }
-                                    .onFailure{
+                                    .onFailure{ err->
                                         log.error "Error executing task  ${webhook.data.getString("taskId")} through webhook ${webhook.id.toString()}!"
+                                        webhookFailureHandler(config, services, err, webhook)
                                     }
                         }.onFailure{
                         err->
@@ -199,6 +205,7 @@ class AutoWiSEServer {
                         }
                         .onFailure{
                             err->log.error err.getMessage(), err
+                                webhookFailureHandler(config, services, err, webhook)
                         }
                     break
                 case HookType.CANCEL_CAMPAIGN:
@@ -210,6 +217,7 @@ class AutoWiSEServer {
                     }.onFailure{ err->
                         log.error "Error cancelling campaign for event id: ${webhook.eventId.toString()}"
                         log.error err.getMessage(), err
+                        webhookFailureHandler(config, services, err, webhook)
                     }
                     break
                 case HookType.BEGIN_CAMPAIGN:
@@ -217,9 +225,11 @@ class AutoWiSEServer {
                     db.beginCampaign(webhook.eventId).onSuccess{
                         log.info "Campagin for eventId ${webhook.eventId.toString()} has begun!"
                         updateSingleValueAt(services.googleAPI, webhook.data.getString("eventSheetId"), "Event!A3", TaskStatus.IN_PROGRESS.toString())
+                            .onFailure {err->webhookFailureHandler(config, services, err, webhook)}
                     }.onFailure{
                         err-> log.error "Error starting campaign for event id: ${webhook.eventId.toString()}"
                             log.error err.getMessage(), err
+                            webhookFailureHandler(config, services, err, webhook)
                     }
                     break
                 default:log.warn "Unknown hook type! ${webhook.type.toString()}"
@@ -242,8 +252,19 @@ class AutoWiSEServer {
     }
 
 
-    static def webhookFailureHandler(Throwable err, webhook){
+    static def webhookFailureHandler(config, services, Throwable err, Webhook webhook){
         log.error "Error executing webhook ${webhook.id.toString()}!"
+        if (webhook.getData().containsKey("volunteerEmail")){
+            log.error "Webhook was for volunteer ${webhook.getData().getString("volunteerEmail")}"
+        }
+        if (webhook.getData().containsKey("VolunteerName")){
+            log.error "Webhook was for volunteer ${webhook.getData().getString("VolunteerName")}"
+        }
         log.error err.getMessage(), err
+
+        if (err instanceof GoogleJsonResponseException){
+            handleGoogleAPIError(config, services, (GoogleJsonResponseException)err, webhook.eventId, webhook.type.toString(), "webhook")
+        }
+
     }
 }

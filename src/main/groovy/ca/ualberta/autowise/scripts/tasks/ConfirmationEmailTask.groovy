@@ -133,7 +133,7 @@ static def confirmationEmailTask(Vertx vertx, services, Task task, config, subje
                                 err->
                                     log.error "Error sending confirmation emails to volunteers who've accepted shift roles for ${eventName}. TaskId: ${task.taskId.toString()}"
                                     log.error err.getMessage(), err
-                                    sendSlackMessage(services.slackAPI, eventSlackChannel,"Error sending confirmation emails to volunteers who've accepted shift roles for ${eventName}. TaskId: ${task.taskId.toString()}" )
+                                    sendSlackMessage(services.slackAPI, config.getString("technical_channel"),"Error sending confirmation emails to volunteers who've accepted shift roles for ${eventName} (${task.eventId.toString()}). TaskId: ${task.taskId.toString()}" )
                                     promise.fail(err)
                             }
 

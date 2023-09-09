@@ -30,7 +30,7 @@ static def getWaitlistForShiftRole(GoogleAPI googleAPI, sheetId, shiftRoleString
 
             while(it.hasNext()){
                 def rowData = it.next()
-                if(!rowData.isEmpty() && rowData.get(7).equals(shiftRoleString) && rowData.get(2).equals("Waitlisted") && !rowData.get(6).equals("-")){
+                if(!rowData.isEmpty() && rowData.size() == 8 && rowData.get(7).equals(shiftRoleString) && rowData.get(2).equals("Waitlisted") && !rowData.get(6).equals("-")){
                     result.add(new  WaitlistEntry(
                             email: rowData.get(0),
                             waitlistedOn: ZonedDateTime.parse(rowData.get(6), EventSlurper.eventTimeFormatter),
