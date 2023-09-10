@@ -1,5 +1,8 @@
 package ca.ualberta.autowise
 
+import ca.ualberta.autowise.scripts.slack.NewCampaignBlock
+import ca.ualberta.autowise.scripts.slack.RolesBlock
+import ca.ualberta.autowise.scripts.slack.ShiftsBlock
 import com.slack.api.bolt.App
 import com.slack.api.bolt.AppConfig
 import com.slack.api.bolt.handler.builtin.GlobalShortcutHandler
@@ -53,69 +56,7 @@ class SlackBolt implements Runnable{
 
             def response = ctx.client().viewsOpen{
                 it.triggerId(req.getPayload().getTriggerId())
-                        .viewAsString("""
-{
-	"type": "modal",
-	"callback_id": "create_new_campaign",
-	"title": {
-		"type": "plain_text",
-		"text": "My App",
-		"emoji": true
-	},
-	"submit": {
-		"type": "plain_text",
-		"text": "Submit",
-		"emoji": true
-	},
-	"close": {
-		"type": "plain_text",
-		"text": "Cancel",
-		"emoji": true
-	},
-	"blocks": [
-		{
-			"type": "section",
-			"text": {
-				"type": "mrkdwn",
-				"text": "Let's create a new event"
-			}
-		},
-		{
-			"type": "divider"
-		},
-		{
-			"type": "input",
-			"block_id": "event_name_block",
-			"element": {
-				"type": "plain_text_input",
-				"action_id": "event_name"
-			},
-			"label": {
-				"type": "plain_text",
-				"text": "Event Name",
-				"emoji": false
-			}
-		},
-		{
-			"type": "divider"
-		},
-		{
-			"type": "actions",
-			"elements": [
-				{
-					"type": "button",
-					"text": {
-						"type": "plain_text",
-						"text": "Create ",
-						"emoji": true
-					},
-					"value": "create_event",
-					"action_id": "0"
-				}
-			]
-		}
-	]
-}    """)
+                        .viewAsString(NewCampaignBlock.viewString())
             }
 
             if(response.isOk()){
@@ -126,6 +67,32 @@ class SlackBolt implements Runnable{
 
         })
 
+        this.app.command("/roles_test", (req, ctx)->{
+
+            def response = ctx.client().viewsOpen{
+                it.triggerId(req.getPayload().getTriggerId())
+                .view(RolesBlock.makeView(3))
+            }
+
+            if(response.isOk()){
+                return ctx.ack()
+            }else{
+                return Response.builder().statusCode(500).body(response.getError()).build()
+            }
+        })
+
+        this.app.command("/shifts_test", (req,ctx)->{
+            def response = ctx.client().viewsOpen{
+                it.triggerId(req.getPayload().getTriggerId())
+                .view(ShiftsBlock.makeView("Grill Master", 3))
+            }
+
+            if(response.isOk()){
+                return ctx.ack()
+            }else{
+                return Response.builder().statusCode(500).body(response.getError()).build()
+            }
+        })
 
 
         socketModeApp = new SocketModeApp(
