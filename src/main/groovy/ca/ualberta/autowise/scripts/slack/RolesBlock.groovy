@@ -29,7 +29,7 @@ class RolesBlock {
 
         return view(view->
 
-            view.callbackId("roles")
+            view.callbackId("create_new_campaign_roles_phase")
                 .type("modal")
                 .notifyOnClose(true)
                 .title(viewTitle {title->title.type("plain_text").text("Event Roles").emoji(true)})

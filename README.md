@@ -89,3 +89,14 @@ In practice the refresh token should go to the prod version, as the local dev ve
 | GoogleAPI Call | 429 | Too Many Requests. | Exponential back-off and retry the call. | TODO |
 | GoogleAPI Call | 5xx | Google side error | Exponential back-off to 5 minutes, then reschedule operation in 3 hours. | TODO |
 
+# Validation 
+
+List of things to check when creating a new campaign.
+
+|Validation| Implemented | 
+|-|-|
+|Start time is in the future| No |
+|End time is in the future | No |
+|End time is after start time | No |
+|Role names must be unique | No |
+|Make sure no apps/bots in volunteer coordinator/event organizer lists| No |

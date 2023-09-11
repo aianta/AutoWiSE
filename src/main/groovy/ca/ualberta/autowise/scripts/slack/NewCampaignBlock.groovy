@@ -2,10 +2,12 @@ package ca.ualberta.autowise.scripts.slack
 
 class NewCampaignBlock {
 
+    //TODO - extract block_ids and action_ids into static variables so that they can be less prone to errors when used by Slack Bolt.
     static def viewString(){
         return '''
 {
 	"type": "modal",
+	"callback_id":"create_new_campaign",
 	"title": {
 		"type": "plain_text",
 		"text": "AutoWiSE",
@@ -26,7 +28,7 @@ class NewCampaignBlock {
 			"type": "section",
 			"text": {
 				"type": "mrkdwn",
-				"text": "Let's create a new volunteer recruitment campaign!"
+				"text": "Let's create a new volunteer recruitment campaign!\n\nAll date and time values will be in MST."
 			}
 		},
 		{
@@ -50,11 +52,11 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
-			"block_id": "event_description",
+			"block_id": "event_description_block",
 			"element": {
 				"type": "plain_text_input",
 				"multiline": true,
-				"action_id": "description"
+				"action_id": "event_description"
 			},
 			"label": {
 				"type": "plain_text",
@@ -64,7 +66,7 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
-			"block_id": "event_organizers",
+			"block_id": "event_organizers_block",
 			"element": {
 				"type": "multi_users_select",
 				"placeholder": {
@@ -82,7 +84,7 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
-			"block_id": "volunteer_coordinators",
+			"block_id": "volunteer_coordinators_block",
 			"element": {
 				"type": "multi_users_select",
 				"placeholder": {
@@ -100,6 +102,7 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
+			"block_id":"event_start_block",
 			"element": {
 				"type": "datetimepicker",
 				"initial_date_time": 1628633820,
@@ -113,6 +116,7 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
+			"block_id": "event_end_block",
 			"element": {
 				"type": "datetimepicker",
 				"initial_date_time": 1628633820,
@@ -126,6 +130,7 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
+			"block_id":"eventbrite_block",
 			"element": {
 				"type": "url_text_input",
 				"action_id": "eventbrite_link"
@@ -167,6 +172,7 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
+			"block_id":"campaign_start_block",
 			"element": {
 				"type": "datetimepicker",
 				"initial_date_time": 1628633820,
@@ -180,6 +186,7 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
+			"block_id":"resolicit_frequency_block",
 			"element": {
 				"type": "number_input",
 				"is_decimal_allowed": false,
@@ -206,6 +213,7 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
+			"block_id": "followup_datetime_block",
 			"element": {
 				"type": "datetimepicker",
 				"initial_date_time": 1628633820,
@@ -372,6 +380,7 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
+			"block_id":"number_of_roles_block",
 			"element": {
 				"type": "number_input",
 				"is_decimal_allowed": false,

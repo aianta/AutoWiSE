@@ -143,11 +143,6 @@ void vertxStart(Promise<Void> startup){
             Thread boltThread = new Thread(boltApp)
             boltThread.start()
 
-//            Set<Volunteer> volunteers = [] as Set
-//            volunteers.add(new Volunteer(email: "ianta@ualberta.ca", name: "Alex Ianta"))
-//            volunteers.add(new Volunteer(email: "aianta03@gmail.com", name:"Tim tom"))
-
-
 
 
             /**
