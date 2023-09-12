@@ -29,6 +29,16 @@
 * Add template descriptions in this readme. 
 * Don't break if there are no volunteer coordinators or event organizers. But break if there are neither.
 * Don't create events that happen in the past. 
+* Use static variables in slack modal construction.
+* New Campaing Validation
+* Slack Control API 
+  * List active campaigns
+  * List scheduled campaign tasks
+  * Cancel active campaign
+  * Cancel scheduled campaign tasks
+  * Revoke volunteer webhook
+  * Revoke campaign webhooks.
+
 
 # Building Docker image
 
@@ -100,3 +110,6 @@ List of things to check when creating a new campaign.
 |End time is after start time | No |
 |Role names must be unique | No |
 |Make sure no apps/bots in volunteer coordinator/event organizer lists| No |
+|No special characters in event name. | No |
+|Ensure all templateIds resolve to a google doc | No |
+

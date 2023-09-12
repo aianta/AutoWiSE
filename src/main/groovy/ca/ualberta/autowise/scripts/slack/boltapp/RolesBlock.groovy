@@ -1,4 +1,4 @@
-package ca.ualberta.autowise.scripts.slack
+package ca.ualberta.autowise.scripts.slack.boltapp
 
 import com.slack.api.model.block.LayoutBlock
 import com.slack.api.model.view.View

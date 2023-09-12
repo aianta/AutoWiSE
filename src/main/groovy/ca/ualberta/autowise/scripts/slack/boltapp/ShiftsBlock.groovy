@@ -1,4 +1,4 @@
-package ca.ualberta.autowise.scripts.slack
+package ca.ualberta.autowise.scripts.slack.boltapp
 
 import ca.ualberta.autowise.model.Event
 import ca.ualberta.autowise.scripts.google.EventSlurper

@@ -1,4 +1,4 @@
-package ca.ualberta.autowise.scripts.slack
+package ca.ualberta.autowise.scripts.slack.boltapp
 
 class NewCampaignBlock {
 
@@ -402,7 +402,7 @@ class NewCampaignBlock {
 			"type": "section",
 			"text": {
 				"type": "mrkdwn",
-				"text": "Be very sure about this number of roles, you'll have to start over and fill this form again if it's incorrect."
+				"text": "Be very sure about this number of roles, you'll have to start over and fill this form again if it's incorrect.\n\nIf you click submit and nothing happens, scroll back up and check for errors."
 			}
 		}
 	]

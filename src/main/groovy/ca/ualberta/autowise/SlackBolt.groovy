@@ -5,34 +5,33 @@ import ca.ualberta.autowise.model.EventBuffer
 import ca.ualberta.autowise.model.EventStatus
 import ca.ualberta.autowise.model.Role
 import ca.ualberta.autowise.model.Shift
+import ca.ualberta.autowise.scripts.slack.boltapp.validation.SlackModalValidationError
 import ca.ualberta.autowise.scripts.google.EventSlurper
-import ca.ualberta.autowise.scripts.slack.NewCampaignBlock
-import ca.ualberta.autowise.scripts.slack.RolesBlock
-import ca.ualberta.autowise.scripts.slack.ShiftsBlock
+import ca.ualberta.autowise.scripts.slack.boltapp.NewCampaignBlock
+import ca.ualberta.autowise.scripts.slack.boltapp.RolesBlock
+import ca.ualberta.autowise.scripts.slack.boltapp.ShiftsBlock
+import ca.ualberta.autowise.scripts.slack.boltapp.validation.rules.NoSpecialCharacters
+import com.slack.api.Slack
 import com.slack.api.bolt.App
 import com.slack.api.bolt.AppConfig
 import com.slack.api.bolt.context.builtin.ViewSubmissionContext
-import com.slack.api.bolt.handler.builtin.GlobalShortcutHandler
 import com.slack.api.bolt.jetty.SlackAppServer
 import com.slack.api.bolt.request.builtin.ViewSubmissionRequest
 import com.slack.api.bolt.response.Response
 import com.slack.api.bolt.socket_mode.SocketModeApp
-import com.slack.api.methods.request.admin.usergroups.AdminUsergroupsListChannelsRequest
 import com.slack.api.methods.request.conversations.ConversationsInfoRequest
 import com.slack.api.methods.request.users.UsersInfoRequest
 import com.slack.api.methods.response.users.UsersInfoResponse
 import com.slack.api.socket_mode.SocketModeClient
-import groovy.transform.Field
 import io.vertx.core.json.JsonObject
 import org.slf4j.LoggerFactory
-
-import com.slack.api.model.view.View
 
 import java.time.Duration
 import java.time.Instant
 import java.time.ZonedDateTime
 import java.time.LocalTime
 import java.time.temporal.ChronoUnit
+import java.util.function.Predicate
 import java.util.stream.Collectors
 import java.util.stream.IntStream
 import java.util.stream.Stream;
@@ -98,9 +97,11 @@ class SlackBolt implements Runnable{
                 partialEvent.status = EventStatus.READY
 
                 //Make an event sheet for our glorious new event
+                //Do this in a seprate thread so that the Bolt Socket App doesn't hang/lose connection to slack.
                 Thread paperwork = new Thread(()->createEventSheet(config, services.googleAPI, "[SLACK-GEN]${partialEvent.getName()}", partialEvent)
                         .onSuccess { log.info "Event sheet generated!"
                             //TODO: Need to make sure this doesn't have strange implications because it's in a separate thread.
+                            // better yet can we just register the newly created sheet directly?
                             //autoWiSE.doExternalTick(services, config)
                         }
                         .onFailure { log.error it.getMessage(), it})
@@ -164,15 +165,21 @@ class SlackBolt implements Runnable{
 
         this.app.viewSubmission("create_new_campaign", (req, ctx)->{
 
-            //Extract info from modal
-            Event partialEvent = populateStaticEventData(req, ctx);
-            //Register the partial event into our event buffer
-            buffer.add(partialEvent);
+            try{
+                //Extract info from modal
+                Event partialEvent = populateStaticEventData(req, ctx)
+                //Register the partial event into our event buffer
+                buffer.add(partialEvent);
+                def nextView = RolesBlock.makeView(partialEvent.roles.size())
+                nextView.setPrivateMetadata(partialEvent.getId().toString());
 
-            def nextView = RolesBlock.makeView(partialEvent.roles.size())
-            nextView.setPrivateMetadata(partialEvent.getId().toString());
+                return ctx.ack("update", nextView)
 
-            return ctx.ack("update", nextView)
+            }catch (SlackModalValidationError err){
+
+                return ctx.ackWithErrors(err.getErrors())
+
+            }
 
         })
 
@@ -191,33 +198,6 @@ class SlackBolt implements Runnable{
 
         })
 
-        this.app.command("/roles_test", (req, ctx)->{
-
-            def response = ctx.client().viewsOpen{
-                it.triggerId(req.getPayload().getTriggerId())
-                .view(RolesBlock.makeView(3))
-            }
-
-            if(response.isOk()){
-                return ctx.ack()
-            }else{
-                return Response.builder().statusCode(500).body(response.getError()).build()
-            }
-        })
-
-        this.app.command("/shifts_test", (req,ctx)->{
-
-            def response = ctx.client().viewsOpen{
-                it.triggerId(req.getPayload().getTriggerId())
-                .view(ShiftsBlock.makeView("Grill Master", 3, null))
-            }
-
-            if(response.isOk()){
-                return ctx.ack()
-            }else{
-                return Response.builder().statusCode(500).body(response.getError()).build()
-            }
-        })
 
 
         socketModeApp = new SocketModeApp(
@@ -249,7 +229,8 @@ class SlackBolt implements Runnable{
      * @param ctx
      * @return
      */
-    Event populateStaticEventData(ViewSubmissionRequest request, ViewSubmissionContext ctx){
+    Event populateStaticEventData(ViewSubmissionRequest request, ViewSubmissionContext ctx) throws SlackModalValidationError{
+
         Event result = new Event()
         result.setId(UUID.randomUUID())
 
@@ -305,6 +286,24 @@ class SlackBolt implements Runnable{
         }.limit(numberOfRoles)
         .forEach {result.roles.add(it)}
 
+        //Begin Validation
+        SlackModalValidationError validationErrors = new SlackModalValidationError()
+
+
+        validationErrors.merge(validate("event_name_block", eventName,
+                [
+                        { s -> new NoSpecialCharacters().test(s.toString())}: "Event title can only contain alphanumerics and spaces.",
+                        { s-> s.toString().length() < 30 } : "Event title can not be longer than 30 characters"
+                ]
+        ))
+
+
+        if(validationErrors.getErrors().size() > 0){
+            throw validationErrors
+        }
+
+        //End Validation
+
         result.setName(eventName);
         result.setDescription(eventDescription)
         result.setEventOrganizers(organizers)
@@ -324,7 +323,8 @@ class SlackBolt implements Runnable{
         result.setConfirmCancelledEmailTemplateId(confirmCancelledEmailTemplateId)
         result.setConfirmRejectedEmailTemplateId(confirmRejectedEmailTemplateId)
 
-        return result;
+
+        return result
     }
 
     private String resolveChannelNamefromId(String channelId){
@@ -344,5 +344,17 @@ class SlackBolt implements Runnable{
                 return response.getUser().getProfile().getEmail() //TODO - what if there is no email? Can that even happen?
             })
         .collect(Collectors.toList())
+    }
+
+    private def validate(blockId,String item, Map<Predicate<String>,String> rules){
+        SlackModalValidationError errors = new SlackModalValidationError();
+        rules.forEach((rule, msg)->{
+            log.info "${rule}:${msg}"
+            if(!rule(item)){
+                errors.addError(blockId, msg)
+            }
+        })
+
+        return errors;
     }
 }
