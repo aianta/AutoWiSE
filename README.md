@@ -29,11 +29,15 @@
 * Add template descriptions in this readme. 
 * Don't break if there are no volunteer coordinators or event organizers. But break if there are neither.
 * Don't create events that happen in the past. 
-* Use static variables in slack modal construction.
-* New Campaing Validation
+* ~~Use static variables in slack modal construction.~~
+* New Campaign Validation
+* Integrate Events into database model
+* Slack Campaign Creation Test (Target: Last week of September 2023)
+* Add instructions for SSL certificate renewal/creation
 * Slack Control API 
   * List active campaigns
   * List scheduled campaign tasks
+  * Reschedule campaign task
   * Cancel active campaign
   * Cancel scheduled campaign tasks
   * Revoke volunteer webhook

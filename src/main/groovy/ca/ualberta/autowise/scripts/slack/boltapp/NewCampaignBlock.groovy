@@ -2,9 +2,51 @@ package ca.ualberta.autowise.scripts.slack.boltapp
 
 class NewCampaignBlock {
 
+    /**
+     * Define block and action ids in the modal UI
+     */
+    public static final String EVENT_NAME_BLOCK = "event_name_block"
+    public static final String EVENT_NAME_ACTION = "event_name"
+    public static final String EVENT_DESCRIPTION_BLOCK = "event_description_block"
+    public static final String EVENT_DESCRIPTION_ACTION = "event_description"
+    public static final String EVENT_ORGANIZERS_BLOCK = "event_organizers_block"
+    public static final String EVENT_ORGANIZERS_ACTION = "event_organizers"
+    public static final String EVENT_VOLUNTEER_COORDINATORS_BLOCK = "volunteer_coordinators_block"
+    public static final String EVENT_VOLUNTEER_COORDINATORS_ACTION = "volunteer_coordinators"
+    public static final String EVENT_START_BLOCK = "event_start_block"
+    public static final String EVENT_START_ACTION = "event_start"
+    public static final String EVENT_END_BLOCK = "event_end_block"
+    public static final String EVENT_END_ACTION = "event_end"
+    public static final String EVENT_EVENTBRITE_BLOCK = "eventbrite_block"
+    public static final String EVENT_EVENTBRITE_ACTION = "eventbrite_link"
+    public static final String EVENT_SLACK_CHANNEL_BLOCK = "event_slack_channel_block"
+    public static final String EVENT_SLACK_CHANNEL_ACTION = "event_channel"
+    public static final String EVENT_CAMPAIGN_START_BLOCK = "campaign_start_block"
+    public static final String EVENT_CAMPAIGN_START_ACTION = "campaign_start_datetime"
+    public static final String EVENT_RESOLICIT_FREQUENCY_BLOCK = "resolicit_frequency_block"
+    public static final String EVENT_RESOLICIT_FREQUENCY_ACTION = "resolicit_frequency"
+    public static final String EVENT_FOLLOWUP_BLOCK = "followup_datetime_block"
+    public static final String EVENT_FOLLOWUP_ACTION = "followup_datetime"
+    public static final String EVENT_INITIAL_RECRUITMENT_EMAIL_TEMPLATE_BLOCK = "initial_recruitment_email_template_block"
+    public static final String EVENT_INITIAL_RECURITMENT_EMAIL_TEMPLATE_ACTION = "initial_recruitment_email_template"
+    public static final String EVENT_RECRUITMENT_EMAIL_TEMPLATE_BLOCK = "recruitment_email_template_block"
+    public static final String EVENT_RECRUITMENT_EMAIL_TEMPLATE_ACTION = "recruitment_email_template"
+    public static final String EVENT_FOLLOWUP_EMAIL_TEMPLATE_BLOCK = "followup_email_template_block"
+    public static final String EVENT_FOLLOWUP_EMAIL_TEMPLATE_ACTION = "followup_email_template"
+    public static final String EVENT_CONFIRM_ASSIGNED_EMAIL_TEMPLATE_BLOCK = "confirm_assigned_email_template_block"
+    public static final String EVENT_CONFIRM_ASSIGNED_EMAIL_TEMPLATE_ACTION = "confirm_assigned_email_template"
+    public static final String EVENT_CONFIRM_CANCELLED_EMAIL_TEMPLATE_BLOCK = "confirm_cancelled_email_template_block"
+    public static final String EVENT_CONFIRM_CANCELLED_EMAIL_TEMPLATE_ACTION = "confirm_cancelled_email_template"
+    public static final String EVENT_CONFIRM_WAITLIST_EMAIL_TEMPLATE_BLOCK = "confirm_waitlist_email_template_block"
+    public static final String EVENT_CONFIRM_WAITLIST_EMAIL_TEMPLATE_ACTION = "confirm_waitlist_email_template"
+    public static final String EVENT_CONFIRM_REJECTED_EMAIL_TEMPLATE_BLOCK = "confirm_rejected_email_template_block"
+    public static final String EVENT_CONFIRM_REJECTED_EMAIL_TEMPLATE_ACTION = "confirm_rejected_email_template"
+    public static final String EVENT_NUMBER_OF_ROLES_BLOCK = "number_of_roles_block"
+    public static final String EVENT_NUMBER_OF_ROLES_ACTION = "num_roles"
+
     //TODO - extract block_ids and action_ids into static variables so that they can be less prone to errors when used by Slack Bolt.
     static def viewString(){
-        return '''
+        return """
 {
 	"type": "modal",
 	"callback_id":"create_new_campaign",
@@ -36,10 +78,10 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
-			"block_id": "event_name_block",
+			"block_id": "${EVENT_NAME_BLOCK}",
 			"element": {
 				"type": "plain_text_input",
-				"action_id": "event_name"
+				"action_id": "${EVENT_NAME_ACTION}"
 			},
 			"label": {
 				"type": "plain_text",
@@ -52,11 +94,11 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
-			"block_id": "event_description_block",
+			"block_id": "${EVENT_DESCRIPTION_BLOCK}",
 			"element": {
 				"type": "plain_text_input",
 				"multiline": true,
-				"action_id": "event_description"
+				"action_id": "${EVENT_DESCRIPTION_ACTION}"
 			},
 			"label": {
 				"type": "plain_text",
@@ -66,7 +108,7 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
-			"block_id": "event_organizers_block",
+			"block_id": "${EVENT_ORGANIZERS_BLOCK}",
 			"element": {
 				"type": "multi_users_select",
 				"placeholder": {
@@ -74,7 +116,7 @@ class NewCampaignBlock {
 					"text": "Select users",
 					"emoji": true
 				},
-				"action_id": "event_organizers"
+				"action_id": "${EVENT_ORGANIZERS_ACTION}"
 			},
 			"label": {
 				"type": "plain_text",
@@ -84,7 +126,7 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
-			"block_id": "volunteer_coordinators_block",
+			"block_id": "${EVENT_VOLUNTEER_COORDINATORS_BLOCK}",
 			"element": {
 				"type": "multi_users_select",
 				"placeholder": {
@@ -92,7 +134,7 @@ class NewCampaignBlock {
 					"text": "Select users",
 					"emoji": true
 				},
-				"action_id": "volunteer_coordinators"
+				"action_id": "${EVENT_VOLUNTEER_COORDINATORS_ACTION}"
 			},
 			"label": {
 				"type": "plain_text",
@@ -102,11 +144,11 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
-			"block_id":"event_start_block",
+			"block_id":"${EVENT_START_BLOCK}",
 			"element": {
 				"type": "datetimepicker",
 				"initial_date_time": 1628633820,
-				"action_id": "event_start"
+				"action_id": "${EVENT_START_ACTION}"
 			},
 			"label": {
 				"type": "plain_text",
@@ -116,11 +158,11 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
-			"block_id": "event_end_block",
+			"block_id": "${EVENT_END_BLOCK}",
 			"element": {
 				"type": "datetimepicker",
 				"initial_date_time": 1628633820,
-				"action_id": "event_end"
+				"action_id": "${EVENT_END_ACTION}"
 			},
 			"label": {
 				"type": "plain_text",
@@ -130,10 +172,10 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
-			"block_id":"eventbrite_block",
+			"block_id":"${EVENT_EVENTBRITE_BLOCK}",
 			"element": {
 				"type": "url_text_input",
-				"action_id": "eventbrite_link"
+				"action_id": "${EVENT_EVENTBRITE_ACTION}"
 			},
 			"label": {
 				"type": "plain_text",
@@ -143,13 +185,13 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
-			"block_id": "event_slack_channel_block",
+			"block_id": "${EVENT_SLACK_CHANNEL_BLOCK}",
 			"label": {
 				"type": "plain_text",
 				"text": "Event Slack channel:"
 			},
 			"element": {
-				"action_id": "event_channel",
+				"action_id": "${EVENT_SLACK_CHANNEL_ACTION}",
 				"type": "channels_select",
 				"placeholder": {
 					"type": "plain_text",
@@ -172,11 +214,11 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
-			"block_id":"campaign_start_block",
+			"block_id":"${EVENT_CAMPAIGN_START_BLOCK}",
 			"element": {
 				"type": "datetimepicker",
 				"initial_date_time": 1628633820,
-				"action_id": "campaign_start_datetime"
+				"action_id": "${EVENT_CAMPAIGN_START_ACTION}"
 			},
 			"label": {
 				"type": "plain_text",
@@ -186,11 +228,11 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
-			"block_id":"resolicit_frequency_block",
+			"block_id":"${EVENT_RESOLICIT_FREQUENCY_BLOCK}",
 			"element": {
 				"type": "number_input",
 				"is_decimal_allowed": false,
-				"action_id": "resolicit_frequency",
+				"action_id": "${EVENT_RESOLICIT_FREQUENCY_ACTION}",
 				"min_value": "1",
 				"max_value": "90",
 				"placeholder": {
@@ -213,11 +255,11 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
-			"block_id": "followup_datetime_block",
+			"block_id": "${EVENT_FOLLOWUP_BLOCK}",
 			"element": {
 				"type": "datetimepicker",
 				"initial_date_time": 1628633820,
-				"action_id": "followup_datetime"
+				"action_id": "${EVENT_FOLLOWUP_ACTION}"
 			},
 			"label": {
 				"type": "plain_text",
@@ -237,10 +279,10 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
-			"block_id": "initial_recruitment_email_template_block",
+			"block_id": "${EVENT_INITIAL_RECRUITMENT_EMAIL_TEMPLATE_BLOCK}",
 			"element": {
 				"type": "plain_text_input",
-				"action_id": "initial_recruitment_email_template"
+				"action_id": "${EVENT_INITIAL_RECURITMENT_EMAIL_TEMPLATE_ACTION}"
 			},
 			"label": {
 				"type": "plain_text",
@@ -257,10 +299,10 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
-			"block_id": "recruitment_email_template_block",
+			"block_id": "${EVENT_RECRUITMENT_EMAIL_TEMPLATE_BLOCK}",
 			"element": {
 				"type": "plain_text_input",
-				"action_id": "recruitment_email_template"
+				"action_id": "${EVENT_RECRUITMENT_EMAIL_TEMPLATE_ACTION}"
 			},
 			"label": {
 				"type": "plain_text",
@@ -277,10 +319,10 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
-			"block_id": "followup_email_template_block",
+			"block_id": "${EVENT_FOLLOWUP_EMAIL_TEMPLATE_BLOCK}",
 			"element": {
 				"type": "plain_text_input",
-				"action_id": "followup_email_template"
+				"action_id": "${EVENT_FOLLOWUP_EMAIL_TEMPLATE_ACTION}"
 			},
 			"label": {
 				"type": "plain_text",
@@ -297,10 +339,10 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
-			"block_id": "confirm_assigned_email_template_block",
+			"block_id": "${EVENT_CONFIRM_ASSIGNED_EMAIL_TEMPLATE_BLOCK}",
 			"element": {
 				"type": "plain_text_input",
-				"action_id": "confirm_assigned_email_template"
+				"action_id": ${EVENT_CONFIRM_ASSIGNED_EMAIL_TEMPLATE_ACTION}"
 			},
 			"label": {
 				"type": "plain_text",
@@ -317,10 +359,10 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
-			"block_id": "confirm_cancelled_email_template_block",
+			"block_id": "${EVENT_CONFIRM_CANCELLED_EMAIL_TEMPLATE_BLOCK}",
 			"element": {
 				"type": "plain_text_input",
-				"action_id": "confirm_cancelled_email_template"
+				"action_id": "${EVENT_CONFIRM_CANCELLED_EMAIL_TEMPLATE_ACTION}"
 			},
 			"label": {
 				"type": "plain_text",
@@ -337,10 +379,10 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
-			"block_id": "confirm_waitlist_email_template_block",
+			"block_id": "${EVENT_CONFIRM_WAITLIST_EMAIL_TEMPLATE_BLOCK}",
 			"element": {
 				"type": "plain_text_input",
-				"action_id": "confirm_waitlist_email_template"
+				"action_id": "${EVENT_CONFIRM_WAITLIST_EMAIL_TEMPLATE_ACTION}"
 			},
 			"label": {
 				"type": "plain_text",
@@ -357,10 +399,10 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
-			"block_id": "confirm_rejected_email_template_block",
+			"block_id": "${EVENT_CONFIRM_REJECTED_EMAIL_TEMPLATE_BLOCK}",
 			"element": {
 				"type": "plain_text_input",
-				"action_id": "confirm_rejected_email_template"
+				"action_id": "${EVENT_CONFIRM_REJECTED_EMAIL_TEMPLATE_ACTION}"
 			},
 			"label": {
 				"type": "plain_text",
@@ -380,11 +422,11 @@ class NewCampaignBlock {
 		},
 		{
 			"type": "input",
-			"block_id":"number_of_roles_block",
+			"block_id":"${EVENT_NUMBER_OF_ROLES_BLOCK}",
 			"element": {
 				"type": "number_input",
 				"is_decimal_allowed": false,
-				"action_id": "num_roles",
+				"action_id": "${EVENT_NUMBER_OF_ROLES_ACTION}",
 				"min_value": "1",
 				"max_value": "12",
 				"placeholder": {
@@ -406,7 +448,7 @@ class NewCampaignBlock {
 			}
 		}
 	]
-}       '''
+}       """
     }
 
 }

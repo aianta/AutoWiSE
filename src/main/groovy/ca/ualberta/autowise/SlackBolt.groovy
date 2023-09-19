@@ -38,6 +38,7 @@ import java.util.stream.Stream;
 
 import static ca.ualberta.autowise.scripts.slack.BlockingSlackMessage.*
 import static ca.ualberta.autowise.scripts.google.CreateEventSheet.*
+import static ca.ualberta.autowise.scripts.slack.boltapp.NewCampaignBlock.*;
 
 
 
@@ -235,48 +236,48 @@ class SlackBolt implements Runnable{
         result.setId(UUID.randomUUID())
 
         def stateValues = request.getPayload().getView().getState().getValues();
-        String eventName = stateValues.get("event_name_block").get("event_name").getValue();
-        String eventDescription = stateValues.get("event_description_block").get("event_description").getValue();
+        String eventName = stateValues.get(EVENT_NAME_BLOCK).get(EVENT_NAME_ACTION).getValue();
+        String eventDescription = stateValues.get(EVENT_DESCRIPTION_BLOCK).get(EVENT_DESCRIPTION_ACTION).getValue();
 
         //These are gonna be user strings, have to resolve them into emails.
-        List<String> organizers = resolveEmailsFromUserIds(stateValues.get("event_organizers_block").get("event_organizers").getSelectedUsers())
+        List<String> organizers = resolveEmailsFromUserIds(stateValues.get(EVENT_ORGANIZERS_BLOCK).get(EVENT_ORGANIZERS_ACTION).getSelectedUsers())
 
 
         //These are gonna be user strings, have to resolve them into emails.
-        List<String> volunteerCoordinators = resolveEmailsFromUserIds(stateValues.get("volunteer_coordinators_block").get("volunteer_coordinators").getSelectedUsers())
+        List<String> volunteerCoordinators = resolveEmailsFromUserIds(stateValues.get(EVENT_VOLUNTEER_COORDINATORS_BLOCK).get(EVENT_VOLUNTEER_COORDINATORS_ACTION).getSelectedUsers())
 
-        ZonedDateTime startTime = ZonedDateTime.ofInstant(Instant.ofEpochSecond((long)stateValues.get("event_start_block").get("event_start").getSelectedDateTime()),AutoWiSE.timezone);
-        ZonedDateTime endTime = ZonedDateTime.ofInstant(Instant.ofEpochSecond((long)stateValues.get("event_end_block").get("event_end").getSelectedDateTime()),AutoWiSE.timezone);
+        ZonedDateTime startTime = ZonedDateTime.ofInstant(Instant.ofEpochSecond((long)stateValues.get(EVENT_START_BLOCK).get(EVENT_START_ACTION).getSelectedDateTime()),AutoWiSE.timezone);
+        ZonedDateTime endTime = ZonedDateTime.ofInstant(Instant.ofEpochSecond((long)stateValues.get(EVENT_END_BLOCK).get(EVENT_END_ACTION).getSelectedDateTime()),AutoWiSE.timezone);
 
-        String eventbriteLink = stateValues.get("eventbrite_block").get("eventbrite_link").getValue();
+        String eventbriteLink = stateValues.get(EVENT_EVENTBRITE_BLOCK).get(EVENT_EVENTBRITE_ACTION).getValue();
 
-        String eventSlackChannel = resolveChannelNamefromId(stateValues.get("event_slack_channel_block").get("event_channel").getSelectedChannel());
+        String eventSlackChannel = resolveChannelNamefromId(stateValues.get(EVENT_SLACK_CHANNEL_BLOCK).get(EVENT_SLACK_CHANNEL_ACTION).getSelectedChannel());
 
-        ZonedDateTime campaignStartTime = ZonedDateTime.ofInstant(Instant.ofEpochSecond(stateValues.get("campaign_start_block").get("campaign_start_datetime").getSelectedDateTime()), AutoWiSE.timezone);
+        ZonedDateTime campaignStartTime = ZonedDateTime.ofInstant(Instant.ofEpochSecond(stateValues.get(EVENT_CAMPAIGN_START_BLOCK).get(EVENT_CAMPAIGN_START_ACTION).getSelectedDateTime()), AutoWiSE.timezone);
 
         long campaignStartOffset = ChronoUnit.MILLIS.between(campaignStartTime, startTime)
 
         log.info "campaign start offset: ${campaignStartOffset}"
 
-        long resolicitFrequency = Duration.ofDays(Long.parseLong(stateValues.get("resolicit_frequency_block").get("resolicit_frequency").getValue())).toMillis();
+        long resolicitFrequency = Duration.ofDays(Long.parseLong(stateValues.get(EVENT_RESOLICIT_FREQUENCY_BLOCK).get(EVENT_RESOLICIT_FREQUENCY_ACTION).getValue())).toMillis();
 
-        ZonedDateTime followupDateTime = ZonedDateTime.ofInstant(Instant.ofEpochSecond(stateValues.get("followup_datetime_block").get("followup_datetime").getSelectedDateTime()), AutoWiSE.timezone)
+        ZonedDateTime followupDateTime = ZonedDateTime.ofInstant(Instant.ofEpochSecond(stateValues.get(EVENT_FOLLOWUP_BLOCK).get(EVENT_FOLLOWUP_ACTION).getSelectedDateTime()), AutoWiSE.timezone)
 
         long followupOffset = ChronoUnit.MILLIS.between(followupDateTime, startTime)
 
         log.info "followup offset: ${followupOffset}"
 
-        String initialRecruitmentEmailTemplateId = stateValues.get("initial_recruitment_email_template_block").get("initial_recruitment_email_template").getValue();
-        String recruitmentEmailTemplateId = stateValues.get("recruitment_email_template_block").get("recruitment_email_template").getValue();
-        String followupEmailTemplateId = stateValues.get("followup_email_template_block").get("followup_email_template").getValue();
-        String confirmAssignedEmailTemplateId = stateValues.get("confirm_assigned_email_template_block").get("confirm_assigned_email_template").getValue();
-        String confirmCancelledEmailTemplateId = stateValues.get("confirm_cancelled_email_template_block").get("confirm_cancelled_email_template").getValue();
-        String confirmWaitlistEmailTemplateId = stateValues.get("confirm_waitlist_email_template_block").get("confirm_waitlist_email_template").getValue();
-        String confirmRejectedEmailTemplateId = stateValues.get("confirm_rejected_email_template_block").get("confirm_rejected_email_template").getValue();
+        String initialRecruitmentEmailTemplateId = stateValues.get(EVENT_INITIAL_RECRUITMENT_EMAIL_TEMPLATE_BLOCK).get(EVENT_INITIAL_RECURITMENT_EMAIL_TEMPLATE_ACTION).getValue();
+        String recruitmentEmailTemplateId = stateValues.get(EVENT_RECRUITMENT_EMAIL_TEMPLATE_BLOCK).get(EVENT_RECRUITMENT_EMAIL_TEMPLATE_ACTION).getValue();
+        String followupEmailTemplateId = stateValues.get(EVENT_FOLLOWUP_EMAIL_TEMPLATE_BLOCK).get(EVENT_FOLLOWUP_EMAIL_TEMPLATE_ACTION).getValue();
+        String confirmAssignedEmailTemplateId = stateValues.get(EVENT_CONFIRM_ASSIGNED_EMAIL_TEMPLATE_BLOCK).get(EVENT_CONFIRM_ASSIGNED_EMAIL_TEMPLATE_ACTION).getValue();
+        String confirmCancelledEmailTemplateId = stateValues.get(EVENT_CONFIRM_CANCELLED_EMAIL_TEMPLATE_BLOCK).get(EVENT_CONFIRM_CANCELLED_EMAIL_TEMPLATE_ACTION).getValue();
+        String confirmWaitlistEmailTemplateId = stateValues.get(EVENT_CONFIRM_WAITLIST_EMAIL_TEMPLATE_BLOCK).get(EVENT_CONFIRM_WAITLIST_EMAIL_TEMPLATE_ACTION).getValue();
+        String confirmRejectedEmailTemplateId = stateValues.get(EVENT_CONFIRM_REJECTED_EMAIL_TEMPLATE_BLOCK).get(EVENT_CONFIRM_REJECTED_EMAIL_TEMPLATE_ACTION).getValue();
 
         //TODO - validation
 
-        int numberOfRoles = Integer.parseInt(stateValues.get("number_of_roles_block").get("num_roles").getValue());
+        int numberOfRoles = Integer.parseInt(stateValues.get(EVENT_NUMBER_OF_ROLES_ACTION).get(EVENT_NUMBER_OF_ROLES_ACTION).getValue());
 
         //Init roles list
         result.roles = new ArrayList<>();
@@ -290,7 +291,7 @@ class SlackBolt implements Runnable{
         SlackModalValidationError validationErrors = new SlackModalValidationError()
 
 
-        validationErrors.merge(validate("event_name_block", eventName,
+        validationErrors.merge(validate(EVENT_NAME_BLOCK, eventName,
                 [
                         { s -> new NoSpecialCharacters().test(s.toString())}: "Event title can only contain alphanumerics and spaces.",
                         { s-> s.toString().length() < 30 } : "Event title can not be longer than 30 characters"
