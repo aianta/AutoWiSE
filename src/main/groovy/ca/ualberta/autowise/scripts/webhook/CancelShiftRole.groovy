@@ -16,7 +16,7 @@ import org.slf4j.LoggerFactory
 
 import java.time.ZonedDateTime
 
-import static ca.ualberta.autowise.JsonUtils.slurpRolesJson
+import static ca.ualberta.autowise.utils.JsonUtils.slurpRolesJson
 import static ca.ualberta.autowise.scripts.ManageEventStatusTable.*
 import static ca.ualberta.autowise.scripts.google.GetSheetValue.*
 import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.*

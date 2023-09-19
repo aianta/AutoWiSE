@@ -1,7 +1,7 @@
 package ca.ualberta.autowise.scripts
 
 import ca.ualberta.autowise.AutoWiSE
-import ca.ualberta.autowise.JsonUtils
+import ca.ualberta.autowise.utils.JsonUtils
 import ca.ualberta.autowise.model.Event
 import ca.ualberta.autowise.model.EventStatus
 import ca.ualberta.autowise.model.HookType

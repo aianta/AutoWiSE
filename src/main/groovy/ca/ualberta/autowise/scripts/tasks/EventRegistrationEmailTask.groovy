@@ -1,8 +1,6 @@
 package ca.ualberta.autowise.scripts.tasks
 
 import ca.ualberta.autowise.AutoWiSE
-import ca.ualberta.autowise.model.Event
-import ca.ualberta.autowise.model.HookType
 import ca.ualberta.autowise.model.Role
 import ca.ualberta.autowise.model.Shift
 import ca.ualberta.autowise.model.ShiftRole
@@ -19,7 +17,7 @@ import java.time.LocalTime
 import java.time.ZonedDateTime
 import java.util.stream.Collectors
 
-import static ca.ualberta.autowise.JsonUtils.slurpRolesJson
+import static ca.ualberta.autowise.utils.JsonUtils.slurpRolesJson
 import static ca.ualberta.autowise.scripts.BuildShiftRoleOptions.buildShiftRoleOptions
 import static ca.ualberta.autowise.scripts.FindAvailableShiftRoles.findAvailableShiftRoles
 import static ca.ualberta.autowise.scripts.FindAvailableShiftRoles.getShiftRole

@@ -1,5 +1,7 @@
 package ca.ualberta.autowise.scripts.slack.boltapp
 
+import java.time.Instant
+
 class NewCampaignBlock {
 
     /**
@@ -44,8 +46,9 @@ class NewCampaignBlock {
     public static final String EVENT_NUMBER_OF_ROLES_BLOCK = "number_of_roles_block"
     public static final String EVENT_NUMBER_OF_ROLES_ACTION = "num_roles"
 
-    //TODO - extract block_ids and action_ids into static variables so that they can be less prone to errors when used by Slack Bolt.
-    static def viewString(){
+      static def viewString(){
+          def currentDateEpochSeconds = Instant.now().getEpochSecond()
+
         return """
 {
 	"type": "modal",
@@ -147,7 +150,7 @@ class NewCampaignBlock {
 			"block_id":"${EVENT_START_BLOCK}",
 			"element": {
 				"type": "datetimepicker",
-				"initial_date_time": 1628633820,
+				"initial_date_time": ${currentDateEpochSeconds},
 				"action_id": "${EVENT_START_ACTION}"
 			},
 			"label": {
@@ -161,7 +164,7 @@ class NewCampaignBlock {
 			"block_id": "${EVENT_END_BLOCK}",
 			"element": {
 				"type": "datetimepicker",
-				"initial_date_time": 1628633820,
+				"initial_date_time": ${currentDateEpochSeconds},
 				"action_id": "${EVENT_END_ACTION}"
 			},
 			"label": {
@@ -217,7 +220,7 @@ class NewCampaignBlock {
 			"block_id":"${EVENT_CAMPAIGN_START_BLOCK}",
 			"element": {
 				"type": "datetimepicker",
-				"initial_date_time": 1628633820,
+				"initial_date_time": ${currentDateEpochSeconds},
 				"action_id": "${EVENT_CAMPAIGN_START_ACTION}"
 			},
 			"label": {
@@ -258,7 +261,7 @@ class NewCampaignBlock {
 			"block_id": "${EVENT_FOLLOWUP_BLOCK}",
 			"element": {
 				"type": "datetimepicker",
-				"initial_date_time": 1628633820,
+				"initial_date_time": ${currentDateEpochSeconds},
 				"action_id": "${EVENT_FOLLOWUP_ACTION}"
 			},
 			"label": {
@@ -342,7 +345,7 @@ class NewCampaignBlock {
 			"block_id": "${EVENT_CONFIRM_ASSIGNED_EMAIL_TEMPLATE_BLOCK}",
 			"element": {
 				"type": "plain_text_input",
-				"action_id": ${EVENT_CONFIRM_ASSIGNED_EMAIL_TEMPLATE_ACTION}"
+				"action_id": "${EVENT_CONFIRM_ASSIGNED_EMAIL_TEMPLATE_ACTION}"
 			},
 			"label": {
 				"type": "plain_text",
@@ -448,7 +451,7 @@ class NewCampaignBlock {
 			}
 		}
 	]
-}       """
+}       """.toString()
     }
 
 }

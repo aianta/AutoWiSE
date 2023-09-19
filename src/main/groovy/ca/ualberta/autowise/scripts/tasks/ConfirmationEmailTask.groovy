@@ -18,7 +18,7 @@ import org.slf4j.LoggerFactory
 
 import java.time.ZonedDateTime
 
-import static ca.ualberta.autowise.JsonUtils.slurpRolesJson
+import static ca.ualberta.autowise.utils.JsonUtils.slurpRolesJson
 import static ca.ualberta.autowise.scripts.FindAvailableShiftRoles.getShiftRole
 import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.syncEventVolunteerContactSheet
 import static ca.ualberta.autowise.scripts.google.DocumentSlurper.slurpDocument

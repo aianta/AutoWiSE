@@ -17,7 +17,7 @@ import java.time.format.DateTimeFormatter
 
 import java.time.ZonedDateTime;
 
-import static ca.ualberta.autowise.JsonUtils.*
+import static ca.ualberta.autowise.utils.JsonUtils.*
 import static ca.ualberta.autowise.scripts.google.GetSheetValue.*
 import static ca.ualberta.autowise.scripts.ManageEventStatusTable.*
 import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.*

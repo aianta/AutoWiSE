@@ -22,7 +22,7 @@ import java.time.ZonedDateTime
 import java.util.function.Predicate
 import java.util.stream.Collectors
 
-import static ca.ualberta.autowise.JsonUtils.slurpRolesJson
+import static ca.ualberta.autowise.utils.JsonUtils.slurpRolesJson
 import static ca.ualberta.autowise.scripts.BuildShiftRoleOptions.buildShiftRoleOptions
 import static ca.ualberta.autowise.scripts.FindAvailableShiftRoles.findAvailableShiftRoles
 import static ca.ualberta.autowise.scripts.FindAvailableShiftRoles.getShiftRole

@@ -1,4 +1,4 @@
-package ca.ualberta.autowise
+package ca.ualberta.autowise.utils
 
 import ca.ualberta.autowise.model.Event
 import ca.ualberta.autowise.model.Role

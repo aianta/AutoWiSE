@@ -11,6 +11,7 @@ import ca.ualberta.autowise.scripts.slack.boltapp.NewCampaignBlock
 import ca.ualberta.autowise.scripts.slack.boltapp.RolesBlock
 import ca.ualberta.autowise.scripts.slack.boltapp.ShiftsBlock
 import ca.ualberta.autowise.scripts.slack.boltapp.validation.rules.NoSpecialCharacters
+import ca.ualberta.autowise.utils.Either
 import com.slack.api.Slack
 import com.slack.api.bolt.App
 import com.slack.api.bolt.AppConfig
@@ -123,43 +124,86 @@ class SlackBolt implements Runnable{
 
         this.app.viewSubmission("create_new_campaign_roles_phase",  (req, ctx)->{
 
-            Event partialEvent = buffer.get(req.getPayload().getView().getPrivateMetadata())
 
-            def stateValues = req.getPayload().getView().getState().getValues();
+                Event partialEvent = buffer.get(req.getPayload().getView().getPrivateMetadata())
 
-
-            //Overwrite blank roles with info from the modal
-            partialEvent.roles = IntStream.iterate(1, i->i+1)
-                .limit(partialEvent.roles.size())
-                .mapToObj (index->{
+                def stateValues = req.getPayload().getView().getState().getValues();
 
 
-                    Role r = new Role()
+                        Set<String> namesSoFar= new HashSet<>();
 
-                    def roleName = stateValues.get("role_${index}_name_block").get("role_${index}_name").getValue();
-                    def roleDescription = stateValues.get("role_${index}_description_block").get("role_${index}_description").getValue();
-                    def numShifts = Integer.parseInt(stateValues.get("role_${index}_num_shifts_block").get("role_${index}_num_shifts").getValue())
+                        def eitherRoles = IntStream.iterate(1, i->i+1)
+                        .limit(partialEvent.roles.size())
+                        .mapToObj (index->{
 
-                    r.setName(roleName)
-                    r.setDescription(roleDescription)
-                    r.shifts = new ArrayList<>();
+                            try{
+                                Role r = new Role()
 
-                    Stream.generate {
-                        return new Shift()
-                    }.limit(numShifts)
-                    .forEach {
-                        r.shifts.add(it)
-                    }
+                                def roleNameBlock = "role_${index}_name_block"
+                                def roleDescriptionBlock = "role_${index}_description_block"
+                                def numShiftsBlock = "role_${index}_num_shifts_block"
 
-                    return r
-                }).collect(Collectors.toList());
+                                def roleName = stateValues.get(roleNameBlock).get("role_${index}_name").getValue();
+                                def roleDescription = stateValues.get(roleDescriptionBlock).get("role_${index}_description").getValue();
+                                def numShifts = Integer.parseInt(stateValues.get(numShiftsBlock).get("role_${index}_num_shifts").getValue())
 
-            Role firstRole =  partialEvent.roles.get(0)
+                                //Start Validation
+                                SlackModalValidationError validationErrors = new SlackModalValidationError();
 
-            def nextView = ShiftsBlock.makeView(firstRole.name, firstRole.shifts.size(), partialEvent);
-            nextView.setPrivateMetadata(partialEvent.getId().toString() + "|"+firstRole.name);
+                                validationErrors.merge(validate(roleNameBlock, roleName, [
+                                        {name-> return namesSoFar.stream().filter {it.equals(name)}.findFirst().orElse(null) == null}: "There already exists a role with that name, role names must be unique.",
+                                ]))
 
-            return ctx.ack("update", nextView )
+                                if(validationErrors.getErrors().size() > 0){
+                                    throw validationErrors
+                                }
+
+
+                                //End Validation
+                                namesSoFar.add(roleName)
+
+                                r.setName(roleName)
+                                r.setDescription(roleDescription)
+                                r.shifts = new ArrayList<>();
+
+                                Stream.generate {
+                                    return new Shift()
+                                }.limit(numShifts)
+                                        .forEach {
+                                            r.shifts.add(it)
+                                        }
+
+                                return Either.Right(r);
+
+                            }catch (SlackModalValidationError error){
+                                return Either.Left(error)
+                            }
+
+
+
+                        }).collect(Collectors.toList());
+
+                def validationErrors = new SlackModalValidationError();
+                eitherRoles.stream().filter {it.isLeft()}.collect(Collectors.toList()).forEach {validationErrors.merge(it.getLeft().get())}
+                //If there were validation errors, report them and return.
+                if(validationErrors.getErrors().size() > 0){
+                    return ctx.ackWithErrors(validationErrors.getErrors())
+                }
+
+                //Otherwise, let's get the roles. Overwrite blank roles with info from the modal
+                partialEvent.roles = eitherRoles.stream().filter {it.isRight()}.map{it.getRight().get()}.collect(Collectors.toList())
+
+                Role firstRole =  partialEvent.roles.get(0)
+
+                def nextView = ShiftsBlock.makeView(firstRole.name, firstRole.shifts.size(), partialEvent);
+                nextView.setPrivateMetadata(partialEvent.getId().toString() + "|"+firstRole.name);
+
+                return ctx.ack("update", nextView )
+
+
+
+
+
 
 
         } )
@@ -185,6 +229,8 @@ class SlackBolt implements Runnable{
         })
 
         this.app.command("/new_vol_recruit_campaign", (req, ctx) -> {
+
+            log.info(NewCampaignBlock.viewString().toString())
 
             def response = ctx.client().viewsOpen{
                 it.triggerId(req.getPayload().getTriggerId())
@@ -277,7 +323,7 @@ class SlackBolt implements Runnable{
 
         //TODO - validation
 
-        int numberOfRoles = Integer.parseInt(stateValues.get(EVENT_NUMBER_OF_ROLES_ACTION).get(EVENT_NUMBER_OF_ROLES_ACTION).getValue());
+        int numberOfRoles = Integer.parseInt(stateValues.get(EVENT_NUMBER_OF_ROLES_BLOCK).get(EVENT_NUMBER_OF_ROLES_ACTION).getValue());
 
         //Init roles list
         result.roles = new ArrayList<>();
@@ -294,9 +340,32 @@ class SlackBolt implements Runnable{
         validationErrors.merge(validate(EVENT_NAME_BLOCK, eventName,
                 [
                         { s -> new NoSpecialCharacters().test(s.toString())}: "Event title can only contain alphanumerics and spaces.",
-                        { s-> s.toString().length() < 30 } : "Event title can not be longer than 30 characters"
+                        { s-> s.toString().length() < 300 } : "Event title can not be longer than 300 characters"
                 ]
         ))
+
+        validationErrors.merge(validate(EVENT_START_BLOCK, startTime, [
+                {time-> ZonedDateTime.ofInstant(Instant.now(), AutoWiSE.timezone).isBefore(time) } : "Event start time must be in the future.",
+                {time-> time.isBefore(endTime)}: "Event start time must be before event end time."
+        ]))
+
+        validationErrors.merge(validate(EVENT_END_BLOCK, endTime, [
+                {time-> ZonedDateTime.ofInstant(Instant.now(), AutoWiSE.timezone).isBefore(time)}: "Event end time must be in the future.",
+                {time-> time.isAfter(startTime)}: "Event end time must be after event start time."
+        ]))
+
+        validationErrors.merge(validate(EVENT_CAMPAIGN_START_BLOCK, campaignStartTime, [
+                {time-> ZonedDateTime.ofInstant(Instant.now(), AutoWiSE.timezone).isBefore(time)}: "Recruitment campaign must start in the future.",
+                {time-> time.isBefore(startTime.minusDays(2))}: "Recruitment campaign must start at least 48h before event start time."
+        ]))
+
+        validationErrors.merge(validate(EVENT_VOLUNTEER_COORDINATORS_BLOCK, volunteerCoordinators, [
+                {list->list.size() > 0}: "Must specify volunteer coordinators. Apps or bots are ignored in this field."
+        ]))
+
+        validationErrors.merge(validate(EVENT_ORGANIZERS_BLOCK, organizers, [
+                {list->list.size() > 0}: "Must specify event leads/organizers. Apps or bots are ignored in this field."
+        ]))
 
 
         if(validationErrors.getErrors().size() > 0){
@@ -342,15 +411,25 @@ class SlackBolt implements Runnable{
             .map(userId->{
                 UsersInfoResponse response = app.client().usersInfo(UsersInfoRequest.builder().user(userId).token(config.getString("slack_token")).build())
                 //TODO API call error handling.
-                return response.getUser().getProfile().getEmail() //TODO - what if there is no email? Can that even happen?
+                //Only retrieve real users, ignore app users, bots, workflow bots, etc.
+                if(response.getUser().isBot() || response.getUser().isAppUser() || response.getUser().isWorkflowBot() || userId.equals("USLACKBOT")){
+                    return Optional.empty()
+                }
+                log.info "userId: ${userId} -> ${response.getUser()}"
+                log.info "userId: ${userId} -> ${response.getUser().getProfile()}"
+                log.info "userId: ${userId} -> ${response.getUser().getProfile().getEmail()}"
+                return Optional.of(response.getUser().getProfile().getEmail()) //TODO - what if there is no email? Can that even happen?
             })
-        .collect(Collectors.toList())
+        .filter {it.isPresent()}
+        .map{it.get()}
+                collect(Collectors.toList())
     }
 
-    private def validate(blockId,String item, Map<Predicate<String>,String> rules){
+
+    private def validate(blockId, item, Map<Predicate,String> rules){
         SlackModalValidationError errors = new SlackModalValidationError();
         rules.forEach((rule, msg)->{
-            log.info "${rule}:${msg}"
+            log.info "${item}"
             if(!rule(item)){
                 errors.addError(blockId, msg)
             }
