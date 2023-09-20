@@ -63,6 +63,7 @@ private static def _getFiles(GoogleAPI googleAPI, query){
                     .execute()
 
             result.addAll(fileList.getFiles())
+
         }
 
         promise.complete(result)

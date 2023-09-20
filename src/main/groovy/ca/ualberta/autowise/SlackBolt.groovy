@@ -25,6 +25,7 @@ import com.slack.api.methods.request.users.UsersInfoRequest
 import com.slack.api.methods.response.users.UsersInfoResponse
 import com.slack.api.socket_mode.SocketModeClient
 import io.vertx.core.json.JsonObject
+import org.apache.commons.lang3.tuple.Pair
 import org.slf4j.LoggerFactory
 
 import java.time.Duration
@@ -40,6 +41,8 @@ import java.util.stream.Stream;
 import static ca.ualberta.autowise.scripts.slack.BlockingSlackMessage.*
 import static ca.ualberta.autowise.scripts.google.CreateEventSheet.*
 import static ca.ualberta.autowise.scripts.slack.boltapp.NewCampaignBlock.*;
+import static ca.ualberta.autowise.scripts.google.GetFilesInFolder.*
+import com.google.api.services.drive.model.File
 
 
 
@@ -53,11 +56,14 @@ class SlackBolt implements Runnable{
     def services
     def autoWiSE
     EventBuffer buffer = new EventBuffer();
+    Set<Pair<String, String>> validGDriveIds = new HashSet<>() //Store all google drive item ids within the Autowise folder. Templates must come from there.
 
     SlackBolt( services,  config,  autoWiSE){
         this.config = config
         this.services = services
         this.autoWiSE = autoWiSE
+
+        updateValidGDriveIds()
 
         AppConfig boltConfig = new AppConfig()
         boltConfig.setSigningSecret(config.getString("slack_signing_secret"))
@@ -75,20 +81,55 @@ class SlackBolt implements Runnable{
 
             Role target = partialEvent.roles.stream().filter {it.name.equals(metadata[1])}.findFirst().get();
 
-            target.shifts = IntStream.iterate(1, i->i+1)
+            def eitherShifts = IntStream.iterate(1, i->i+1)
                 .limit(target.shifts.size())
                 .mapToObj{index->
-                    def startTime = LocalTime.parse(stateValues.get("shift_${index}_start_time_block").get("shift_${index}_start_time").getSelectedTime(), EventSlurper.shiftTimeFormatter)
-                    def endTime = LocalTime.parse(stateValues.get("shift_${index}_end_time_block").get("shift_${index}_end_time").getSelectedTime(), EventSlurper.shiftTimeFormatter)
-                    def numVolunteers = Integer.parseInt(stateValues.get("shift_${index}_num_volunteers_block").get("shift_${index}_num_volunteers").getValue())
 
-                    Shift s = new Shift()
-                    s.startTime = startTime
-                    s.endTime = endTime
-                    s.targetNumberOfVolunteers = numVolunteers
+                    try{
+                        def startTimeBlock = "shift_${index}_start_time_block"
+                        def endTimeBlock = "shift_${index}_end_time_block"
+                        def numVolunteersBlock = "shift_${index}_num_volunteers_block"
 
-                    return s
+                        def startTime = LocalTime.parse(stateValues.get(startTimeBlock).get("shift_${index}_start_time").getSelectedTime(), EventSlurper.shiftTimeFormatter)
+                        def endTime = LocalTime.parse(stateValues.get(endTimeBlock).get("shift_${index}_end_time").getSelectedTime(), EventSlurper.shiftTimeFormatter)
+                        def numVolunteers = Integer.parseInt(stateValues.get(numVolunteersBlock).get("shift_${index}_num_volunteers").getValue())
+
+                        SlackModalValidationError validationErrors = new SlackModalValidationError()
+
+                        validationErrors.merge(validate(startTimeBlock, startTime, [
+                                {time->time.isBefore(endTime)}: "Start time must be before end time.",
+                        ]))
+
+                        validationErrors.merge(validate(endTimeBlock, endTime,  [
+                                {time->time.isAfter(startTime)}: "End time must be after start time."
+                        ]))
+
+                        if(validationErrors.getErrors().size() > 0){
+                            throw validationErrors
+                        }
+
+
+                        Shift s = new Shift()
+                        s.startTime = startTime
+                        s.endTime = endTime
+                        s.targetNumberOfVolunteers = numVolunteers
+
+                        return Either.Right(s)
+                    }catch (SlackModalValidationError err){
+                        return Either.Left(err)
+                    }
+
+
                 }.collect(Collectors.toList())
+
+            def validationErrors = new SlackModalValidationError()
+            eitherShifts.stream().filter {it.isLeft()}.collect(Collectors.toList()).forEach {validationErrors.merge(it.getLeft().get())}
+
+            if(validationErrors.getErrors().size() > 0){
+                return ctx.ackWithErrors(validationErrors.getErrors())
+            }
+
+            target.shifts = eitherShifts.stream().filter {it.isRight()}.map{it.getRight()}.collect(Collectors.toList())
 
             Role nextRole = partialEvent.roles.stream().filter {it.shifts.get(0).startTime == null}.findFirst().orElse(null);
 
@@ -230,11 +271,11 @@ class SlackBolt implements Runnable{
 
         this.app.command("/new_vol_recruit_campaign", (req, ctx) -> {
 
-            log.info(NewCampaignBlock.viewString().toString())
+            log.info(NewCampaignBlock.viewString(validGDriveIds).toString())
 
             def response = ctx.client().viewsOpen{
                 it.triggerId(req.getPayload().getTriggerId())
-                        .viewAsString(NewCampaignBlock.viewString())
+                        .viewAsString(NewCampaignBlock.viewString(validGDriveIds))
             }
 
             if(response.isOk()){
@@ -367,6 +408,9 @@ class SlackBolt implements Runnable{
                 {list->list.size() > 0}: "Must specify event leads/organizers. Apps or bots are ignored in this field."
         ]))
 
+        validationErrors.merge(validate(EVENT_FOLLOWUP_BLOCK, followupDateTime, [
+                {time->ZonedDateTime.ofInstant(Instant.now(), AutoWiSE.timezone).isBefore(time)} : "Follow-up date time must be in the future."
+        ]))
 
         if(validationErrors.getErrors().size() > 0){
             throw validationErrors
@@ -436,5 +480,23 @@ class SlackBolt implements Runnable{
         })
 
         return errors;
+    }
+
+    def updateValidGDriveIds(){
+        validGDriveIds.clear()
+        //Fetch doc files in Autowise folder to validate new campaign requests with.
+        getFiles(services.googleAPI, config.getString("autowise_drive_folder_id"), "application/vnd.google-apps.document").onSuccess {
+            files-> files.forEach{
+                validGDriveIds.add(Pair.of(it.getId(), it.getName()))
+            }
+        }
+    }
+
+    Set<Pair<String, String>> getValidGDriveIds() {
+        return validGDriveIds
+    }
+
+    void setValidGDriveIds(Set<Pair<String, String>> validGDriveIds) {
+        this.validGDriveIds = validGDriveIds
     }
 }

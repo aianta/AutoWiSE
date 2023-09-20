@@ -1,8 +1,20 @@
 package ca.ualberta.autowise.scripts.slack.boltapp
 
+import io.vertx.core.json.JsonArray
+import io.vertx.core.json.JsonObject
+import org.apache.commons.lang3.tuple.Pair
+
 import java.time.Instant
 
 class NewCampaignBlock {
+
+    public static final String DEFAULT_INITIAL_RECRUITMENT_EMAIL_TEMPLATE_ID = "1rKlMxnlmWEMkAKmWWnXabtbU9KfHqKZ7pHJeTF41zMg"
+    public static final String DEFAULT_RECRUITMENT_EMAIL_TEMPLATE_ID = "1rKlMxnlmWEMkAKmWWnXabtbU9KfHqKZ7pHJeTF41zMg"
+    public static final String DEFAULT_FOLLOWUP_EMAIL_TEMPLATE_ID = "1gOfAGD_DSSXRntafyGvfDO4BXo9D1eYDVYYZDaDVk-I"
+    public static final String DEFAULT_CONFIRM_ASSIGNED_EMAIL_TEMPLATE_ID = "10s4KAx-EVPWfRsKURfItMgoeWcShrdDO0aduEyxdnG4"
+    public static final String DEFAULT_CONFIRM_REJECTED_EMAIL_TEMPLATE_ID = "1LPb9DQSYa4r-6YVRHuqLS_ckGNZHoG-qnDywjgPsQzI"
+    public static final String DEFAULT_CONFIRM_WAITLIST_EMAIL_TEMPLATE_ID = "15kwGYPpDYKBgKoQ-x4NojurMbCADFuDaOGttv3WLbAs"
+    public static final String DEFAULT_CONFIRM_CANCELLED_EMAIL_TEMPLATE_ID = "1DP63CwPtKB98yf4MKhPjCp_EQnxDgQgIVpZkxnNSYZ0"
 
     /**
      * Define block and action ids in the modal UI
@@ -46,7 +58,22 @@ class NewCampaignBlock {
     public static final String EVENT_NUMBER_OF_ROLES_BLOCK = "number_of_roles_block"
     public static final String EVENT_NUMBER_OF_ROLES_ACTION = "num_roles"
 
-      static def viewString(){
+    private static def getTemplateOptionString(id, JsonArray options){
+        return options.stream().filter {it.getString("value").equals(id)}.findFirst().orElse(null).encodePrettily()
+    }
+
+      static def viewString(Set<Pair<String,String>> templateOptions){
+          def templateOptionsJson = new JsonArray()
+          templateOptions.forEach{pair->
+              templateOptionsJson.add(new JsonObject()
+                      .put("text", new JsonObject()
+                            .put("type", "plain_text")
+                            .put("text", pair.getValue()))
+                      .put("value", pair.getKey()))
+          }
+
+          def templateOptionsString = templateOptionsJson.encodePrettily()
+
           def currentDateEpochSeconds = Instant.now().getEpochSecond()
 
         return """
@@ -274,7 +301,7 @@ class NewCampaignBlock {
 			"type": "section",
 			"text": {
 				"type": "mrkdwn",
-				"text": "*Email Templates:* \nThese values need to be google doc ids. You can find the id of a google doc by navigating to it in google drive and then checking the address bar at the top of your browser window.\n\n It will look something like this: \n`<http://about:blank|https://docs.google.com/document/d/ *1gOfAGD_DSSXRntafyGvfDO4BXo9D1eYDVYYZDaDVk-I* /edit>`\n The section in bold is the value you need to enter in the fields below. \n\n Please note, for this to work, the provided google docs must be shared with the google account used by autowise. "
+				"text": "Choose email templates from the docs available in the AutoWise google drive folder."
 			}
 		},
 		{
@@ -284,7 +311,13 @@ class NewCampaignBlock {
 			"type": "input",
 			"block_id": "${EVENT_INITIAL_RECRUITMENT_EMAIL_TEMPLATE_BLOCK}",
 			"element": {
-				"type": "plain_text_input",
+				"type": "static_select",
+				"placeholder": {
+				    "type": "plain_text",
+				    "text": "Select a template..."
+				},
+				"options": ${templateOptionsString},
+                "initial_option": ${getTemplateOptionString(DEFAULT_INITIAL_RECRUITMENT_EMAIL_TEMPLATE_ID, templateOptionsJson)},
 				"action_id": "${EVENT_INITIAL_RECURITMENT_EMAIL_TEMPLATE_ACTION}"
 			},
 			"label": {
@@ -304,7 +337,13 @@ class NewCampaignBlock {
 			"type": "input",
 			"block_id": "${EVENT_RECRUITMENT_EMAIL_TEMPLATE_BLOCK}",
 			"element": {
-				"type": "plain_text_input",
+				"type": "static_select",
+				"placeholder": {
+				    "type":"plain_text",
+				    "text": "Select a template..."
+				},
+				"options": ${templateOptionsString},
+                "initial_option": ${getTemplateOptionString(DEFAULT_RECRUITMENT_EMAIL_TEMPLATE_ID, templateOptionsJson)},
 				"action_id": "${EVENT_RECRUITMENT_EMAIL_TEMPLATE_ACTION}"
 			},
 			"label": {
@@ -324,7 +363,13 @@ class NewCampaignBlock {
 			"type": "input",
 			"block_id": "${EVENT_FOLLOWUP_EMAIL_TEMPLATE_BLOCK}",
 			"element": {
-				"type": "plain_text_input",
+				"type": "static_select",
+				"placeholder": {
+				    "type":"plain_text",
+				    "text": "Select a template..."
+				},
+				"options": ${templateOptionsString},
+                "initial_option": ${getTemplateOptionString(DEFAULT_FOLLOWUP_EMAIL_TEMPLATE_ID, templateOptionsJson)},
 				"action_id": "${EVENT_FOLLOWUP_EMAIL_TEMPLATE_ACTION}"
 			},
 			"label": {
@@ -344,7 +389,13 @@ class NewCampaignBlock {
 			"type": "input",
 			"block_id": "${EVENT_CONFIRM_ASSIGNED_EMAIL_TEMPLATE_BLOCK}",
 			"element": {
-				"type": "plain_text_input",
+				"type": "static_select",
+				"placeholder": {
+				    "type":"plain_text",
+				    "text": "Select a template..."
+				},
+				"options": ${templateOptionsString},
+                "initial_option": ${getTemplateOptionString(DEFAULT_CONFIRM_ASSIGNED_EMAIL_TEMPLATE_ID, templateOptionsJson)},
 				"action_id": "${EVENT_CONFIRM_ASSIGNED_EMAIL_TEMPLATE_ACTION}"
 			},
 			"label": {
@@ -364,7 +415,13 @@ class NewCampaignBlock {
 			"type": "input",
 			"block_id": "${EVENT_CONFIRM_CANCELLED_EMAIL_TEMPLATE_BLOCK}",
 			"element": {
-				"type": "plain_text_input",
+				"type": "static_select",
+				"placeholder": {
+				    "type":"plain_text",
+				    "text": "Select a template..."
+				},
+				"options": ${templateOptionsString},
+                "initial_option": ${getTemplateOptionString(DEFAULT_CONFIRM_CANCELLED_EMAIL_TEMPLATE_ID, templateOptionsJson)},
 				"action_id": "${EVENT_CONFIRM_CANCELLED_EMAIL_TEMPLATE_ACTION}"
 			},
 			"label": {
@@ -384,7 +441,13 @@ class NewCampaignBlock {
 			"type": "input",
 			"block_id": "${EVENT_CONFIRM_WAITLIST_EMAIL_TEMPLATE_BLOCK}",
 			"element": {
-				"type": "plain_text_input",
+				"type": "static_select",
+				"placeholder": {
+				    "type":"plain_text",
+				    "text": "Select a template..."
+				},
+				"options": ${templateOptionsString},
+                "initial_option": ${getTemplateOptionString(DEFAULT_CONFIRM_WAITLIST_EMAIL_TEMPLATE_ID, templateOptionsJson)},
 				"action_id": "${EVENT_CONFIRM_WAITLIST_EMAIL_TEMPLATE_ACTION}"
 			},
 			"label": {
@@ -404,7 +467,13 @@ class NewCampaignBlock {
 			"type": "input",
 			"block_id": "${EVENT_CONFIRM_REJECTED_EMAIL_TEMPLATE_BLOCK}",
 			"element": {
-				"type": "plain_text_input",
+				"type": "static_select",
+				"placeholder": {
+				    "type":"plain_text",
+				    "text": "Select a template..."
+				},
+				"options": ${templateOptionsString},
+                "initial_option": ${getTemplateOptionString(DEFAULT_CONFIRM_REJECTED_EMAIL_TEMPLATE_ID, templateOptionsJson)},
 				"action_id": "${EVENT_CONFIRM_REJECTED_EMAIL_TEMPLATE_ACTION}"
 			},
 			"label": {

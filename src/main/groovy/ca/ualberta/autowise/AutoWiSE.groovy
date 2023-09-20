@@ -153,6 +153,8 @@ void vertxStart(Promise<Void> startup){
                     sendSlackMessage(services.slackAPI, config.getString("technical_channel"), "Autowise Heartbeat - ${ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone).format(EventSlurper.eventTimeFormatter)}")
                 }
 
+                boltApp.updateValidGDriveIds(); //refresh template options
+
                 doExternalTick(services, config)
 
 
