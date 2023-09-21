@@ -96,7 +96,8 @@ static Future eventRegistrationEmailTask(services, Task t, emailTemplateId, conf
                     emailContents = emailContents.replaceAll("%eventSheetLink%", "<a href=\"${eventSpreadsheetLink}\">${eventSpreadsheetLink}</a>")
                     emailContents = emailContents.replaceAll("%taskSummary%", taskSummary)
                     emailContents = emailContents.replaceAll("%cancelLink%", "<a href=\"${config.getString("protocol")}://${config.getString("host")}:${config.getInteger("port").toString()}${campaignCancelHookPath}\">Cancel Campaign</a>" )
-                    emailContents = emailContents.replaceAll("%beginLink%","<a href=\"${config.getString("protocol")}://${config.getString("host")}:${config.getInteger("port").toString()}${campaignBeginHookPath}\">Begin Campaign</a>" )
+//                   TODO - Re-enable begin link
+//                    emailContents = emailContents.replaceAll("%beginLink%","<a href=\"${config.getString("protocol")}://${config.getString("host")}:${config.getInteger("port").toString()}${campaignBeginHookPath}\">Begin Campaign</a>" )
                     emailContents = emailContents.replaceAll("%templates%", makeTemplatesPreview(
                             initialRecruitmentTemplate,
                             recruitmentTemplate,
