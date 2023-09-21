@@ -5,6 +5,7 @@ import ca.ualberta.autowise.model.EventBuffer
 import ca.ualberta.autowise.model.EventStatus
 import ca.ualberta.autowise.model.Role
 import ca.ualberta.autowise.model.Shift
+import ca.ualberta.autowise.scripts.slack.boltapp.CampaignCreatedBlock
 import ca.ualberta.autowise.scripts.slack.boltapp.validation.SlackModalValidationError
 import ca.ualberta.autowise.scripts.google.EventSlurper
 import ca.ualberta.autowise.scripts.slack.boltapp.NewCampaignBlock
@@ -129,7 +130,7 @@ class SlackBolt implements Runnable{
                 return ctx.ackWithErrors(validationErrors.getErrors())
             }
 
-            target.shifts = eitherShifts.stream().filter {it.isRight()}.map{it.getRight()}.collect(Collectors.toList())
+            target.shifts = eitherShifts.stream().filter {it.isRight()}.map{it.getRight().get()}.collect(Collectors.toList())
 
             Role nextRole = partialEvent.roles.stream().filter {it.shifts.get(0).startTime == null}.findFirst().orElse(null);
 
@@ -141,11 +142,11 @@ class SlackBolt implements Runnable{
 
                 //Make an event sheet for our glorious new event
                 //Do this in a seprate thread so that the Bolt Socket App doesn't hang/lose connection to slack.
-                Thread paperwork = new Thread(()->createEventSheet(config, services.googleAPI, "[SLACK-GEN]${partialEvent.getName()}", partialEvent)
+                Thread paperwork = new Thread(()->createEventSheet(config, services.googleAPI, "${config.getString("autowise_event_prefix")}${partialEvent.getName()}", partialEvent)
                         .onSuccess { log.info "Event sheet generated!"
                             //TODO: Need to make sure this doesn't have strange implications because it's in a separate thread.
                             // better yet can we just register the newly created sheet directly?
-                            //autoWiSE.doExternalTick(services, config)
+                            autoWiSE.doExternalTick(services, config)
                         }
                         .onFailure { log.error it.getMessage(), it})
 
@@ -153,7 +154,7 @@ class SlackBolt implements Runnable{
 
                 buffer.remove(partialEvent) //Clear the completed event from the buffer to prevent memory leaks.
 
-                return ctx.ack()
+                return ctx.ack("update", CampaignCreatedBlock.makeView())
             }else{
                 def nextView = ShiftsBlock.makeView(nextRole.name, nextRole.shifts.size(), partialEvent);
                 nextView.setPrivateMetadata(partialEvent.getId().toString() + "|" + nextRole.getName());
@@ -354,15 +355,13 @@ class SlackBolt implements Runnable{
 
         log.info "followup offset: ${followupOffset}"
 
-        String initialRecruitmentEmailTemplateId = stateValues.get(EVENT_INITIAL_RECRUITMENT_EMAIL_TEMPLATE_BLOCK).get(EVENT_INITIAL_RECURITMENT_EMAIL_TEMPLATE_ACTION).getValue();
-        String recruitmentEmailTemplateId = stateValues.get(EVENT_RECRUITMENT_EMAIL_TEMPLATE_BLOCK).get(EVENT_RECRUITMENT_EMAIL_TEMPLATE_ACTION).getValue();
-        String followupEmailTemplateId = stateValues.get(EVENT_FOLLOWUP_EMAIL_TEMPLATE_BLOCK).get(EVENT_FOLLOWUP_EMAIL_TEMPLATE_ACTION).getValue();
-        String confirmAssignedEmailTemplateId = stateValues.get(EVENT_CONFIRM_ASSIGNED_EMAIL_TEMPLATE_BLOCK).get(EVENT_CONFIRM_ASSIGNED_EMAIL_TEMPLATE_ACTION).getValue();
-        String confirmCancelledEmailTemplateId = stateValues.get(EVENT_CONFIRM_CANCELLED_EMAIL_TEMPLATE_BLOCK).get(EVENT_CONFIRM_CANCELLED_EMAIL_TEMPLATE_ACTION).getValue();
-        String confirmWaitlistEmailTemplateId = stateValues.get(EVENT_CONFIRM_WAITLIST_EMAIL_TEMPLATE_BLOCK).get(EVENT_CONFIRM_WAITLIST_EMAIL_TEMPLATE_ACTION).getValue();
-        String confirmRejectedEmailTemplateId = stateValues.get(EVENT_CONFIRM_REJECTED_EMAIL_TEMPLATE_BLOCK).get(EVENT_CONFIRM_REJECTED_EMAIL_TEMPLATE_ACTION).getValue();
-
-        //TODO - validation
+        String initialRecruitmentEmailTemplateId = stateValues.get(EVENT_INITIAL_RECRUITMENT_EMAIL_TEMPLATE_BLOCK).get(EVENT_INITIAL_RECURITMENT_EMAIL_TEMPLATE_ACTION).getSelectedOption().getValue();
+        String recruitmentEmailTemplateId = stateValues.get(EVENT_RECRUITMENT_EMAIL_TEMPLATE_BLOCK).get(EVENT_RECRUITMENT_EMAIL_TEMPLATE_ACTION).getSelectedOption().getValue();
+        String followupEmailTemplateId = stateValues.get(EVENT_FOLLOWUP_EMAIL_TEMPLATE_BLOCK).get(EVENT_FOLLOWUP_EMAIL_TEMPLATE_ACTION).getSelectedOption().getValue();
+        String confirmAssignedEmailTemplateId = stateValues.get(EVENT_CONFIRM_ASSIGNED_EMAIL_TEMPLATE_BLOCK).get(EVENT_CONFIRM_ASSIGNED_EMAIL_TEMPLATE_ACTION).getSelectedOption().getValue();
+        String confirmCancelledEmailTemplateId = stateValues.get(EVENT_CONFIRM_CANCELLED_EMAIL_TEMPLATE_BLOCK).get(EVENT_CONFIRM_CANCELLED_EMAIL_TEMPLATE_ACTION).getSelectedOption().getValue();
+        String confirmWaitlistEmailTemplateId = stateValues.get(EVENT_CONFIRM_WAITLIST_EMAIL_TEMPLATE_BLOCK).get(EVENT_CONFIRM_WAITLIST_EMAIL_TEMPLATE_ACTION).getSelectedOption().getValue();
+        String confirmRejectedEmailTemplateId = stateValues.get(EVENT_CONFIRM_REJECTED_EMAIL_TEMPLATE_BLOCK).get(EVENT_CONFIRM_REJECTED_EMAIL_TEMPLATE_ACTION).getSelectedOption().getValue();
 
         int numberOfRoles = Integer.parseInt(stateValues.get(EVENT_NUMBER_OF_ROLES_BLOCK).get(EVENT_NUMBER_OF_ROLES_ACTION).getValue());
 

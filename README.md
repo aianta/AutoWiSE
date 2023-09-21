@@ -22,18 +22,23 @@
 * Finish Readme
   * Include instructions for setting up an event through Google Sheets
 * Creating events using JSON.
-* Creating events via slack. 
+* ~~Creating events via slack.~~
 * ~~Log web requests~~
 * Add List-unsubscribe header only to recruitment emails.
-~~* Abort a campaign if the underlying event sheet is no longer accessible.~~
+* ~~Abort a campaign if the underlying event sheet is no longer accessible.~~
 * Add template descriptions in this readme. 
 * Don't break if there are no volunteer coordinators or event organizers. But break if there are neither.
-* Don't create events that happen in the past. 
+* ~~Don't create events that happen in the past.~~ 
 * ~~Use static variables in slack modal construction.~~
-* New Campaign Validation
+* ~~New Campaign Validation~~
 * Integrate Events into database model
 * Slack Campaign Creation Test (Target: Last week of September 2023)
 * Add instructions for SSL certificate renewal/creation
+* ~~Campaign created modal view~~
+* Automatically add AutoWiSE to the event channel during creation process.
+* ~~Register campaign on creation completion.~~ 
+* ~~Include link to spreadsheet in registration email.~~
+* Refactor new campaign validation logic to remove duplicate code.
 * Slack Control API 
   * List active campaigns
   * List scheduled campaign tasks
@@ -112,6 +117,7 @@ List of things to check when creating a new campaign.
 | Start time is in the future                                                   | Yes                              |
 | End time is in the future                                                     | Yes                              |
 | End time is after start time                                                  | Yes                              |
+|End time is on same day as start time |No|
 | Recruitment Campaign start time must be in the future                         | Yes                              |
 | Recruitment Campaign start time must be at least 48h before event start time. | Yes                              |
 | Role names must be unique                                                     | Yes                              |

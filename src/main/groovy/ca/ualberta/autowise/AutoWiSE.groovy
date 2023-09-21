@@ -233,7 +233,7 @@ def doExternalTick(services, config){
                                 // Do processing in separate thread to avoid blocking the main loop.
                                 vertx.executeBlocking(blocking->{
 
-                                    processEventSheet(services, f.getId(), config.getString("autowise_volunteer_pool_id"), config.getString("autowise_volunteer_table_range"))
+                                    processEventSheet(services, f.getId(), config)
                                             .onSuccess {
                                                 blocking.complete()
                                             }.onFailure{err->

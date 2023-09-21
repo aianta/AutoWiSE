@@ -160,7 +160,7 @@ static def batchUpdate(GoogleAPI googleAPI, sheetId,  List<ValueRange> updates){
                 .setData(updates)
         def result = googleAPI.sheets().spreadsheets().values().batchUpdate(sheetId, request).execute()
         log.info "Updated ${result.getTotalUpdatedCells().toString()} cells in ${sheetId}"
-        promise.complete()
+        promise.complete(sheetId) //Return the id of the updated sheet.
 
     }catch (GoogleJsonResponseException e){
         log.error "Error batch updating values in ${sheetId}"

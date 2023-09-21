@@ -12,6 +12,25 @@ import org.slf4j.LoggerFactory
 @Field static log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.google.GetFilesInFolder.class)
 
 /**
+ * @param googleAPI Google API object to use when making request
+ * @param fileId id of the file to retrieve
+ * @return a promise that completes with a {@link com.google.api.services.drive.model.File} object or fails with an exception.
+ */
+static def getFile(GoogleAPI googleAPI, fileId){
+    Promise promise = Promise.promise()
+    try{
+        File target = googleAPI.drive().files().get(fileId).setFields("id,name,kind,mimeType,webViewLink").execute()
+        promise.complete(target)
+    }catch(GoogleJsonResponseException e){
+        GoogleJsonError error = e.getDetails();
+        log.error e.getMessage(), e
+        promise.fail(e)
+    }
+    return promise.future()
+}
+
+
+/**
  * Retrieves all files in a certain folder of a given type.
  * @param googleAPI GoogleAPI object to use when making the request
  * @param folderId The parent folder Id. See <a href="https://robindirksen.com/blog/where-do-i-get-google-drive-folder-id">blog post</a> for how to find folder ids in google drive.

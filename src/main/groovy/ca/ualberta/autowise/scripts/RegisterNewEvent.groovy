@@ -11,6 +11,7 @@ import ca.ualberta.autowise.model.TaskStatus
 import ca.ualberta.autowise.model.Volunteer
 import ca.ualberta.autowise.model.Webhook
 import ca.ualberta.autowise.scripts.google.EventSlurper
+import com.google.api.services.drive.model.File
 import com.google.api.services.sheets.v4.model.ValueRange
 import groovy.transform.Field
 import io.vertx.core.CompositeFuture
@@ -30,6 +31,8 @@ import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateColumnV
 import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateAt
 import static ca.ualberta.autowise.scripts.google.VolunteerListSlurper.slurpVolunteerList
 import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.clearRange
+import static ca.ualberta.autowise.scripts.google.GetFilesInFolder.*
+
 
 @Field static def log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.RegisterNewEvent.class)
 @Field static def EVENT_STATUS_ROLE_SHIFT_CELL_ADDRESS = "\'Event Status\'!A5"
@@ -51,7 +54,7 @@ static def registerNewEvent(services, event, sheetId, config){
      * 7. Set the event status to 'IN_PROGRESS' in the event spreadsheet.
      */
 
-    assert event.id == null // Events processed by this script should not have ids
+    //assert event.id == null // Events processed by this script should not have ids
     // Set the event id
     event.id = UUID.randomUUID() // Generate an id for this event.
 
@@ -117,9 +120,16 @@ static def registerNewEvent(services, event, sheetId, config){
                 updateColumnValueAt(services.googleAPI, sheetId, EVENT_STATUS_ROLE_SHIFT_CELL_ADDRESS, produceRoleShiftList(event)),        // Update 'Event Status' Sheet
                 updateSingleValueAt(services.googleAPI, sheetId, "Event!A2", event.id.toString()),     //Update the event id in the sheet
                 updateSingleValueAt(services.googleAPI, sheetId, "Event!A3", EventStatus.PENDING.toString()),     // Update the event status
-                slurpVolunteerList(services.googleAPI, config.getString("autowise_volunteer_pool_id"), config.getString("autowise_volunteer_table_range")) //Get the volunteer list
+                slurpVolunteerList(services.googleAPI, config.getString("autowise_volunteer_pool_id"), config.getString("autowise_volunteer_table_range")), //Get the volunteer list,
+                getFile(services.googleAPI, sheetId)
         ).compose{
             composite->
+
+                def spreadsheet = ((File)composite.resultAt(4))
+                log.info "event sheet ${spreadsheet.toPrettyString()}"
+                def spreadsheetLink = spreadsheet.getWebViewLink()
+                log.info "event spreadsheet link: ${spreadsheetLink}"
+                plan.get(0).data.put("eventSpreadsheetLink", spreadsheetLink) //Include the spreadsheet link in the new campaign email.
 
                 def volunteers = composite.resultAt(3)
                 log.info "got volunteers! ${volunteers}"

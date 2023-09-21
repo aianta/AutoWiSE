@@ -4,6 +4,7 @@ import ca.ualberta.autowise.GoogleAPI
 import ca.ualberta.autowise.model.Event
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.services.drive.model.File
+import com.google.api.services.drive.model.Permission
 import com.google.api.services.sheets.v4.model.ValueRange
 import groovy.transform.Field
 import io.vertx.core.Promise

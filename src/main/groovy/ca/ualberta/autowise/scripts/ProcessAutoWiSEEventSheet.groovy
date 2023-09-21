@@ -16,7 +16,7 @@ import static ca.ualberta.autowise.scripts.google.CreateEventSheet.createEventSh
 @Field static GoogleAPI googleAPI
 
 static def processEventSheet(services, sheetId, config){
-
+    System.out.println "processing sheet ${sheetId}"
     googleAPI = services.googleAPI
 
     /**
@@ -38,7 +38,7 @@ static def processEventSheet(services, sheetId, config){
                 event->
                 switch(status){
                     case EventStatus.READY.toString():
-                        assert event.id == null //Event Id should be null at this stage
+//                        assert event.id == null //Event Id should be null at this stage
                         return registerNewEvent(services, event, sheetId, config)
                     default:
                         log.warn "Unrecognized event status!"

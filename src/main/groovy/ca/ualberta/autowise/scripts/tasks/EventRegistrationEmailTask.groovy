@@ -46,6 +46,7 @@ static Future eventRegistrationEmailTask(services, Task t, emailTemplateId, conf
     def eventbriteLink = t.data.getString("eventbriteLink")
     def eventStartTime = ZonedDateTime.parse(t.data.getString("eventStartTime"), EventSlurper.eventTimeFormatter)
     def eventName = t.data.getString("eventName")
+    def eventSpreadsheetLink = t.data.getString("eventSpreadsheetLink")
     List<Role> eventRoles =  slurpRolesJson(t.data.getString("rolesJsonString"))
 
     //Get all email templates that will be used in this campaign
@@ -92,6 +93,7 @@ static Future eventRegistrationEmailTask(services, Task t, emailTemplateId, conf
                     def unfilledShiftRoles = compositeResult.resultAt(8)
 
                     def emailContents = emailTemplate.replaceAll("%eventName%", eventName)
+                    emailContents = emailContents.replaceAll("%eventSheetLink%", "<a href=\"${eventSpreadsheetLink}\">${eventSpreadsheetLink}</a>")
                     emailContents = emailContents.replaceAll("%taskSummary%", taskSummary)
                     emailContents = emailContents.replaceAll("%cancelLink%", "<a href=\"${config.getString("protocol")}://${config.getString("host")}:${config.getInteger("port").toString()}${campaignCancelHookPath}\">Cancel Campaign</a>" )
                     emailContents = emailContents.replaceAll("%beginLink%","<a href=\"${config.getString("protocol")}://${config.getString("host")}:${config.getInteger("port").toString()}${campaignBeginHookPath}\">Begin Campaign</a>" )
