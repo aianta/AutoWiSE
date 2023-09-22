@@ -482,15 +482,19 @@ class SlackBolt implements Runnable{
     }
 
     def updateValidGDriveIds(){
-        validGDriveIds.clear()
+        Set<Pair<String, String>> result = new HashSet<>();
+
         //Fetch doc files in Autowise folder to validate new campaign requests with.
         getFiles(services.googleAPI, config.getString("autowise_drive_folder_id"), "application/vnd.google-apps.document").onSuccess {
             files-> files.forEach{
-                validGDriveIds.add(Pair.of(it.getId(), it.getName()))
+                result.add(Pair.of(it.getId(), it.getName()))
             }
                 log.info "new valid GDrive IDs (size: ${validGDriveIds.size()}):"
-                validGDriveIds.forEach{log.info "${it.left} - ${it.right}" }
+                result.forEach{log.info "${it.left} - ${it.right}" }
 
+                if (result != null && result.size() > 0){
+                    validGDriveIds = result //Only update validGDriveIds if we get a proper result.
+                }
 
         }
     }
