@@ -117,15 +117,14 @@ List of things to check when creating a new campaign.
 | Start time is in the future                                                   | Yes                              |
 | End time is in the future                                                     | Yes                              |
 | End time is after start time                                                  | Yes                              |
-|End time is on same day as start time |No|
+| End time is on same day as start time                                         | No                               |
 | Recruitment Campaign start time must be in the future                         | Yes                              |
 | Recruitment Campaign start time must be at least 48h before event start time. | Yes                              |
 | Role names must be unique                                                     | Yes                              |
 | Make sure no apps/bots in volunteer coordinator/event organizer lists         | Yes                              |
 | No special characters in event name.                                          | Yes                              |
-| Ensure all templateIds resolve to a google doc                                | No                               |
-| Ensure shift start time is before shift end time                              | Yes* -> as static select options |
+| Ensure all templateIds resolve to a google doc                                | Yes* -> as static select options |
+| Ensure shift start time is before shift end time                              | Yes                              |
 | Make sure followup date is in the future                                      | Yes                              | 
-
-
+| Verify that the eventbrite link is actually a valid URL                       | No                               |
 

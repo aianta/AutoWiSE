@@ -3,10 +3,13 @@ package ca.ualberta.autowise.scripts.slack.boltapp
 import io.vertx.core.json.JsonArray
 import io.vertx.core.json.JsonObject
 import org.apache.commons.lang3.tuple.Pair
+import org.slf4j.LoggerFactory
 
 import java.time.Instant
 
 class NewCampaignBlock {
+
+    static def log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.slack.boltapp.NewCampaignBlock.class)
 
     public static final String DEFAULT_INITIAL_RECRUITMENT_EMAIL_TEMPLATE_ID = "1rKlMxnlmWEMkAKmWWnXabtbU9KfHqKZ7pHJeTF41zMg"
     public static final String DEFAULT_RECRUITMENT_EMAIL_TEMPLATE_ID = "1rKlMxnlmWEMkAKmWWnXabtbU9KfHqKZ7pHJeTF41zMg"
@@ -59,10 +62,13 @@ class NewCampaignBlock {
     public static final String EVENT_NUMBER_OF_ROLES_ACTION = "num_roles"
 
     private static def getTemplateOptionString(id, JsonArray options){
+        log.info "Looking for id: ${id} in \n${options}"
         return options.stream().filter {it.getString("value").equals(id)}.findFirst().orElse(null).encodePrettily()
     }
 
       static def viewString(Set<Pair<String,String>> templateOptions){
+          log.info("Creating new campaign view with ${templateOptions} template options")
+
           def templateOptionsJson = new JsonArray()
           templateOptions.forEach{pair->
               templateOptionsJson.add(new JsonObject()
@@ -71,6 +77,8 @@ class NewCampaignBlock {
                             .put("text", pair.getValue()))
                       .put("value", pair.getKey()))
           }
+
+          log.info("template options: ${templateOptionsJson.encodePrettily()}")
 
           def templateOptionsString = templateOptionsJson.encodePrettily()
 

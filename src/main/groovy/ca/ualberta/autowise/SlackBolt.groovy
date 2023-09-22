@@ -488,6 +488,10 @@ class SlackBolt implements Runnable{
             files-> files.forEach{
                 validGDriveIds.add(Pair.of(it.getId(), it.getName()))
             }
+                log.info "new valid GDrive IDs (size: ${validGDriveIds.size()}):"
+                validGDriveIds.forEach{log.info "${it.left} - ${it.right}" }
+
+
         }
     }
 
