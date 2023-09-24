@@ -340,7 +340,7 @@ class SlackBolt implements Runnable{
 
         String eventbriteLink = stateValues.get(EVENT_EVENTBRITE_BLOCK).get(EVENT_EVENTBRITE_ACTION).getValue();
 
-        String eventSlackChannel = stateValues.get(EVENT_SLACK_CHANNEL_BLOCK).get(EVENT_SLACK_CHANNEL_ACTION).getSelectedOption().getValue()
+        String eventSlackChannel = "#"+stateValues.get(EVENT_SLACK_CHANNEL_BLOCK).get(EVENT_SLACK_CHANNEL_ACTION).getSelectedOption().getValue()
         //String eventSlackChannel = resolveChannelNamefromId(stateValues.get(EVENT_SLACK_CHANNEL_BLOCK).get(EVENT_SLACK_CHANNEL_ACTION).getSelectedChannel());
 
         ZonedDateTime campaignStartTime = ZonedDateTime.ofInstant(Instant.ofEpochSecond(stateValues.get(EVENT_CAMPAIGN_START_BLOCK).get(EVENT_CAMPAIGN_START_ACTION).getSelectedDateTime()), AutoWiSE.timezone);
