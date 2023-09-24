@@ -22,6 +22,7 @@ import com.slack.api.bolt.request.builtin.ViewSubmissionRequest
 import com.slack.api.bolt.response.Response
 import com.slack.api.bolt.socket_mode.SocketModeApp
 import com.slack.api.methods.request.conversations.ConversationsInfoRequest
+import com.slack.api.methods.request.conversations.ConversationsListRequest
 import com.slack.api.methods.request.users.UsersInfoRequest
 import com.slack.api.methods.response.users.UsersInfoResponse
 import com.slack.api.socket_mode.SocketModeClient
@@ -276,7 +277,7 @@ class SlackBolt implements Runnable{
 
             def response = ctx.client().viewsOpen{
                 it.triggerId(req.getPayload().getTriggerId())
-                        .viewAsString(NewCampaignBlock.viewString(validGDriveIds))
+                        .viewAsString(NewCampaignBlock.viewString(validGDriveIds, getSlackChannels()))
             }
 
             if(response.isOk()){
@@ -339,7 +340,8 @@ class SlackBolt implements Runnable{
 
         String eventbriteLink = stateValues.get(EVENT_EVENTBRITE_BLOCK).get(EVENT_EVENTBRITE_ACTION).getValue();
 
-        String eventSlackChannel = resolveChannelNamefromId(stateValues.get(EVENT_SLACK_CHANNEL_BLOCK).get(EVENT_SLACK_CHANNEL_ACTION).getSelectedChannel());
+        String eventSlackChannel = stateValues.get(EVENT_SLACK_CHANNEL_BLOCK).get(EVENT_SLACK_CHANNEL_ACTION).getSelectedOption().getValue()
+        //String eventSlackChannel = resolveChannelNamefromId(stateValues.get(EVENT_SLACK_CHANNEL_BLOCK).get(EVENT_SLACK_CHANNEL_ACTION).getSelectedChannel());
 
         ZonedDateTime campaignStartTime = ZonedDateTime.ofInstant(Instant.ofEpochSecond(stateValues.get(EVENT_CAMPAIGN_START_BLOCK).get(EVENT_CAMPAIGN_START_ACTION).getSelectedDateTime()), AutoWiSE.timezone);
 
@@ -497,6 +499,18 @@ class SlackBolt implements Runnable{
                 }
 
         }
+    }
+
+    def getSlackChannels(){
+        def response = app.client().conversationsList(ConversationsListRequest.builder()
+            .token(config.getString("slack_token")).build()
+        )
+
+        List<String> result = new ArrayList<>()
+        response.getChannels().forEach {result.add(it.name)}
+
+        return result;
+
     }
 
     Set<Pair<String, String>> getValidGDriveIds() {

@@ -66,8 +66,18 @@ class NewCampaignBlock {
         return options.stream().filter {it.getString("value").equals(id)}.findFirst().orElse(null).encodePrettily()
     }
 
-      static def viewString(Set<Pair<String,String>> templateOptions){
+      static def viewString(Set<Pair<String,String>> templateOptions, List<String> channelOptions){
           log.info("Creating new campaign view with ${templateOptions} template options")
+
+          def channelOptionsJson = new JsonArray()
+          channelOptions.forEach{channel->
+              channelOptionsJson.add(new JsonObject()
+                .put("text", new JsonObject()
+                    .put("type", "plain_text")
+                        .put("text", channel)
+                ).put("value", channel)
+              )
+          }
 
           def templateOptionsJson = new JsonArray()
           templateOptions.forEach{pair->
@@ -230,11 +240,12 @@ class NewCampaignBlock {
 			},
 			"element": {
 				"action_id": "${EVENT_SLACK_CHANNEL_ACTION}",
-				"type": "channels_select",
+				"type": "static_select",
 				"placeholder": {
 					"type": "plain_text",
 					"text": "Select a channel"
-				}
+				},
+				options: ${channelOptionsJson.encodePrettily()}
 			}
 		},
 		{
