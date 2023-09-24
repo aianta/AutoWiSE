@@ -3,6 +3,7 @@ package ca.ualberta.autowise.scripts.google
 import ca.ualberta.autowise.GoogleAPI
 import com.google.api.client.googleapis.json.GoogleJsonError
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
+import com.google.api.services.docs.v1.Docs
 import com.google.api.services.drive.model.File
 import com.google.api.services.drive.model.FileList
 import groovy.transform.Field

@@ -1,7 +1,9 @@
 package ca.ualberta.autowise.scripts.google
 
+import ca.ualberta.autowise.GoogleAPI
 import com.google.api.client.googleapis.json.GoogleJsonError
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
+import com.google.api.client.googleapis.services.AbstractGoogleClientRequest
 import groovy.transform.Field
 import org.slf4j.LoggerFactory
 
@@ -31,6 +33,41 @@ public static void handleGoogleAPIError(config, services, GoogleJsonResponseExce
             break;
         default:
             log.error "Unhandled google API error code: ${googleError.getCode()}"
+    }
+
+}
+
+//TODO - Work in progress below
+
+public static void handleGoogleAPIError(config, services, GoogleJsonResponseException err){
+    GoogleJsonError googleError = ((GoogleJsonResponseException) err).getDetails();
+    switch(googleError.getCode()){
+        case 401: //Invalid Credentials
+
+            ((GoogleAPI)services.googleAPI)
+
+            break;
+        default:
+            log.error "Unhandled google API error code: ${googleError.getCode()}"
+    }
+}
+
+public static Object makeRequestWithRetry(config, services, AbstractGoogleClientRequest request, long delay){
+
+    try{
+        Thread.sleep(delay)
+        return request.execute()
+    }catch(GoogleJsonResponseException e){
+
+        if(delay < 10000){ //Max delay is 10 seconds
+
+            log.info "Retrying request: ${request.getRequestHeaders().getLocation()}"
+            return makeRequestWithRetry(request, delay == 0? 1000: delay*2)
+        }else{
+            handleGoogleAPIError(config, services, e )
+        }
+
+
     }
 
 }

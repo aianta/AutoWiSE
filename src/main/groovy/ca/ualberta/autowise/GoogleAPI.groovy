@@ -97,6 +97,9 @@ class GoogleAPI {
             if(Instant.now().toEpochMilli() >= credentials.getExpirationTimeMilliseconds()){
                 def refreshed = credentials.refreshToken()
                 log.info "token refreshed: ${refreshed}"
+                if (!refreshed){
+                    throw new RuntimeException("Failed to refresh authentication token.")
+                }
             }
         }catch(Exception e){
             log.error e.getMessage(), e
