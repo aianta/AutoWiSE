@@ -273,7 +273,7 @@ class SlackBolt implements Runnable{
 
         this.app.command("/new_vol_recruit_campaign", (req, ctx) -> {
 
-            log.info(NewCampaignBlock.viewString(validGDriveIds).toString())
+            log.info(NewCampaignBlock.viewString(validGDriveIds, getSlackChannels()).toString())
 
             def response = ctx.client().viewsOpen{
                 it.triggerId(req.getPayload().getTriggerId())
