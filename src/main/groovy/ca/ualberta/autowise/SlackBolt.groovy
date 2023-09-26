@@ -112,6 +112,7 @@ class SlackBolt implements Runnable{
 
 
                         Shift s = new Shift()
+                        s.index = index
                         s.startTime = startTime
                         s.endTime = endTime
                         s.targetNumberOfVolunteers = numVolunteers
