@@ -1,5 +1,6 @@
 package ca.ualberta.autowise
 
+import ca.ualberta.autowise.model.APICallContext
 import ca.ualberta.autowise.model.HookType
 import ca.ualberta.autowise.model.Task
 import ca.ualberta.autowise.model.TaskStatus
@@ -411,6 +412,10 @@ class SQLite {
         return promise.future()
     }
 
+    def saveAPICallContext(APICallContext context ){
+
+    }
+
     def insertWebhook(Webhook hook){
         Promise promise = Promise.promise()
         pool.preparedQuery('''
@@ -474,6 +479,22 @@ class SQLite {
         })
 
         return promise.future();
+    }
+
+    /**
+     * TODO: Make the primary key a composite key of the APICallContext id and the attempt value.
+     * @return
+     */
+    def createAPICallContextTable(){
+        Promise promise = Promise.promise();
+        pool.preparedQuery('''
+            CREATE TABLE IF NOT EXISTS api_calls (
+                call_id TEXT PRIMARY KEY,
+                
+            )
+        ''')
+
+        return promise.future()
     }
 
     def createTasksTable(){

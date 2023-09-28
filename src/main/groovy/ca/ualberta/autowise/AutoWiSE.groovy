@@ -103,20 +103,24 @@ void vertxStart(Promise<Void> startup){
             }
         })
 
+        def slackAndDB = CompositeFuture.all(slackAPIInit.future(), databaseInit.future())
+            .onSuccess {
+                //Initialize Authentication for Google API, do this after slack and SQLite, so we can use slack to send the auth link and use the db to store info about api calls
+                def googleAPI = GoogleAPI.createInstance(
+                        config.getString("application_name"),
+                        config.getString("credentials_path"),
+                        config.getString("auth_tokens_directory_path"),
+                        config.getString("auth_server_host"),
+                        config.getInteger("auth_server_receiver_port"),
+                        new SlackBrowser(slackAPI: it.resultAt(0), config:config),
+                        it.resultAt(1)
+                )
+                googleAPIInit.complete(googleAPI)
+            }
+
         CompositeFuture.all([
                 googleAPIInit.future().onComplete{log.info "Google API initialized!"},
-                slackAPIInit.future().onSuccess{slackAPI->
-                    //Initialize Authentication for Google API, do this after slack, so we can use slack to send the auth link
-                    def googleAPI = GoogleAPI.createInstance(
-                            config.getString("application_name"),
-                            config.getString("credentials_path"),
-                            config.getString("auth_tokens_directory_path"),
-                            config.getString("auth_server_host"),
-                            config.getInteger("auth_server_receiver_port"),
-                            new SlackBrowser(slackAPI: slackAPI, config:config)
-                    )
-                    googleAPIInit.complete(googleAPI)
-                }.onComplete{log.info "Slack API initialized!"},
+                slackAPIInit.future().onComplete{log.info "Slack API initialized!"},
                 databaseInit.future().onComplete{log.info "Database initialized!"},
                 serverInit.future().onComplete{log.info "AutoWise Server initialized!"}
         ]).onComplete { setup->

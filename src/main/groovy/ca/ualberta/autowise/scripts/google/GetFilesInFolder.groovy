@@ -30,6 +30,15 @@ static def getFile(GoogleAPI googleAPI, fileId){
     return promise.future()
 }
 
+static def getFile2(GoogleAPI googleAPI, fileId){
+
+    googleAPI.drive {it.files().get(fileId).setFields("id,name,kind,mimeType,webViewLink")}
+            .onSuccess {}
+            .onFailure {}
+
+    def file = googleAPI.drive2 {it.files().get(fileId).setFields("id,name,kind,mimeType,webViewLink")}
+}
+
 
 /**
  * Retrieves all files in a certain folder of a given type.
