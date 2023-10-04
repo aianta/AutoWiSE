@@ -33,23 +33,6 @@ static def slurpDocument(GoogleAPI googleAPI, documentId){
             log.info "Slurped document ${documentId}: ${documentData}"
             return Future.succeededFuture(documentData)
         }
-
-//    Promise promise = Promise.promise();
-//    try{
-//        Document doc = googleAPI.docs().documents().get(documentId).execute()
-//
-//        def documentData = readStructuralElements(doc.getBody().getContent())
-//        log.info "Slurped document ${documentId}: ${documentData}"
-//        promise.complete(documentData)
-//    }catch (GoogleJsonResponseException | Exception e) {
-//        log.error "Error slurping document ${documentId}"
-//        // TODO(developer) - handle error appropriately
-//        //GoogleJsonError error = e.getDetails();
-//        log.error e.getMessage(), e
-//        promise.fail(e)
-//    }
-//
-//    return promise.future()
 }
 
 private static def readParagraphElement(element){

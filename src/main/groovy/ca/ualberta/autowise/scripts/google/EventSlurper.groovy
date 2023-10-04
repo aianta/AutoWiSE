@@ -7,17 +7,16 @@ package ca.ualberta.autowise.scripts.google
  */
 
 import ca.ualberta.autowise.GoogleAPI
+import ca.ualberta.autowise.model.APICallContext
 import ca.ualberta.autowise.model.Event
 import ca.ualberta.autowise.model.EventStatus
 import ca.ualberta.autowise.model.Role
 import ca.ualberta.autowise.model.Shift
-import com.google.api.client.googleapis.json.GoogleJsonError
-import com.google.api.client.googleapis.json.GoogleJsonResponseException
+import com.google.api.services.sheets.v4.model.BatchGetValuesResponse
 import com.google.api.services.sheets.v4.model.ValueRange
 import groovy.transform.Field
 import io.vertx.core.CompositeFuture
 import io.vertx.core.Future
-import io.vertx.core.Promise
 import org.slf4j.LoggerFactory
 
 import java.time.Duration
@@ -82,11 +81,16 @@ static def slurpSheet(GoogleAPI googleAPI, spreadsheetId){
 
     return CompositeFuture.all(
             slurpStaticSingleValues(staticSingleValues),
-            slurpRolesAndShifts()
+            slurpRolesAndShifts(),
+            slurpEmailsHorizontally(dynamicRanges.get("eventOrganizers")),
+            slurpEmailsHorizontally(dynamicRanges.get("volunteerCoordinators"))
     ).compose{
         composite->
             def slurped = composite.resultAt(0)
             List<Role> roles = composite.resultAt(1)
+            List<String> eventOrganizers = composite.resultAt(2)
+            List<String> volunteerCoordinators = composite.resultAt(3)
+
 
             Event result = new Event(
                     id: slurped.get("id") == null?null:UUID.fromString(slurped.get("id")),
@@ -98,8 +102,8 @@ static def slurpSheet(GoogleAPI googleAPI, spreadsheetId){
                     endTime: ZonedDateTime.parse(slurped.get("eventEndTime"), eventTimeFormatter),
                     eventbriteLink: slurped.get("eventbriteLink"),
                     eventSlackChannel: slurped.get("eventSlackChannel"),
-                    eventOrganizers: slurpEmailsHorizontally(dynamicRanges.get("eventOrganizers")),
-                    volunteerCoordinators: slurpEmailsHorizontally(dynamicRanges.get("volunteerCoordinators")),
+                    eventOrganizers: eventOrganizers,
+                    volunteerCoordinators: volunteerCoordinators,
                     campaignStartOffset: Duration.ofDays(Long.parseLong(slurped.get("campaignStartOffset"))).toMillis(), //Convert days to ms
                     resolicitFrequency: Duration.ofDays(Long.parseLong(slurped.get("resolicitFrequency"))).toMillis(),   //Convert days to ms
                     followupOffset: Duration.ofHours(Long.parseLong(slurped.get("followupOffset"))).toMillis(),          //Convert hours to ms
@@ -127,37 +131,38 @@ private static def mapValuesToList(LinkedHashMap map){
 }
 
 private static def slurpStaticSingleValues(LinkedHashMap values){
-    Promise promise = Promise.promise()
+
     //Create a new map storing the slurped results.
     def slurped = new LinkedHashMap<String,String>()
 
-    try{
-        def response = api.sheets().spreadsheets().values().batchGet(sheetId).setRanges(mapValuesToList(values)).execute()
 
-        //Walk through the ranges and the initial value map one by one to create the slurped map.
-        ListIterator<ValueRange> it = response.getValueRanges().listIterator()
-        Iterator<Map.Entry<String,String>> valuesIt = values.iterator()
-        //These two maps should be of the same size, freak out if not.
-        if (values.size() != response.getValueRanges().size()){
-            promise.fail("Got ${response.getValueRanges().size()} values back but expected ${values.size()} when slurping event data from sheet:${sheetId}")
-            throw new RuntimeException("Got ${response.getValueRanges().size()} values back but expected ${values.size()} when slurping event data from sheet:${sheetId}")
+    APICallContext context = new APICallContext();
+    context.sheetId(sheetId)
+    context.cellAddresses(mapValuesToList(values))
+    context.put "note", "reading static values from event spreadsheet"
 
+    return api.<BatchGetValuesResponse>sheets(context, {it.spreadsheets().values().batchGet(sheetId).setRanges(mapValuesToList(values))})
+        .compose {response->
+
+            //Walk through the ranges and the initial value map one by one to create the slurped map.
+            ListIterator<ValueRange> it = response.getValueRanges().listIterator()
+            Iterator<Map.Entry<String,String>> valuesIt = values.iterator()
+            //These two maps should be of the same size, freak out if not.
+            if (values.size() != response.getValueRanges().size()){
+                promise.fail("Got ${response.getValueRanges().size()} values back but expected ${values.size()} when slurping event data from sheet:${sheetId}")
+                throw new RuntimeException("Got ${response.getValueRanges().size()} values back but expected ${values.size()} when slurping event data from sheet:${sheetId}")
+
+            }
+
+            while (it.hasNext()){
+                ValueRange curr = it.next();
+                slurped.put(valuesIt.next().getKey(), curr.getValues() == null?null:curr.getValues().get(0).get(0) )
+            }
+
+            return Future.succeededFuture(slurped)
         }
 
-        while (it.hasNext()){
-            ValueRange curr = it.next();
-            slurped.put(valuesIt.next().getKey(), curr.getValues() == null?null:curr.getValues().get(0).get(0) )
-        }
 
-        promise.complete(slurped)
-    }catch (GoogleJsonResponseException e){
-        GoogleJsonError error = e.getDetails()
-        log.error error.getMessage()
-        promise.fail(e)
-    }
-
-
-    return promise.future()
 }
 
 /**
@@ -166,27 +171,27 @@ private static def slurpStaticSingleValues(LinkedHashMap values){
  */
 private static def slurpEmailsHorizontally(range){
     List<String> emails = new ArrayList<String>()
-    try{
-        def response = api.sheets().spreadsheets().values().get(sheetId, range).execute()
-        def data = response.getValues();
 
-        if (data == null || data.isEmpty()){
-            throw new RuntimeException("Could not slurp emails horizontally at ${range} for sheet: ${sheetId}")
-        }else{
-            //These are single row values so we'll unwrap the row list
-            def rowData = data.get(0)
+    APICallContext context = new APICallContext()
+    context.sheetId(sheetId)
+    context.cellAddress(range)
+    context.put "note",  "reading event organizer or volunteer coordinator emails horizontally row-wise from the event spreadsheet."
 
-            emails = rowData.stream().filter(cell -> cell.contains('@')).collect(Collectors.toList())
+    return api.<ValueRange>sheets(context, {it.spreadsheets().values().get(sheetId, range)})
+        .compose {response->
+            def data = response.getValues();
 
+            if (data == null || data.isEmpty()){
+                throw new RuntimeException("Could not slurp emails horizontally at ${range} for sheet: ${sheetId}")
+            }else{
+                //These are single row values so we'll unwrap the row list
+                def rowData = data.get(0)
+
+                emails = rowData.stream().filter(cell -> cell.contains('@')).collect(Collectors.toList())
+
+            }
+            return Future.succeededFuture(emails)
         }
-    }catch (GoogleJsonResponseException e){
-        GoogleJsonError error = e.getDetails()
-        log.error error.getMessage()
-        throw e
-    }
-
-    return emails;
-
 }
 
 

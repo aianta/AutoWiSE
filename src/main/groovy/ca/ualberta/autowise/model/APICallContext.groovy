@@ -147,6 +147,12 @@ class APICallContext extends JsonObject{
         return this
     }
 
+    APICallContext cellAddresses(List<String> addresses){
+
+        put("cellAddresses", addresses.stream().collect(JsonArray::new,JsonArray::add,JsonArray::addAll))
+
+    }
+
     APICallContext serviceType(type){
         put "serviceType", type
     }
