@@ -38,7 +38,7 @@ import static ca.ualberta.autowise.scripts.google.ErrorHandling.handleGoogleAPIE
 
 
 @Field static JsonObject config
-@Field static log = LoggerFactory.getLogger(getClass())
+@Field static log = LoggerFactory.getLogger(ca.ualberta.autowise.AutoWiSE.class)
 
 @Field static ZoneId timezone = ZoneId.of("Canada/Mountain"); //Set the zone id for all created timestamps
 
@@ -113,7 +113,8 @@ void vertxStart(Promise<Void> startup){
                         config.getString("auth_server_host"),
                         config.getInteger("auth_server_receiver_port"),
                         new SlackBrowser(slackAPI: it.resultAt(0), config:config),
-                        it.resultAt(1)
+                        it.resultAt(1),
+                        vertx
                 )
                 googleAPIInit.complete(googleAPI)
             }

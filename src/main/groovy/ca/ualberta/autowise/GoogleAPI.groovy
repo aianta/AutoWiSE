@@ -67,7 +67,16 @@ class GoogleAPI {
     SQLite db
     Vertx vertx
 
-    static GoogleAPI createInstance(applicationName, credentialsPath, tokensDirPath, authServerHost, authServerPort, SlackBrowser browser, SQLite db, vertx){
+    static GoogleAPI createInstance(
+            applicationName,
+            credentialsPath,
+            tokensDirPath,
+            authServerHost,
+            authServerPort,
+            SlackBrowser browser,
+            SQLite db,
+            vertx
+    ){
         APPLICATION_NAME = applicationName
         CREDENTIALS_PATH = credentialsPath
         TOKENS_DIRECTORY_PATH = tokensDirPath
@@ -161,8 +170,7 @@ class GoogleAPI {
         return _docs
     }
 
-
-    Future drive(Function<Drive, AbstractGoogleClientRequest> apiCall){
+    Future drive1(Function<Drive, AbstractGoogleClientRequest> apiCall){
         Promise promise = Promise.promise();
         try{
             def request  = apiCall.apply(_drive)
@@ -242,6 +250,10 @@ class GoogleAPI {
 
     }
 
+    <T> Future<T> drive6( APICallContext context, Function<Drive, AbstractGoogleClientRequest<T>> apiCall){
+        return service4(drive(), apiCall, context)
+    }
+
     /**
      * Wrapper function for API calls that ensures:
      * <ul>
@@ -256,17 +268,23 @@ class GoogleAPI {
      * @return A future with the type R where R is the type of the expected result from the serviceCall being invoked.
      */
     <R,S> Future<R> service4(S service, Function<S, AbstractGoogleClientRequest<R>> serviceCall, APICallContext context){
-
         def request = serviceCall.apply(service)
         return vertx.<R>executeBlocking {
+            Instant start = Instant.now()
             try{
                 def result = request.execute()
                 it.complete(result)
             }catch (GoogleJsonResponseException e){
+                context.error(e)
                 GoogleJsonError error = e.getDetails();
                 log.error e.getMessage(), e
                 it.fail(e)
+
             }finally {
+                Instant end = Instant.now()
+                long serviceCallDuration = end.toEpochMilli() - start.toEpochMilli()
+                context.duration(serviceCallDuration)
+                log.info "saving call context"
                 db.saveAPICallContext(context)
             }
         }

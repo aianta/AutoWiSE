@@ -18,8 +18,9 @@ import io.vertx.sqlclient.RowSet
 import io.vertx.sqlclient.Tuple
 import org.slf4j.LoggerFactory
 
-
+import java.time.ZoneOffset
 import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import java.util.stream.Collectors
 
 
@@ -60,7 +61,8 @@ class SQLite {
         pool = JDBCPool.pool(vertx, config);
         CompositeFuture.all(
                 createTasksTable(),
-                createWebhooksTable()
+                createWebhooksTable(),
+                createAPICallContextTable()
         ).onSuccess(done->{
             startup.complete(this)
         })
@@ -412,7 +414,46 @@ class SQLite {
         return promise.future()
     }
 
-    def saveAPICallContext(APICallContext context ){
+    def saveAPICallContext(APICallContext context){
+        try{
+            Promise promise = Promise.promise();
+            pool.preparedQuery('''
+            INSERT INTO api_calls (
+                                   call_id, 
+                                   attempt,
+                                   timestamp_str, 
+                                   timestamp, 
+                                   sheet_id,
+                                   doc_id,
+                                   invoking_method,
+                                   error,
+                                   context
+            ) VALUES (?,?,?,?,?,?,?,?,?);
+        ''')
+                    .execute(Tuple.from([
+                            context.id.toString(),
+                            context.attempt(),
+                            context.timestamp.format(APICallContext.timestampFormat), //Nice readable format
+                            context.timestamp.toEpochSecond(ZoneOffset.UTC),
+                            context.sheetId(),
+                            context.docId(),
+                            context.method(),
+                            context.error(),
+                            context.encodePrettily()
+                    ]), {
+                        if(it){
+                            log.info "Saved API Call context ${context.id.toString()} - ${context.attempt()}"
+                            promise.complete(context)
+                        }else{
+                            log.error "Error saving API Call context ${context.id.toString()} - ${context.attempt()}"
+                            log.error it.cause().getMessage(), it.cause()
+                            promise.fail(it.cause())
+                        }
+                    })
+            return promise.future()
+        }catch (Exception e){
+            log.error e.getMessage(), e
+        }
 
     }
 
@@ -489,10 +530,26 @@ class SQLite {
         Promise promise = Promise.promise();
         pool.preparedQuery('''
             CREATE TABLE IF NOT EXISTS api_calls (
-                call_id TEXT PRIMARY KEY,
-                
+                call_id TEXT NOT NULL,
+                attempt INTEGER NOT NULL,
+                timestamp_str TEXT,
+                timestamp INTEGER NOT NULL,
+                sheet_id TEXT,
+                doc_id TEXT,
+                invoking_method TEXT,
+                error TEXT,
+                context TEXT NOT NULL,
+                PRIMARY KEY (call_id, attempt)
             )
-        ''')
+        ''').execute({
+            if (it){
+                log.info "API Calls table created!"
+                promise.complete()
+            }else{
+                log.error it.cause().getMessage(), it.cause()
+                promise.fail(it.cause())
+            }
+        })
 
         return promise.future()
     }

@@ -1,42 +1,40 @@
 package ca.ualberta.autowise.scripts.google
 
 import ca.ualberta.autowise.GoogleAPI
-import com.google.api.client.googleapis.json.GoogleJsonError
-import com.google.api.client.googleapis.json.GoogleJsonResponseException
-import com.google.api.services.docs.v1.Docs
+import ca.ualberta.autowise.model.APICallContext
 import com.google.api.services.drive.model.File
 import com.google.api.services.drive.model.FileList
 import groovy.transform.Field
-import io.vertx.core.Promise
+import io.vertx.core.Future
 import org.slf4j.LoggerFactory
 
 @Field static log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.google.GetFilesInFolder.class)
+@Field static final PAGE_SIZE = 35 //Files to fetch at once
 
 /**
  * @param googleAPI Google API object to use when making request
  * @param fileId id of the file to retrieve
  * @return a promise that completes with a {@link com.google.api.services.drive.model.File} object or fails with an exception.
  */
+//static def getFile(GoogleAPI googleAPI, fileId){
+//    Promise promise = Promise.promise()
+//    try{
+//        File target = googleAPI.drive().files().get(fileId).setFields("id,name,kind,mimeType,webViewLink").execute()
+//        promise.complete(target)
+//    }catch(GoogleJsonResponseException e){
+//        GoogleJsonError error = e.getDetails();
+//        log.error e.getMessage(), e
+//        promise.fail(e)
+//    }
+//    return promise.future()
+//}
+
 static def getFile(GoogleAPI googleAPI, fileId){
-    Promise promise = Promise.promise()
-    try{
-        File target = googleAPI.drive().files().get(fileId).setFields("id,name,kind,mimeType,webViewLink").execute()
-        promise.complete(target)
-    }catch(GoogleJsonResponseException e){
-        GoogleJsonError error = e.getDetails();
-        log.error e.getMessage(), e
-        promise.fail(e)
-    }
-    return promise.future()
-}
 
-static def getFile2(GoogleAPI googleAPI, fileId){
+    APICallContext callContext = new APICallContext()
+    callContext.docId(fileId)
+    return googleAPI.drive6 (callContext, {it.files().get(fileId).setFields("id,name,kind,mimeType,webViewLink")})
 
-    googleAPI.drive {it.files().get(fileId).setFields("id,name,kind,mimeType,webViewLink")}
-            .onSuccess {}
-            .onFailure {}
-
-    def file = googleAPI.drive2 {it.files().get(fileId).setFields("id,name,kind,mimeType,webViewLink")}
 }
 
 
@@ -66,43 +64,48 @@ static def getFiles(googleAPI, folderId ){
  * @return A list of all files matching the given query.
  */
 private static def _getFiles(GoogleAPI googleAPI, query){
-    Promise promise = Promise.promise();
-    try{
-        def final PAGE_SIZE = 35 //Files to fetch at once.
 
         //Store fetched files in results list
         def result = new ArrayList<File>()
 
+        APICallContext context = new APICallContext()
+        context.put("query", query)
+                .put("note", "initial request for files")
+
         //Make an initial request for the files
-        FileList fileList = googleAPI.drive().files()
+        return googleAPI.<FileList>drive6(context, {it.files().list().setPageSize(PAGE_SIZE).setQ(query)})
+                .compose {fileList->
+                    //Recursively handle pagination
+                    return handleFilesResult(googleAPI, context, fileList, query, result)
+                }
+
+}
+
+/**
+ * FileList API is paginated, so we recursively handle fetching files until we run out of result pages.
+ * @param googleAPI GoogleAPI object with which to make requests for the next page of results
+ * @param lastContext the {@link APICallContext} for the previous request.
+ * @param fileList the file list produced by the last request
+ * @param query the query for the fileList API
+ * @param result A list to be populated with all the retrieved files.
+ * @return A future that succeeds when no 'nextPageToken' is returned by the FileList API.
+ */
+private static Future handleFilesResult(GoogleAPI googleAPI, APICallContext lastContext, FileList fileList, query, ArrayList<File> result ){
+    result.addAll(fileList.getFiles())
+    if(fileList.getNextPageToken() != null){
+        APICallContext nextContext = new APICallContext()
+        nextContext.put "relatedContext", lastContext.id.toString()
+        nextContext.put "note", "getting next page of files"
+        return googleAPI.<FileList>drive6(nextContext, {it
+                .files()
                 .list()
+                .setPageToken(fileList.getNextPageToken())
                 .setQ(query)
                 .setPageSize(PAGE_SIZE)
-                .execute()
-
-        result.addAll(fileList.getFiles())
-
-        //If there are more files to fetch, get them too.
-        while(fileList.getNextPageToken() != null){
-            fileList = googleAPI.drive().files()
-                    .list()
-                    .setQ(query)
-                    .setPageSize(PAGE_SIZE)
-                    .setPageToken(fileList.getNextPageToken())
-                    .execute()
-
-            result.addAll(fileList.getFiles())
-
-        }
-
-        promise.complete(result)
-    }catch(GoogleJsonResponseException e){
-        GoogleJsonError error = e.getDetails();
-        log.error e.getMessage(), e
-        promise.fail(e)
+        }).compose {return handleFilesResult(googleAPI, nextContext, it, query, result)}
+    }else{
+        return Future.succeededFuture(result)
     }
-
-    return promise.future()
 }
 
 
