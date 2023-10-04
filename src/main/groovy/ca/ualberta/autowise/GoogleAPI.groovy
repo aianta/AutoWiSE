@@ -170,87 +170,23 @@ class GoogleAPI {
         return _docs
     }
 
-    Future drive1(Function<Drive, AbstractGoogleClientRequest> apiCall){
-        Promise promise = Promise.promise();
-        try{
-            def request  = apiCall.apply(_drive)
-            def result = request.execute()
-            promise.complete(result)
-        }catch(GoogleJsonResponseException e){
-            GoogleJsonError error = e.getDetails();
-            log.error e.getMessage(), e
-            //TODO - google error handling
-            promise.fail(e)
-        }
-
-        return promise.future()
+    <T> Future<T> sheets(APICallContext context, Function<Sheets, AbstractGoogleClientRequest<T>> apiCall){
+        context.serviceType("sheets")
+        return service4(sheets(), apiCall, context)
     }
 
-    <T> T drive2(Function<Drive, AbstractGoogleClientRequest<T>> apiCall){
-        try{
-            def request = apiCall.apply(_drive)
-            def result = request.execute()
-
-            return result
-        }catch (GoogleJsonResponseException e){
-            GoogleJsonError error = e.getDetails();
-            log.error e.getMessage(), e
-        }
+    <T> Future<T> gmail(APICallContext context, Function<Gmail, AbstractGoogleClientRequest<T>> apiCall){
+        context.serviceType("gmail")
+        return service4(gmail(), apiCall, context)
     }
 
-    <R,S> R service(S service, Function<S, AbstractGoogleClientRequest<R>> serviceCall){
-        try{
-            def request = serviceCall.apply(service)
-            def result = request.execute()
-            return result
-        }catch (GoogleJsonResponseException e){
-            GoogleJsonError error = e.getDetails();
-            log.error e.getMessage(), e
-        }
-    }
-
-    <R,S> Future<R> service2(S service, Function<S, AbstractGoogleClientRequest<R>> serviceCall){
-        Promise promise = Promise.promise()
-        try{
-            def request = serviceCall.apply(service)
-            def result = request.execute()
-            promise.complete(result)
-        }catch (GoogleJsonResponseException e){
-            GoogleJsonError error = e.getDetails();
-            log.error e.getMessage(), e
-            promise.fail(e)
-        }
-        return promise.future()
-    }
-
-    <T> T drive3(Function<Drive,AbstractGoogleClientRequest<T>> apiCall){
-        return service(_drive, apiCall)
-    }
-
-    <T> Future<T> drive4(Function<Drive, AbstractGoogleClientRequest<T>> apiCall){
-        return service2(_drive, apiCall)
-    }
-
-    <R,S> Future<R> service3(S service, Function<S, AbstractGoogleClientRequest<R>> serviceCall, APICallContext context){
-        Promise promise = Promise.promise()
-        try{
-            def request = serviceCall.apply(service)
-            def result = request.execute()
-            promise.complete(result)
-        }catch (GoogleJsonResponseException e){
-            GoogleJsonError error = e.getDetails();
-            log.error e.getMessage(), e
-            promise.fail(e)
-        }
-        return promise.future()
-    }
-
-    <T> Future<T> drive5(Function<Drive, AbstractGoogleClientRequest<T>> apiCall, APICallContext context){
-        return service3(_drive, apiCall, context)
-
+    <T> Future<T> docs(APICallContext context, Function<Docs, AbstractGoogleClientRequest<T>> apiCall){
+        context.serviceType("docs")
+        return service4(docs(), apiCall, context)
     }
 
     <T> Future<T> drive6( APICallContext context, Function<Drive, AbstractGoogleClientRequest<T>> apiCall){
+        context.serviceType("drive")
         return service4(drive(), apiCall, context)
     }
 
@@ -272,6 +208,7 @@ class GoogleAPI {
         return vertx.<R>executeBlocking {
             Instant start = Instant.now()
             try{
+                context.put "requestUrl", request.buildHttpRequestUrl().toString()
                 def result = request.execute()
                 it.complete(result)
             }catch (GoogleJsonResponseException e){

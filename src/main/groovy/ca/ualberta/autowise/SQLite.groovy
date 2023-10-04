@@ -419,7 +419,8 @@ class SQLite {
             Promise promise = Promise.promise();
             pool.preparedQuery('''
             INSERT INTO api_calls (
-                                   call_id, 
+                                   call_id,
+                                   service_type,
                                    attempt,
                                    timestamp_str, 
                                    timestamp, 
@@ -428,10 +429,11 @@ class SQLite {
                                    invoking_method,
                                    error,
                                    context
-            ) VALUES (?,?,?,?,?,?,?,?,?);
+            ) VALUES (?,?,?,?,?,?,?,?,?,?);
         ''')
                     .execute(Tuple.from([
                             context.id.toString(),
+                            context.serviceType(),
                             context.attempt(),
                             context.timestamp.format(APICallContext.timestampFormat), //Nice readable format
                             context.timestamp.toEpochSecond(ZoneOffset.UTC),
@@ -531,6 +533,7 @@ class SQLite {
         pool.preparedQuery('''
             CREATE TABLE IF NOT EXISTS api_calls (
                 call_id TEXT NOT NULL,
+                service_type TEXT NOT NULL,
                 attempt INTEGER NOT NULL,
                 timestamp_str TEXT,
                 timestamp INTEGER NOT NULL,

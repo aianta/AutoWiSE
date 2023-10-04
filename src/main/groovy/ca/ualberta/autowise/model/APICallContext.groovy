@@ -147,4 +147,11 @@ class APICallContext extends JsonObject{
         return this
     }
 
+    APICallContext serviceType(type){
+        put "serviceType", type
+    }
+
+    String serviceType(){
+        return getString("serviceType")
+    }
 }

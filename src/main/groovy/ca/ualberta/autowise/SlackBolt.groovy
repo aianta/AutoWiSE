@@ -44,7 +44,6 @@ import static ca.ualberta.autowise.scripts.slack.BlockingSlackMessage.*
 import static ca.ualberta.autowise.scripts.google.CreateEventSheet.*
 import static ca.ualberta.autowise.scripts.slack.boltapp.NewCampaignBlock.*;
 import static ca.ualberta.autowise.scripts.google.GetFilesInFolder.*
-import com.google.api.services.drive.model.File
 
 
 
@@ -59,11 +58,17 @@ class SlackBolt implements Runnable{
     def autoWiSE
     EventBuffer buffer = new EventBuffer();
     Set<Pair<String, String>> validGDriveIds = new HashSet<>() //Store all google drive item ids within the Autowise folder. Templates must come from there.
+    def newCampaignCommand = "/new_vol_recruit_campaign"
 
     SlackBolt( services,  config,  autoWiSE){
         this.config = config
         this.services = services
         this.autoWiSE = autoWiSE
+
+        //If running locally, need to use a different command name so as to not clash with prod slackbolt app.
+        if (config.getString("host").equals("localhost")){
+            newCampaignCommand = "/dnew_vol_recruit_campaign"
+        }
 
         updateValidGDriveIds()
 
@@ -272,7 +277,7 @@ class SlackBolt implements Runnable{
 
         })
 
-        this.app.command("/new_vol_recruit_campaign", (req, ctx) -> {
+        this.app.command(newCampaignCommand, (req, ctx) -> {
 
             log.info(NewCampaignBlock.viewString(validGDriveIds, getSlackChannels()).toString())
 
