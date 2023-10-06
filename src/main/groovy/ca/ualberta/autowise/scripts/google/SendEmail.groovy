@@ -1,6 +1,7 @@
 package ca.ualberta.autowise.scripts.google
 
 import ca.ualberta.autowise.GoogleAPI
+import ca.ualberta.autowise.model.APICallContext
 import com.google.api.client.googleapis.json.GoogleJsonError
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import groovy.transform.Field
@@ -53,27 +54,21 @@ static def sendEmail(config, googleAPI, from, to, bcc, subject, content){
 }
 
 private static def _sendEmail(GoogleAPI googleAPI, MimeMessage email){
-    Promise promise = Promise.promise();
     log.info "Sending email"
-    try{
-        ByteArrayOutputStream buffer = new ByteArrayOutputStream()
-        email.writeTo(buffer)
-        byte[] rawMessageBytes = buffer.toByteArray()
-        String encodedEmail = Base64.encodeBase64URLSafeString(rawMessageBytes)
-        log.info "encodedEmail: ${encodedEmail}"
-        GMessage message = new GMessage()
-        message.setRaw(encodedEmail)
-        message = googleAPI.gmail().users().messages().send("me", message).execute()
-        log.info "Message Id: ${message.getId()}"
-        log.info "${message.toPrettyString()}"
-        promise.complete()
-    }catch (GoogleJsonResponseException | Exception e ) {
-        // TODO(developer) - handle error appropriately
-        GoogleJsonError error = e.getDetails();
-        log.error e.getMessage(), e
-        promise.fail(e)
-    }
-    return promise.future()
+    def recipients = Arrays.stream(email.getAllRecipients()).map(address->address.toString()).collect(StringBuilder::new, (sb, s)->sb.append(";"+s), StringBuilder::append).toString()
+
+    APICallContext context = new APICallContext()
+    context.put "note", "Sending email to ${recipients}"
+
+    ByteArrayOutputStream buffer = new ByteArrayOutputStream()
+    email.writeTo(buffer)
+    byte[] rawMessageBytes = buffer.toByteArray()
+    String encodedEmail = Base64.encodeBase64URLSafeString(rawMessageBytes)
+    log.info "encodedEmail: ${encodedEmail}"
+    GMessage message = new GMessage()
+    message.setRaw(encodedEmail)
+
+    return googleAPI.<GMessage>gmail(context, {it.users().messages().send("me", message)})
 }
 
 private static def createMimeMessage(config, from, subject, text){

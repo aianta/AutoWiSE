@@ -22,7 +22,6 @@ import com.google.api.services.gmail.GmailScopes
 import com.google.api.services.sheets.v4.Sheets
 import com.google.api.services.sheets.v4.SheetsScopes
 import io.vertx.core.Future
-import io.vertx.core.Promise
 import io.vertx.core.Vertx
 import org.slf4j.LoggerFactory
 
@@ -172,22 +171,22 @@ class GoogleAPI {
 
     <T> Future<T> sheets(APICallContext context, Function<Sheets, AbstractGoogleClientRequest<T>> apiCall){
         context.serviceType("sheets")
-        return service4(sheets(), apiCall, context)
+        return service(sheets(), apiCall, context)
     }
 
     <T> Future<T> gmail(APICallContext context, Function<Gmail, AbstractGoogleClientRequest<T>> apiCall){
         context.serviceType("gmail")
-        return service4(gmail(), apiCall, context)
+        return service(gmail(), apiCall, context)
     }
 
     <T> Future<T> docs(APICallContext context, Function<Docs, AbstractGoogleClientRequest<T>> apiCall){
         context.serviceType("docs")
-        return service4(docs(), apiCall, context)
+        return service(docs(), apiCall, context)
     }
 
-    <T> Future<T> drive6( APICallContext context, Function<Drive, AbstractGoogleClientRequest<T>> apiCall){
+    <T> Future<T> drive(APICallContext context, Function<Drive, AbstractGoogleClientRequest<T>> apiCall){
         context.serviceType("drive")
-        return service4(drive(), apiCall, context)
+        return service(drive(), apiCall, context)
     }
 
     /**
@@ -203,7 +202,7 @@ class GoogleAPI {
      * contextual information about the api call to be stored for record keeping purposes.
      * @return A future with the type R where R is the type of the expected result from the serviceCall being invoked.
      */
-    <R,S> Future<R> service4(S service, Function<S, AbstractGoogleClientRequest<R>> serviceCall, APICallContext context){
+    <R,S> Future<R> service(S service, Function<S, AbstractGoogleClientRequest<R>> serviceCall, APICallContext context){
         def request = serviceCall.apply(service)
         return vertx.<R>executeBlocking {
             Instant start = Instant.now()
@@ -211,13 +210,24 @@ class GoogleAPI {
                 context.put "requestUrl", request.buildHttpRequestUrl().toString()
                 def result = request.execute()
                 it.complete(result)
+            }
+            catch (UnknownHostException e){ //Handle no internet
+                context.put "errorNote", "this could happen if there is no internet access."
+                context.error(e)
+                log.error e.getMessage(),e
+                it.fail(e)
+
             }catch (GoogleJsonResponseException e){
                 context.error(e)
                 GoogleJsonError error = e.getDetails();
                 log.error e.getMessage(), e
                 it.fail(e)
 
-            }finally {
+            }catch (Exception e){
+              context.error(e)
+                log.error(e.getMessage(), e)
+                it.fail(e)
+            } finally {
                 Instant end = Instant.now()
                 long serviceCallDuration = end.toEpochMilli() - start.toEpochMilli()
                 context.duration(serviceCallDuration)

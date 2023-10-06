@@ -6,7 +6,6 @@ import ca.ualberta.autowise.model.Task
 import ca.ualberta.autowise.model.TaskStatus
 import ca.ualberta.autowise.model.Webhook
 import ca.ualberta.autowise.scripts.google.EventSlurper
-import groovy.transform.Field
 import io.vertx.core.Future
 import io.vertx.core.Promise
 import io.vertx.core.CompositeFuture
@@ -20,7 +19,6 @@ import org.slf4j.LoggerFactory
 
 import java.time.ZoneOffset
 import java.time.ZonedDateTime
-import java.time.format.DateTimeFormatter
 import java.util.stream.Collectors
 
 
@@ -62,7 +60,7 @@ class SQLite {
         CompositeFuture.all(
                 createTasksTable(),
                 createWebhooksTable(),
-                createAPICallContextTable()
+                createAPICallContextTable().compose {createAPICallTruncateTrigger()}
         ).onSuccess(done->{
             startup.complete(this)
         })
@@ -549,6 +547,33 @@ class SQLite {
                 log.info "API Calls table created!"
                 promise.complete()
             }else{
+                log.error it.cause().getMessage(), it.cause()
+                promise.fail(it.cause())
+            }
+        })
+
+        return promise.future()
+    }
+
+    /**
+     * Creates a database trigger that deletes API calls which occurred over a month ago.
+     * Should keep the database from becoming unruly.
+     * @return
+     */
+    def createAPICallTruncateTrigger(){
+        Promise promise = Promise.promise()
+
+        pool.preparedQuery('''
+            CREATE TRIGGER IF NOT EXISTS api_call_clean_up AFTER INSERT ON api_calls BEGIN
+                DELETE FROM api_calls WHERE timestamp < unixepoch('now', '-1 month');
+            END;
+        ''')
+        .execute({
+            if(it){
+                log.info("Trigger that culls api calls older than 1 month, created successfully.")
+                promise.complete()
+            }else{
+                log.error "Failed to create trigger culling api calls older than 1 month!"
                 log.error it.cause().getMessage(), it.cause()
                 promise.fail(it.cause())
             }

@@ -1,13 +1,11 @@
 package ca.ualberta.autowise.scripts.google
 
 import ca.ualberta.autowise.GoogleAPI
+import ca.ualberta.autowise.model.APICallContext
 import ca.ualberta.autowise.model.Event
-import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.services.drive.model.File
-import com.google.api.services.drive.model.Permission
 import com.google.api.services.sheets.v4.model.ValueRange
 import groovy.transform.Field
-import io.vertx.core.Promise
 import org.slf4j.LoggerFactory
 
 import java.util.concurrent.TimeUnit
@@ -121,17 +119,13 @@ private def static generateSingleStaticUpdates(Event e){
 
 private def static makeTemplateInstance(config, GoogleAPI googleAPI, String sheetName, String parentFolderId){
     def templateId = config.getString("autowise_event_template_sheet")
-    Promise promise = Promise.promise();
+    APICallContext context = new APICallContext()
+    context.put("note", "Creating a new sheet by copying template sheet.")
+    context.put("templateId", templateId)
+    context.put("newSheetName", sheetName)
+    context.put("parentFolderId", parentFolderId)
 
-    try{
-        File eventSheet = googleAPI.drive().files().copy(templateId, new File().setName(sheetName).setParents([parentFolderId])).execute()
-        promise.complete(eventSheet)
-    }catch (GoogleJsonResponseException e){
-        log.error "Error creating new event sheet (${sheetName}) from template ${templateId} : ${e.getDetails().getCode()} - ${e.getDetails().getMessage()}"
-        promise.fail(e)
-    }
-
-    return promise.future();
+    return googleAPI.<File>drive(context, {it.files().copy(templateId, new File().setName(sheetName).setParents([parentFolderId]))})
 }
 
 /**
@@ -144,24 +138,17 @@ private def static makeTemplateInstance(config, GoogleAPI googleAPI, String shee
  */
 private def static createBlankSheet(GoogleAPI googleAPI, String sheetName, String parentFolderId){
 
-    Promise promise = Promise.promise();
+    APICallContext context = new APICallContext();
+    context.put "newSheetName", sheetName
+    context.put "parentFolderId", parentFolderId
+    context.put "note", "creating a blank event spreadsheet"
 
-    try{
-        File fileMetadata = new File();
-        fileMetadata.setName(sheetName);
-        fileMetadata.setMimeType("application/vnd.google-apps.spreadsheet");
-        fileMetadata.setParents([parentFolderId])
-
-        def sheet = googleAPI.drive().files().create(fileMetadata)
-                .setFields("id")
-                .execute();
-        promise.complete(sheet)
-    }catch (GoogleJsonResponseException e){
-        log.error "Error creating event sheet: ${e.getDetails().getCode()} - ${e.getDetails().getMessage()}"
-        promise.fail(e)
-    }
+    File fileMetadata = new File();
+    fileMetadata.setName(sheetName);
+    fileMetadata.setMimeType("application/vnd.google-apps.spreadsheet");
+    fileMetadata.setParents([parentFolderId])
 
 
-    return promise.future();
+    return googleAPI.<File>drive(context, {it.files().create(fileMetadata).setFields("id")})
 
 }

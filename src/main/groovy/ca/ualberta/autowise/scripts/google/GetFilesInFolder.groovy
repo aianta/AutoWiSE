@@ -33,7 +33,7 @@ static def getFile(GoogleAPI googleAPI, fileId){
 
     APICallContext callContext = new APICallContext()
     callContext.docId(fileId)
-    return googleAPI.drive6 (callContext, {it.files().get(fileId).setFields("id,name,kind,mimeType,webViewLink")})
+    return googleAPI.drive (callContext, {it.files().get(fileId).setFields("id,name,kind,mimeType,webViewLink")})
 
 }
 
@@ -73,7 +73,7 @@ private static def _getFiles(GoogleAPI googleAPI, query){
                 .put("note", "initial request for files")
 
         //Make an initial request for the files
-        return googleAPI.<FileList>drive6(context, {it.files().list().setPageSize(PAGE_SIZE).setQ(query)})
+        return googleAPI.<FileList>drive(context, {it.files().list().setPageSize(PAGE_SIZE).setQ(query)})
                 .compose {fileList->
                     //Recursively handle pagination
                     return handleFilesResult(googleAPI, context, fileList, query, result)
@@ -96,7 +96,7 @@ private static Future handleFilesResult(GoogleAPI googleAPI, APICallContext last
         APICallContext nextContext = new APICallContext()
         nextContext.put "relatedContext", lastContext.id.toString()
         nextContext.put "note", "getting next page of files"
-        return googleAPI.<FileList>drive6(nextContext, {it
+        return googleAPI.<FileList>drive(nextContext, {it
                 .files()
                 .list()
                 .setPageToken(fileList.getNextPageToken())

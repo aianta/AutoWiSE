@@ -1,6 +1,7 @@
 package ca.ualberta.autowise.scripts.google
 
 import ca.ualberta.autowise.GoogleAPI
+import ca.ualberta.autowise.model.APICallContext
 import com.google.api.client.googleapis.json.GoogleJsonError
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.services.sheets.v4.model.AppendValuesResponse
@@ -114,57 +115,39 @@ static def clearRange(GoogleAPI googleAPI, sheetId, cellAddress){
     })
 }
 
-static def appendAt(GoogleAPI googleAPI, sheetId, cellAddress, body){
-    Promise promise = Promise.promise()
-    try{
-        AppendValuesResponse response = googleAPI.sheets().spreadsheets().values().append(sheetId, cellAddress, body)
-                .setValueInputOption("RAW")
-                .setIncludeValuesInResponse(true)
-                .execute()
-        log.info response.toPrettyString()
-        promise.complete()
-    }catch (GoogleJsonResponseException | Exception e) {
-        // TODO(developer) - handle error appropriately
-        //GoogleJsonError error = e.getDetails();
-        log.error e.getMessage(), e
-        promise.fail(e)
-    }
-    return promise.future()
+static def appendAt(GoogleAPI googleAPI, sheetId, cellAddress, ValueRange body){
+    APICallContext context = new APICallContext()
+    context.put "note", "Appending values to sheet ${sheetId}@${cellAddress}"
+    context.sheetId(sheetId)
+    context.cellAddress(cellAddress)
+    context.valueRange(body)
+
+    return googleAPI.<AppendValuesResponse>sheets(context, {it.spreadsheets().values().append(sheetId, cellAddress, body).setValueInputOption("RAW")})
 }
 
 static def updateAt(GoogleAPI googleAPI, sheetId, cellAddress, body){
-    Promise promise = Promise.promise()
-    try{
-        UpdateValuesResponse response = googleAPI.sheets().spreadsheets().values().update(sheetId, cellAddress, body)
-                .setValueInputOption("RAW") // See: https://developers.google.com/sheets/api/reference/rest/v4/ValueInputOption
-                .setIncludeValuesInResponse(true)
-                .execute()
+    APICallContext context = new APICallContext()
+    context.put "note", "Updating values to sheet ${sheetId}@${cellAddress}"
+    context.sheetId(sheetId)
+    context.cellAddress(cellAddress)
+    context.valueRange(body)
 
-        log.info response.toPrettyString()
-        promise.complete()
-    } catch (GoogleJsonResponseException | Exception e) {
-        log.error "Error updating value at ${sheetId}@${cellAddress}!"
-        // TODO(developer) - handle error appropriately
-        //GoogleJsonError error = e.getDetails();
-        log.error e.getMessage(), e
-        promise.fail(e)
-    }
-    return promise.future()
+    return googleAPI.<UpdateValuesResponse>sheets(context, {it.spreadsheets().values().update(sheetId, cellAddress, body).setValueInputOption("RAW")})
 }
 
 static def batchUpdate(GoogleAPI googleAPI, sheetId,  List<ValueRange> updates){
-    Promise promise = Promise.promise();
-    try{
-        BatchUpdateValuesRequest request = new BatchUpdateValuesRequest()
-                .setValueInputOption("RAW")
-                .setData(updates)
-        def result = googleAPI.sheets().spreadsheets().values().batchUpdate(sheetId, request).execute()
-        log.info "Updated ${result.getTotalUpdatedCells().toString()} cells in ${sheetId}"
-        promise.complete(sheetId) //Return the id of the updated sheet.
 
-    }catch (GoogleJsonResponseException e){
-        log.error "Error batch updating values in ${sheetId}"
-        promise.fail(e)
-    }
-    return promise.future()
+    APICallContext context = new APICallContext()
+    context.sheetId(sheetId)
+    context.put "note", "Performing batch update to sheet ${sheetId}."
+
+    BatchUpdateValuesRequest request = new BatchUpdateValuesRequest()
+            .setValueInputOption("RAW")
+            .setData(updates)
+
+    return googleAPI.<BatchUpdateValuesRequest>sheets(context, {it.spreadsheets().values().batchUpdate(sheetId, request)})
+        .compose {
+            log.info "Updated ${it.getTotalUpdatedCells().toString()} cells in ${sheetId}"
+            return Future.succeededFuture(sheetId) //Return the id of the updated sheet.
+        }
 }

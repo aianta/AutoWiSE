@@ -3,6 +3,7 @@ package ca.ualberta.autowise.model
 import ca.ualberta.autowise.AutoWiSE
 import com.google.api.client.googleapis.json.GoogleJsonError
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
+import com.google.api.services.sheets.v4.model.ValueRange
 import io.vertx.core.json.JsonObject
 import io.vertx.core.json.JsonArray
 import org.slf4j.Logger
@@ -71,7 +72,7 @@ class APICallContext extends JsonObject{
         StringWriter sw = new StringWriter()
         PrintWriter pw = new PrintWriter(sw)
         err.printStackTrace(pw)
-        put "stacktrace", pw.toString()
+        put "stacktrace", sw.toString()
 
         put "errorType", err.getClass().getName()
 
@@ -140,6 +141,18 @@ class APICallContext extends JsonObject{
 
     String method(){
         return getString("method")
+    }
+
+    JsonArray valueRange(){
+        return getJsonArray("valueRange")
+    }
+
+    APICallContext valueRange(ValueRange valueRange){
+        List<List<Object>> data = valueRange.getValues()
+        JsonArray json = data.stream()
+            .map(entry->entry.stream().collect(JsonArray::new, JsonArray::add, JsonArray::addAll))
+            .collect(JsonArray::new, JsonArray::add, JsonArray::addAll)
+        put "valueRange", json
     }
 
     APICallContext cellAddress(String address){
