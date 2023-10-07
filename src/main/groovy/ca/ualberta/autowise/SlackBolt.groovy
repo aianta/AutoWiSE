@@ -40,7 +40,7 @@ import java.util.stream.Collectors
 import java.util.stream.IntStream
 import java.util.stream.Stream;
 
-import static ca.ualberta.autowise.scripts.slack.BlockingSlackMessage.*
+import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.*
 import static ca.ualberta.autowise.scripts.google.CreateEventSheet.*
 import static ca.ualberta.autowise.scripts.slack.boltapp.NewCampaignBlock.*;
 import static ca.ualberta.autowise.scripts.google.GetFilesInFolder.*

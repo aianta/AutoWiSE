@@ -11,6 +11,7 @@ import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
 import com.google.api.client.googleapis.json.GoogleJsonError
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.client.googleapis.services.AbstractGoogleClientRequest
+import com.google.api.client.http.HttpRequest
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.client.util.store.FileDataStoreFactory
 import com.google.api.services.docs.v1.Docs
@@ -23,11 +24,14 @@ import com.google.api.services.sheets.v4.Sheets
 import com.google.api.services.sheets.v4.SheetsScopes
 import io.vertx.core.Future
 import io.vertx.core.Vertx
+import io.vertx.core.json.JsonObject
 import org.slf4j.LoggerFactory
 
 import java.time.Instant
 import java.util.function.Function
 
+
+import static ca.ualberta.autowise.scripts.slack.BlockingSlackMessage.*
 
 /**
  * @Author Alexandru Ianta
@@ -35,6 +39,9 @@ import java.util.function.Function
  * Handles authentication.
  */
 class GoogleAPI {
+    static final long MAXIMUM_BACKOFF = 128000 //128s in ms.
+    static final int MAX_ATTEMPTS = 10 //Maximum number of retries before we give up on a service call.
+
     static log = LoggerFactory.getLogger(GoogleAPI.class)
     static JSON_FACTORY = GsonFactory.getDefaultInstance()
     static HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport()
@@ -65,22 +72,21 @@ class GoogleAPI {
     def _gmail
     SQLite db
     Vertx vertx
+    SlackAPI slackAPI
+    JsonObject config;
 
     static GoogleAPI createInstance(
-            applicationName,
-            credentialsPath,
-            tokensDirPath,
-            authServerHost,
-            authServerPort,
             SlackBrowser browser,
             SQLite db,
-            vertx
+            vertx,
+            slackAPI,
+            config
     ){
-        APPLICATION_NAME = applicationName
-        CREDENTIALS_PATH = credentialsPath
-        TOKENS_DIRECTORY_PATH = tokensDirPath
-        AUTH_SERVER_HOST = authServerHost
-        AUTH_SERVER_PORT = authServerPort
+        APPLICATION_NAME = config.getString("application_name")
+        CREDENTIALS_PATH =  config.getString("credentials_path")
+        TOKENS_DIRECTORY_PATH =  config.getString("auth_tokens_directory_path")
+        AUTH_SERVER_HOST =  config.getString("auth_server_host")
+        AUTH_SERVER_PORT =  config.getInteger("auth_server_receiver_port")
 
         def credentialsStream = new FileInputStream(new java.io.File(CREDENTIALS_PATH))
         def clientSecrets = GoogleClientSecrets.load JSON_FACTORY, new InputStreamReader(credentialsStream)
@@ -90,16 +96,28 @@ class GoogleAPI {
                 clientSecrets,
                 SCOPES
         )
-//        .setDataStoreFactory(MemoryDataStoreFactory.getDefaultInstance())
-        //TODO: If the memory data store factory works, then this is a permission issue with the file system and we have to talk to david to resolve it.
-        // should do that before live deployment to minimize the number of times we need to auth through slack.
         .setDataStoreFactory(new FileDataStoreFactory(new java.io.File(TOKENS_DIRECTORY_PATH)))
         .setAccessType("offline")
         .build()
 
         def authServerReceiver = new LocalServerReceiver.Builder().setHost(AUTH_SERVER_HOST).setPort(AUTH_SERVER_PORT).build()
         def credentials = new AuthorizationCodeInstalledApp(authFlow, authServerReceiver, browser).authorize("user")
-        instance = new GoogleAPI(credentials, db, vertx)
+        instance = new GoogleAPI(credentials, db, vertx, slackAPI, config)
+    }
+
+    static GoogleAPI getInstance(){
+        if (instance == null){
+            throw new RuntimeException("Cannot get GoogleAPI instance because it was not created!")
+        }
+        return instance
+    }
+
+    private GoogleAPI(credentials, SQLite db, vertx, slackAPI, config){
+        this.credentials = credentials
+        this.db = db
+        this.vertx = vertx
+        this.slackAPI = slackAPI
+        this.config = config
     }
 
     private void validateCredentials(){
@@ -120,18 +138,6 @@ class GoogleAPI {
 
     }
 
-    static GoogleAPI getInstance(){
-        if (instance == null){
-            throw new RuntimeException("Cannot get GoogleAPI instance because it was not created!")
-        }
-        return instance
-    }
-
-    private GoogleAPI(credentials, SQLite db, vertx){
-        this.credentials = credentials
-        this.db = db
-        this.vertx = vertx
-    }
 
     Drive drive(){
         validateCredentials()
@@ -203,11 +209,29 @@ class GoogleAPI {
      * @return A future with the type R where R is the type of the expected result from the serviceCall being invoked.
      */
     <R,S> Future<R> service(S service, Function<S, AbstractGoogleClientRequest<R>> serviceCall, APICallContext context){
+
+        //Number of milliseconds to wait before making the service call. Used for exponential backoff when handling 429 errors
+        long waitTime = context.attempt() - 1 == 0? 0: backoffWaitTime(context.attempt())
+
         def request = serviceCall.apply(service)
         return vertx.<R>executeBlocking {
             Instant start = Instant.now()
             try{
                 context.put "requestUrl", request.buildHttpRequestUrl().toString()
+
+                HttpRequest h = request.buildHttpRequest()
+                if(h.getContent() != null){ // If there is content to this request
+                    //Lets try to get the request content saved for debugging.
+                    ByteArrayOutputStream out = new ByteArrayOutputStream()
+                    h.getContent().writeTo(out)
+                    def contentString = out.toString()
+                    context.put "requestContent", contentString
+                }
+
+                if (waitTime > 0){ //Backoff making the request if necessary
+                    Thread.sleep(waitTime)
+                }
+                //Now let's make that request
                 def result = request.execute()
                 it.complete(result)
             }
@@ -221,11 +245,56 @@ class GoogleAPI {
                 context.error(e)
                 GoogleJsonError error = e.getDetails();
                 log.error e.getMessage(), e
-                it.fail(e)
 
+                /**
+                 * https://developers.google.com/drive/api/guides/handle-errors
+                 */
+                switch (error.getCode()){
+                    case 400: //Bad request
+                        log.error "400 - Bad Request: Google API error while making service call.\n${context.encodePrettily()}"
+                        sendSlackMessage(slackAPI, config.getString("technical_channel"), "400 - Bad Request: Google API error while making service call. ```\n${context.encodePrettily()}\n```" )
+                        break;
+                    case 401: //Unauthorized - invalid credentials
+                        log.error "401 - Unauthorized: Google API error while making service call.\n${context.encodePrettily()}"
+                        sendSlackMessage(slackAPI, config.getString("technical_channel"), "401 - Unauthorized: Google API error while making service call. ```\n${context.encodePrettily()}\n```" )
+                        break;
+                    case 403: //Forbidden - insufficient permissions
+                        log.error "403 - Forbidden: Google API error while making service call.\n${context.encodePrettily()}"
+                        sendSlackMessage(slackAPI, config.getString("technical_channel"), "403 - Forbidden: Google API error while making service call. ```\n${context.encodePrettily()}\n```" )
+                        break;
+                    case 404: //Not Found
+                        log.error "404 - Not Found: Google API error while making service call.\n${context.encodePrettily()}"
+                        sendSlackMessage(slackAPI, config.getString("technical_channel"), "404 - Not Found: Google API error while making service call. ```\n${context.encodePrettily()}\n```" )
+                        break;
+                    case 429: //Too Many Requests
+                        log.error("Got error code 429 - Too Many Requests from google API.")
+                        context.attempt(context.attempt() + 1) //Increment the number of attempts
+                        if(context.attempt() > MAX_ATTEMPTS){
+                            log.error("Maximum number of attempts reached. Service call failed.")
+                            sendSlackMessage(slackAPI, config.getString("technical_channel"), "429 - Too Many Requests: Google API error while making service call. ```\n${context.encodePrettily()}\n```" )
+                            return it.fail(e) //Fail the service call if the maximum number of attempts has been reached.
+                        }else{
+                            log.error "Retrying service call."
+                            return service(service, serviceCall, context)
+                        }
+                        break;
+                    //Internal server errors on google's side
+                    case 500:
+                    case 502:
+                    case 503:
+                    case 504:
+                        log.error "50x - Internal Server Error: Google API error while making service call.\n${context.encodePrettily()}"
+                        sendSlackMessage(slackAPI, config.getString("technical_channel"), "50x - Internal Server Error: Google API error while making service call. ```\n${context.encodePrettily()}\n```" )
+                        break;
+                    default:
+                        it.fail(e)
+                }
+
+                it.tryFail(e) //Really fail the service call, in case it somehow wasn't failed already
             }catch (Exception e){
               context.error(e)
                 log.error(e.getMessage(), e)
+                sendSlackMessage(slackAPI, config.getString("technical_channel"), "Unknown error while making service call. ```\n${context.encodePrettily()}\n```" )
                 it.fail(e)
             } finally {
                 Instant end = Instant.now()
@@ -236,5 +305,19 @@ class GoogleAPI {
             }
         }
 
+    }
+
+    /**
+     * Implements wait time calculation for exponential backoff handling of 429 errors.
+     * See link for more details.
+     * https://developers.google.com/drive/api/guides/limits#exponential
+     * @param numRetries
+     * @return
+     */
+    private long backoffWaitTime(int numRetries){
+        long minLong = 1L;
+        long maxLong = 1000L;
+        long randomMilli = minLong + (long) (Math.random() * (maxLong - minLong))
+        return Math.min((Math.pow(2, numRetries)) + randomMilli, MAXIMUM_BACKOFF)
     }
 }
