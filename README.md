@@ -1,9 +1,9 @@
 # AutoWiSE
-
+[![Build Status](https://dev.azure.com/UAlberta-SSRG/WiSER%20Automation/_apis/build/status%2Faianta.AutoWiSE?branchName=main)](https://dev.azure.com/UAlberta-SSRG/WiSER%20Automation/_build/latest?definitionId=1&branchName=main)
 # TODO
 * ~~Futurize operations~~
   * Error handling, especially with API calls.
-    * Handle GoogleAPI 401 - unauthenticated using slack.
+    * ~~Handle GoogleAPI 401 - unauthenticated using slack.~~
     * ~~Add an autowise technical channel, and send errors there~~
     * Ideally fail safe
   * ~~Futurize operations done on tick, a tick should complete a future.~~
@@ -13,7 +13,7 @@
 * ~~Possible warning appears on links sent to yahoo mail addresses.~~ 
   * ~~Implement SSL/https with certbot~~
 * ~~Add web request logging with vertx handler.~~
-* Ensure all operations produce meaningful logs.
+* ~~Ensure all operations produce meaningful logs.~~
   * ~~At least success/failure messages.~~
 * ~~Campaign registration email updates~~
   * ~~Concat all email templates~~
@@ -26,8 +26,7 @@
 * ~~Log web requests~~
 * Add List-unsubscribe header only to recruitment emails.
 * ~~Abort a campaign if the underlying event sheet is no longer accessible.~~
-* Add template descriptions in this readme. 
-* Don't break if there are no volunteer coordinators or event organizers. But break if there are neither.
+* Add template descriptions in this readme.
 * ~~Don't create events that happen in the past.~~ 
 * ~~Use static variables in slack modal construction.~~
 * ~~New Campaign Validation~~
@@ -47,7 +46,12 @@
   * Cancel scheduled campaign tasks
   * Revoke volunteer webhook
   * Revoke campaign webhooks.
-
+* Support volunteer for any shifts function
+* Enhance heartbeat function with basic reporting:
+  * Next event
+  * Next tasks
+  * Last executed tasks
+  * Last invoked webhooks
 
 # Building Docker image
 
