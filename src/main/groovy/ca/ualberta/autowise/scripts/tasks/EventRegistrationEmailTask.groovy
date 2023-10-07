@@ -39,7 +39,7 @@ import static ca.ualberta.autowise.scripts.webhook.RejectVolunteeringForEvent.ma
 
 //TODO - preview all emails + start campaign link
 static Future eventRegistrationEmailTask(services, Task t, emailTemplateId, config){
-    def recipients = new ArrayList<String>()
+    def recipients = new HashSet<String>()
     def volunteerCoordinators = t.data.getJsonArray("volunteerCoordinators")
     def eventLeads = t.data.getJsonArray("eventLeads")
     def eventSheetId = t.data.getString("eventSheetId")
