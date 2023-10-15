@@ -291,6 +291,17 @@ class GoogleAPI {
                 }
 
                 it.tryFail(e) //Really fail the service call, in case it somehow wasn't failed already
+            }catch (SocketTimeoutException e){
+                log.error (e.getMessage(),e)
+                context.attempt(context.attempt() + 1) //Increment number of attempts
+                if(context.attempt() > MAX_ATTEMPTS){
+                    log.error("Maximum number of attempts reached. Service call failed.")
+                    sendSlackMessage(slackAPI, config.getString("technical_channel"), "SocketTimeoutException: maximum number of attempts (" + context.attempt() + ") reached! \n```\n${context.encodePrettily()}}\n```\n" )
+                    return it.fail(e)
+                }else{
+                    log.error("Retrying service call")
+                    return service(service, serviceCall, context)
+                }
             }catch (Exception e){
               context.error(e)
                 log.error(e.getMessage(), e)
