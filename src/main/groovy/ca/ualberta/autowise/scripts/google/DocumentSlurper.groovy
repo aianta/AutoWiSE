@@ -16,6 +16,24 @@ import org.slf4j.LoggerFactory
 
 @Field static log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.google.DocumentSlurper.class)
 
+
+/**
+ * Sync version of slurpDocument. Should only be used by email template resolver.
+ * @param googleAPI
+ * @param documentId
+ */
+static def syncSlurp(GoogleAPI googleAPI, documentId){
+    APICallContext context = new APICallContext()
+    context.docId(documentId)
+    context.put "note", "Synchronously slurping document data. Hopefully for email template resolver."
+
+    Document document = googleAPI.<Document>syncDocs(context, {it.documents().get(documentId)})
+    def documentContents = readStructuralElements(document.getBody().getContent())
+    log.info "syncSlurped Document: ${documentContents}"
+    return documentContents
+
+}
+
 /**
  *
  * Based on the example provided in the google docs API documentation here:
@@ -40,7 +58,7 @@ private static def readParagraphElement(element){
     if (run == null || run.getContent() == null){
         return ""
     }
-    return run.getContent()
+    return new String(run.getContent().getBytes("UTF-8"))
 }
 
 

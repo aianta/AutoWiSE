@@ -197,3 +197,11 @@ List of things to check when creating a new campaign.
 | Make sure followup date is in the future                                      | Yes                              | 
 | Verify that the eventbrite link is actually a valid URL                       | No                               |
 
+
+# Email Templates
+
+Email templates take the form of simple google doc files. 
+
+**IMPORTANT:** Make sure that 'smart quotes' are disabled when creating email templates doc files. This can be done Tools->Preferences and then unticking `Use smart quotes` from the General preferences list. 
+
+Failure to do this will break thymeleaf template parsing. 

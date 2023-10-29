@@ -185,6 +185,11 @@ class GoogleAPI {
         return service(gmail(), apiCall, context)
     }
 
+    <T> T syncDocs (APICallContext context, Function<Docs, AbstractGoogleClientRequest<T>> apiCall){
+        context.serviceType("docs")
+        return syncService(docs(), apiCall, context)
+    }
+
     <T> Future<T> docs(APICallContext context, Function<Docs, AbstractGoogleClientRequest<T>> apiCall){
         context.serviceType("docs")
         return service(docs(), apiCall, context)
@@ -193,6 +198,122 @@ class GoogleAPI {
     <T> Future<T> drive(APICallContext context, Function<Drive, AbstractGoogleClientRequest<T>> apiCall){
         context.serviceType("drive")
         return service(drive(), apiCall, context)
+    }
+
+    /**
+     * Sync version {@link GoogleAPI#service}, should only be used where async is not possible. At time of writing
+     * this is only for email template resolution.
+     *
+     * TODO: There is probably some refactoring that could remove duplicate code between this method and the service method.
+     *
+     * @param service
+     * @param serviceCall
+     * @param context
+     * @return
+     */
+    <R,S> R syncService(S service, Function<S, AbstractGoogleClientRequest<R>> serviceCall, APICallContext context ){
+
+        //Number of milliseconds to wait before making the service call. Used for exponential backoff when handling 429 errors
+        long waitTime = context.attempt() - 1 == 0? 0: backoffWaitTime(context.attempt())
+
+        def request = serviceCall.apply(service)
+        Instant start = Instant.now()
+        try{
+            context.put "requestUrl", request.buildHttpRequestUrl().toString()
+
+            HttpRequest h = request.buildHttpRequest()
+            if(h.getContent() != null){ // If there is content to this request
+                //Lets try to get the request content saved for debugging.
+                ByteArrayOutputStream out = new ByteArrayOutputStream()
+                h.getContent().writeTo(out)
+                def contentString = out.toString()
+                context.put "requestContent", contentString
+            }
+
+            if (waitTime > 0){ //Backoff making the request if necessary
+                Thread.sleep(waitTime)
+            }
+            //Now let's make that request
+            def result = request.execute()
+            return result;
+        }
+        catch (UnknownHostException e){ //Handle no internet
+            context.put "errorNote", "this could happen if there is no internet access."
+            context.error(e)
+            log.error e.getMessage(),e
+
+
+        }catch (GoogleJsonResponseException e){
+            context.error(e)
+            GoogleJsonError error = e.getDetails();
+            log.error e.getMessage(), e
+
+            /**
+             * https://developers.google.com/drive/api/guides/handle-errors
+             */
+            switch (error.getCode()){
+                case 400: //Bad request
+                    log.error "400 - Bad Request: Google API error while making service call.\n${context.encodePrettily()}"
+                    sendSlackMessage(slackAPI, config.getString("technical_channel"), "400 - Bad Request: Google API error while making service call. ```\n${context.encodePrettily()}\n```" )
+                    break;
+                case 401: //Unauthorized - invalid credentials
+                    log.error "401 - Unauthorized: Google API error while making service call.\n${context.encodePrettily()}"
+                    sendSlackMessage(slackAPI, config.getString("technical_channel"), "401 - Unauthorized: Google API error while making service call. ```\n${context.encodePrettily()}\n```" )
+                    break;
+                case 403: //Forbidden - insufficient permissions
+                    log.error "403 - Forbidden: Google API error while making service call.\n${context.encodePrettily()}"
+                    sendSlackMessage(slackAPI, config.getString("technical_channel"), "403 - Forbidden: Google API error while making service call. ```\n${context.encodePrettily()}\n```" )
+                    break;
+                case 404: //Not Found
+                    log.error "404 - Not Found: Google API error while making service call.\n${context.encodePrettily()}"
+                    sendSlackMessage(slackAPI, config.getString("technical_channel"), "404 - Not Found: Google API error while making service call. ```\n${context.encodePrettily()}\n```" )
+                    break;
+                case 429: //Too Many Requests
+                    log.error("Got error code 429 - Too Many Requests from google API.")
+                    context.attempt(context.attempt() + 1) //Increment the number of attempts
+                    if(context.attempt() > MAX_ATTEMPTS){
+                        log.error("Maximum number of attempts reached. Service call failed.")
+                        sendSlackMessage(slackAPI, config.getString("technical_channel"), "429 - Too Many Requests: Google API error while making service call. ```\n${context.encodePrettily()}\n```" )
+                    }else{
+                        log.error "Retrying service call."
+                        return syncService(service, serviceCall, context)
+                    }
+                    break;
+                    //Internal server errors on google's side
+                case 500:
+                case 502:
+                case 503:
+                case 504:
+                    log.error "50x - Internal Server Error: Google API error while making service call.\n${context.encodePrettily()}"
+                    sendSlackMessage(slackAPI, config.getString("technical_channel"), "50x - Internal Server Error: Google API error while making service call. ```\n${context.encodePrettily()}\n```" )
+                    break;
+
+            }
+
+
+        }catch (SocketTimeoutException e){
+            log.error (e.getMessage(),e)
+            context.attempt(context.attempt() + 1) //Increment number of attempts
+            if(context.attempt() > MAX_ATTEMPTS){
+                log.error("Maximum number of attempts reached. Service call failed.")
+                sendSlackMessage(slackAPI, config.getString("technical_channel"), "SocketTimeoutException: maximum number of attempts (" + context.attempt() + ") reached! \n```\n${context.encodePrettily()}}\n```\n" )
+
+            }else{
+                log.error("Retrying service call")
+                return syncService(service, serviceCall, context)
+            }
+        }catch (Exception e){
+            context.error(e)
+            log.error(e.getMessage(), e)
+            sendSlackMessage(slackAPI, config.getString("technical_channel"), "Unknown error while making service call. ```\n${context.encodePrettily()}\n```" )
+        } finally {
+            Instant end = Instant.now()
+            long serviceCallDuration = end.toEpochMilli() - start.toEpochMilli()
+            context.duration(serviceCallDuration)
+            log.info "saving call context"
+            db.saveAPICallContext(context)
+        }
+
     }
 
     /**

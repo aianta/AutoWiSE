@@ -4,6 +4,7 @@ import ca.ualberta.autowise.model.SlackBrowser
 import ca.ualberta.autowise.model.Task
 import ca.ualberta.autowise.model.Volunteer
 import ca.ualberta.autowise.scripts.google.EventSlurper
+import ca.ualberta.autowise.templates.GoogleDocTemplateResolver
 import com.google.api.client.googleapis.json.GoogleJsonError
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.services.drive.model.File
@@ -17,6 +18,9 @@ import io.vertx.core.Promise
 import io.vertx.core.json.JsonObject
 
 import org.slf4j.LoggerFactory
+import org.thymeleaf.TemplateEngine
+import org.thymeleaf.context.Context
+import org.thymeleaf.templateresolver.ITemplateResolver
 
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -128,13 +132,28 @@ void vertxStart(Promise<Void> startup){
             SlackAPI slackApi = setup.result().resultAt(1)
             SQLite db = setup.result().resultAt(2)
             AutoWiSEServer server = setup.result().resultAt(3)
+
+            //Set up thymeleaf for email template handling
+            ITemplateResolver resolver = new GoogleDocTemplateResolver(googleApi)
+            resolver.setTemplateMode("HTML")
+            TemplateEngine templateEngine = new TemplateEngine();
+            templateEngine.setTemplateResolver(resolver)
+
+            Context thymeleafContext = new Context()
+            thymeleafContext.setVariable("eventbriteLink", "http://www.eventbrite.com")
+            def templateResult  = templateEngine.process("1omzb8B--ahtlmx_Lt8dZfbUFFe_zKsPSEcXouTrJZvs", thymeleafContext)
+            log.info "Template Test Result:"
+            log.info "${templateResult}"
+
+
             log.info "about to make services map"
             //Package all the services into a map for easy passing to scripts
             def services = [
                     googleAPI: googleApi,
                     slackAPI: slackApi,
                     db: db,
-                    server: server
+                    server: server,
+                    thymeleaf: templateEngine
             ]
 
             server.setServices(services)
