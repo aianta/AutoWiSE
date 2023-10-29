@@ -155,6 +155,11 @@ https://community.letsencrypt.org/t/how-could-i-get-the-password-for-keyfile/470
 
 For simplicity, all keystore related passwords are just `autowise`. 
 
+## Updating the certificate in production
+After you have procured a JKS you'd like to deploy, you must `scp` the jks onto the prod machine and restart Autowise. 
+
+By default Autowise expects the jks to be located in the `conf` folder, but the setting is configurable in the `autowise-conf.yaml` file under the key `jks_path`.
+
 # A note on Google OAuth2
 The refresh token which is necessary to refresh access tokens that normally expire within 1 hour is only returned on the first authorization.
 This means that if you want to use the same Google account to authorize multiple instances of AutoWiSE (say a local dev and the prod version), you will need to manually delete the refresh token from the database.
@@ -168,10 +173,10 @@ In practice the refresh token should go to the prod version, as the local dev ve
 | GoogleAPI Call | 404 | Returned when trying to access a resource on google drive (doc, sheet, etc.) that does not or no longer exists. Exhibited if a google sheet for an active event is deleted.                                                                                                                                                                                                                                   | Cancel the entire campaign.                                                                                                                                         | Yes         |    
 | GoogleAPI Call | 400 | Bad request                                                                                                                                                                                                                                                                                                                                                                                                   | Report error to technical slack channel.<br/> TODO: Case by case handling if error occurs during:<br/> <ul><li>Scheduled task</li><li>Link triggered task</li></ul> | TODO        |
 | GoogleAPI Call | 401 | Invalid credentials                                                                                                                                                                                                                                                                                                                                                                                           | Likely an expired token. Try re-authing through slack. Consider implications of waiting for auth link click during whatever operation was going on.                 | TODO        |
-| GoogleAPI Call | 403 | The daily limit was exceeded.<br/>The user rate limit was exceeded.<br/>The project rate limit was exceeded.<br/>The sharing rate limit was exceeded.<br/>The user hasn't granted your app rights to a file.<br/>The user doesn't have sufficient permissions for a file.<br/> Your app can't be used within the signed in user's domain.<br/>Number of items in a folder was exceeded.<br/> [More details](https://developers.google.com/drive/api/guides/handle-errors#resolve_a_403_error) | TODO | TODO        |
-| GoogleAPI Call | 429 | Too Many Requests. | Exponential back-off and retry the call. | TODO |
-| GoogleAPI Call | 5xx | Google side error | Exponential back-off to 5 minutes, then reschedule operation in 3 hours. | TODO |
-
+| GoogleAPI Call | 403 | The daily limit was exceeded.<br/>The user rate limit was exceeded.<br/>The project rate limit was exceeded.<br/>The sharing rate limit was exceeded.<br/>The user hasn't granted your app rights to a file.<br/>The user doesn't have sufficient permissions for a file.<br/> Your app can't be used within the signed in user's domain.<br/>Number of items in a folder was exceeded.<br/> [More details](https://developers.google.com/drive/api/guides/handle-errors#resolve_a_403_error) | TODO                                                                                                                                                                | TODO        |
+| GoogleAPI Call | 429 | Too Many Requests. | Exponential back-off and retry the call.                                                                                                                            | TODO        |
+| GoogleAPI Call | 5xx | Google side error | Exponential back-off to 5 minutes, then reschedule operation in 3 hours.                                                                                            | TODO        |
+| SocketTimeoutException| - | - | Exponential back-off & retry                                                                                                                                        | Yes         |
 # Validation 
 
 List of things to check when creating a new campaign.
