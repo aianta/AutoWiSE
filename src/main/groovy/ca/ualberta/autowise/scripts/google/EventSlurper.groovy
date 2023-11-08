@@ -27,8 +27,7 @@ import java.util.stream.Collectors
 
 import static ca.ualberta.autowise.scripts.google.GetSheetValue.getValuesAt
 
-@Field static GoogleAPI api
-@Field static sheetId
+
 @Field static log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.google.EventSlurper.class)
 @Field static ROLES_AND_SHIFTS_RANGE = "Event!A29:D200"
 
@@ -74,16 +73,14 @@ import static ca.ualberta.autowise.scripts.google.GetSheetValue.getValuesAt
 ]
 
 static def slurpSheet(GoogleAPI googleAPI, spreadsheetId){
-    api = googleAPI
-    sheetId = spreadsheetId
 
 
 
     return CompositeFuture.all(
-            slurpStaticSingleValues(staticSingleValues),
-            slurpRolesAndShifts(),
-            slurpEmailsHorizontally(dynamicRanges.get("eventOrganizers")),
-            slurpEmailsHorizontally(dynamicRanges.get("volunteerCoordinators"))
+            slurpStaticSingleValues(googleAPI, staticSingleValues, spreadsheetId),
+            slurpRolesAndShifts(googleAPI, spreadsheetId),
+            slurpEmailsHorizontally(dynamicRanges.get("eventOrganizers"), spreadsheetId, googleAPI),
+            slurpEmailsHorizontally(dynamicRanges.get("volunteerCoordinators"), spreadsheetId, googleAPI)
     ).compose{
         composite->
             def slurped = composite.resultAt(0)
@@ -94,7 +91,7 @@ static def slurpSheet(GoogleAPI googleAPI, spreadsheetId){
 
             Event result = new Event(
                     id: slurped.get("id") == null?null:UUID.fromString(slurped.get("id")),
-                    sheetId: sheetId,
+                    sheetId: spreadsheetId,
                     status: EventStatus.valueOf(slurped.get("status")),
                     name: slurped.get("name"),
                     description: slurped.get("description"),
@@ -130,7 +127,7 @@ private static def mapValuesToList(LinkedHashMap map){
     return result
 }
 
-private static def slurpStaticSingleValues(LinkedHashMap values){
+private static def slurpStaticSingleValues(GoogleAPI api, LinkedHashMap values, sheetId){
 
     //Create a new map storing the slurped results.
     def slurped = new LinkedHashMap<String,String>()
@@ -169,7 +166,7 @@ private static def slurpStaticSingleValues(LinkedHashMap values){
  * @param range can only process row ranges IE: (7:7) or (8:8)
  * @return A list of all values on that row that contain '@'
  */
-private static def slurpEmailsHorizontally(range){
+private static def slurpEmailsHorizontally(range, sheetId, GoogleAPI api){
     List<String> emails = new ArrayList<String>()
 
     APICallContext context = new APICallContext()
@@ -195,7 +192,7 @@ private static def slurpEmailsHorizontally(range){
 }
 
 
-private static def slurpRolesAndShifts(){
+private static def slurpRolesAndShifts(GoogleAPI api, sheetId){
 
 
     return getValuesAt(api, sheetId, ROLES_AND_SHIFTS_RANGE).compose{
