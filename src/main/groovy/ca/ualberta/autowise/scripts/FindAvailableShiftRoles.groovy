@@ -79,6 +79,7 @@ static def getShiftRole(shiftRoleString, List<Role> roles){
      */
     def shiftRoleComponents = parseShiftRoleString(shiftRoleString)
     def shiftIndex = Integer.parseInt(shiftRoleComponents[0].trim())
+
     def roleName = shiftRoleComponents[1].trim()
 
     Role role = roles.stream().filter {role->role.getName().equals(roleName)}
@@ -105,5 +106,11 @@ private static def parseShiftRoleString(shiftRoleString){
      * Scheme: <shift-index> - <role-name>
      */
     def shiftRoleComponents = shiftRoleString.split("-")
-    return shiftRoleComponents
+
+    //Support role names with hyphens by only grabbing the shift number before the first hyphen, and then using the entire rest of the shift role string as the role name.
+    List<String> result = new ArrayList<>();
+    result.add(shiftRoleComponents[0])
+    result.add(shiftRoleString.substring(shiftRoleString.indexOf('-') + 1, shiftRoleString.length()))
+
+    return result
 }
