@@ -215,7 +215,7 @@ private static def slurpRolesAndShifts(GoogleAPI api, sheetId){
                     case "Roles": //Roles header
                         log.info "${rowData}"
                         rowData = rowIt.next()
-                        while (!rowData.isEmpty() && !rowData.get(0).equals("Shifts")){
+                        while (!rowData.isEmpty() && !rowData.get(0).equals("Shifts") && !rowData.get(0).isEmpty()){
                             Role r = new Role(
                                     name: rowData.get(0),
                                     description: rowData.get(1)

@@ -284,7 +284,18 @@ class GoogleAPI {
                     case 503:
                     case 504:
                         log.error "50x - Internal Server Error: Google API error while making service call.\n${context.encodePrettily()}"
-                        sendSlackMessage(slackAPI, config.getString("technical_channel"), "50x - Internal Server Error: Google API error while making service call. ```\n${context.encodePrettily()}\n```" )
+
+                        context.attempt(context.attempt() + 1)
+                        if(context.attempt > MAX_ATTEMPTS){
+                            log.error("Maximum number of attempts reached. Service call failed.")
+                            sendSlackMessage(slackAPI, config.getString("technical_channel"), "50x - Internal Server Error: Google API error while making service call. ```\n${context.encodePrettily()}\n```" )
+                            return it.fail(e)
+                        }else{
+                            log.info "Retrying service call."
+                            return service(service, serviceCall, context)
+                        }
+
+                        //sendSlackMessage(slackAPI, config.getString("technical_channel"), "50x - Internal Server Error: Google API error while making service call. ```\n${context.encodePrettily()}\n```" )
                         break;
                     default:
                         it.fail(e)
