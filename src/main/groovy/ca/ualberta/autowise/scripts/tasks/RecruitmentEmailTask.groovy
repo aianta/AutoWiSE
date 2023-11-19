@@ -213,6 +213,7 @@ private static String makeShiftRoleEmail(services, config, Volunteer volunteer, 
 
     def shiftRoleHTMLTable = buildShiftRoleOptions(availableShiftRoles, config)
     def emailContents = emailTemplate.replaceAll("%AVAILABLE_SHIFT_ROLES%", shiftRoleHTMLTable)
+    emailContents = emailContents.replaceAll("%eventName%", eventName)
     emailContents = emailContents.replaceAll("%REJECT_LINK%", "<a href=\"${config.getString("protocol")}://${config.getString("host")}:${config.getInteger("port").toString()}/${rejectHook.path()}\">Click me if you aren't able to volunteer for this event.</a>")
     emailContents = emailContents.replaceAll("%EVENTBRITE_LINK%", "<a href=\"${eventbriteLink}\">eventbrite</a>")
 
