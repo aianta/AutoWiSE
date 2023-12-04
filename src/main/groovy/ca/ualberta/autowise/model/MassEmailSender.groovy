@@ -30,7 +30,7 @@ class MassEmailEntry{
  *  2. Executed with 'mass_email_delay' number of milliseconds delay to respect the 2 emails/sec max for the gmail API.
  *  3. Executed in a chain of sequential futures, such that the next email sends only after the first completes.
  *
- *  This is achieved by passing the caller the rowData for each row in the iterable that was used to initialize MassEmailSender
+ *  This is achieved by passing the caller the contactStatus for each row in the iterable that was used to initialize MassEmailSender
  *  as well as a future that will complete when the email for that particular row will have been sent.
  *
  *  In return MassEmailSender expects a MassEmailEntry object containing all information required to send an email corresponding
@@ -57,14 +57,14 @@ class MassEmailSender {
         this.config = config
     }
 
-    public sendMassEmail(BiFunction<List<Object>, Future, MassEmailEntry> rowFunction, Consumer<Future> complete){
+    public sendMassEmail(BiFunction<ContactStatus, Future, MassEmailEntry> rowFunction, Consumer<Future> complete){
         Future lastFuture = null
         while (it.hasNext()){
-            def rowData = it.next()
+            ContactStatus contactStatus = it.next()
 
             def future  = vertx.executeBlocking(blocking->{
                 Promise emailEntryPromise = Promise.promise() //Completes when this specific email has been sent.
-                MassEmailEntry emailEntry = rowFunction.apply(rowData, emailEntryPromise.future())
+                MassEmailEntry emailEntry = rowFunction.apply(contactStatus, emailEntryPromise.future())
                 if(emailEntry == null){
                     emailEntryPromise.complete() // Complete the email entry promise
                     blocking.complete() //If we're given a null email entry, this row must not require an email so we move on to the next.

@@ -47,8 +47,9 @@ import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.*
 static def cancelShiftRole(services, Webhook webhook, config){
     def volunteerEmail = webhook.data.getString("volunteerEmail")
     def eventSheetId = webhook.data.getString("eventSheetId")
+    def eventId = webhook.eventId;
 
-    return hasVolunteerAlreadyCancelled(services.googleAPI, eventSheetId, volunteerEmail).compose{
+    return hasVolunteerAlreadyCancelled(services.db, eventId, volunteerEmail).compose{
         alreadyCancelled->
 
             if(alreadyCancelled){
@@ -93,10 +94,10 @@ static def cancelShiftRole(services, Webhook webhook, config){
                                         def slackMessage = "${volunteerName} has cancelled their ${shiftRole.role.name} shift for ${eventName}."
 
                                         //Mark the volunteer as cancelled
-                                        return updateVolunteerStatus(services.googleAPI, eventSheetId, volunteerEmail, "Cancelled", targetShiftRoleString)
+                                        return updateVolunteerStatus(services.db, eventId, eventSheetId, volunteerEmail, "Cancelled", targetShiftRoleString)
                                                 .compose {
                                                     //Get the waitlist for this shiftrole
-                                                    getWaitlistForShiftRole(services.googleAPI, eventSheetId, targetShiftRoleString).compose {
+                                                    getWaitlistForShiftRole(services.db, eventId, targetShiftRoleString).compose {
                                                         List<WaitlistEntry> waitlist ->
 
                                                             //If there are volunteers waiting to be put into this shift-role
@@ -121,6 +122,7 @@ static def cancelShiftRole(services, Webhook webhook, config){
                                                                         data: new JsonObject()
                                                                                 .put("volunteerEmail", replacementEmail)
                                                                                 .put("volunteerName", replacementName)
+                                                                                .put("eventId", eventId.toString())
                                                                                 .put("eventSheetId", eventSheetId)
                                                                                 .put("eventStartTime", eventStartTime.format(EventSlurper.eventTimeFormatter))
                                                                                 .put("shiftRoleString", targetShiftRoleString)
@@ -155,7 +157,7 @@ static def cancelShiftRole(services, Webhook webhook, config){
 
                                                                         return CompositeFuture.all(
                                                                                 sendEmail(config, services.googleAPI, config.getString("sender_email"), replacementEmail, "[WiSER] Moved off waitlist, assigned volunteer role for ${eventName}",emailContent),
-                                                                                updateVolunteerStatus(services.googleAPI, eventSheetId, replacementEmail, "Accepted", targetShiftRoleString ),
+                                                                                updateVolunteerStatus(services.db, eventId, eventSheetId, replacementEmail, "Accepted", targetShiftRoleString ),
                                                                                 sendSlackMessage(services.slackAPI, eventSlackChannel, slackMessage),
                                                                                 sendEmail(config, services.googleAPI, config.getString("sender_email"), volunteerEmail,"[WiSER] Volunteering Cancellation Confirmation for ${eventName}", confirmCancelEmailTemplate)
                                                                         )

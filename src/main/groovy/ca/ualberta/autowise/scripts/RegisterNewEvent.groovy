@@ -1,6 +1,7 @@
 package ca.ualberta.autowise.scripts
 
 import ca.ualberta.autowise.AutoWiSE
+import ca.ualberta.autowise.model.ContactStatus
 import ca.ualberta.autowise.utils.JsonUtils
 import ca.ualberta.autowise.model.Event
 import ca.ualberta.autowise.model.EventStatus
@@ -56,7 +57,7 @@ static def registerNewEvent(services, event, sheetId, config){
 
     //assert event.id == null // Events processed by this script should not have ids
     // Set the event id
-    event.id = UUID.randomUUID() // Generate an id for this event.
+    //event.id = UUID.randomUUID() // Generate an id for this event.
 
 
     // Make campaign plan
@@ -131,18 +132,38 @@ static def registerNewEvent(services, event, sheetId, config){
                 log.info "event spreadsheet link: ${spreadsheetLink}"
                 plan.get(0).data.put("eventSpreadsheetLink", spreadsheetLink) //Include the spreadsheet link in the new campaign email.
 
-                def volunteers = composite.resultAt(3)
+                Set<Volunteer> volunteers = composite.resultAt(3)
                 log.info "got volunteers! ${volunteers}"
-                def volunteerContactStatusData = makeInitialVolunteerContactStatus(volunteers)
-                def volunteerContactStatusCellAddress = "\'Volunteer Contact Status\'!A2"
-                ValueRange valueRange = new ValueRange()
-                valueRange.setMajorDimension("ROWS")
-                valueRange.setRange(volunteerContactStatusCellAddress)
-                valueRange.setValues(volunteerContactStatusData)
-                return updateAt(services.googleAPI, sheetId, volunteerContactStatusCellAddress, valueRange).onSuccess{
+
+                List<ContactStatus> contactStatuses = new ArrayList<>();
+                volunteers.forEach {
+                    contactStatuses.add(new ContactStatus(
+                            eventId: event.id,
+                            sheetId: event.sheetId,
+                            volunteerEmail: it.email,
+                            status: "Not Contacted"
+                    ))
+                }
+
+                return CompositeFuture.all(contactStatuses.stream().map {services.db.insertContactStatus(it)}
+                    .collect(Collectors.toList())
+                ).onSuccess {
                     // Persist plan in sqlite, make sure to do this after webhook generation, so webhook info makes it into the db.
                     services.db.insertPlan(plan)
                 }
+
+//
+//
+//                def volunteerContactStatusData = makeInitialVolunteerContactStatus(volunteers)
+//                def volunteerContactStatusCellAddress = "\'Volunteer Contact Status\'!A2"
+//                ValueRange valueRange = new ValueRange()
+//                valueRange.setMajorDimension("ROWS")
+//                valueRange.setRange(volunteerContactStatusCellAddress)
+//                valueRange.setValues(volunteerContactStatusData)
+//                return updateAt(services.googleAPI, sheetId, volunteerContactStatusCellAddress, valueRange).onSuccess{
+//                    // Persist plan in sqlite, make sure to do this after webhook generation, so webhook info makes it into the db.
+//                    services.db.insertPlan(plan)
+//                }
 
 
         }

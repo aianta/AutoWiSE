@@ -70,7 +70,7 @@ static def recruitmentEmailTask(Vertx vertx, services, Task task, config, Predic
                 log.info "About to enter composite future"
 
                 return CompositeFuture.all(
-                        syncEventVolunteerContactSheet(services.googleAPI, eventSheetId, volunteers),
+                        syncEventVolunteerContactSheet(services.db,task.eventId, eventSheetId, volunteers),
                         slurpDocument(services.googleAPI, task.data.getString("emailTemplateId")),
                         findAvailableShiftRoles(services.googleAPI, eventSheetId)
                 ).onFailure{
@@ -93,21 +93,19 @@ static def recruitmentEmailTask(Vertx vertx, services, Task task, config, Predic
                         Promise promise = Promise.promise()
                         MassEmailSender sender = new MassEmailSender(vertx, services, config, volunteerContactStatusData)
 
-                        sender.sendMassEmail((rowData, rowFuture)->{
-                            if(rowData.get(0).toLowerCase().equals("Volunteers".toLowerCase())){ //Ignore case, just in case...
-                                return null//Return a null email entry to skip this row as it is the header row
-                            }
+                        sender.sendMassEmail((contactStatus, rowFuture)->{
 
-                            if(statusPredicate.test(rowData.get(2))){
-                                def volunteer = getVolunteerByEmail(rowData.get(0), volunteers)
+
+                            if(statusPredicate.test(contactStatus.status)){
+                                def volunteer = getVolunteerByEmail(contactStatus.volunteerEmail, volunteers)
                                 if(volunteer == null){
-                                    log.warn "Volunteer with email ${rowData.get(0)} does not appear in WiSER volunteer pool, skipping recruitment email"
-                                    sendSlackMessage(services.slackAPI, eventSlackChannel, "${rowData.get(0)} appears on the ${eventName}' volunteer contact status' sheet but does not appear in the WiSER general volunteer list. No email will be sent to ${rowData.get(0)}.")
+                                    log.warn "Volunteer with email ${contactStatus.volunteerEmail} does not appear in WiSER volunteer pool, skipping recruitment email"
+                                    sendSlackMessage(services.slackAPI, eventSlackChannel, "${contactStatus.volunteerEmail} appears on the ${eventName}' volunteer contact status' sheet but does not appear in the WiSER general volunteer list. No email will be sent to ${contactStatus.volunteerEmail}.")
                                     return null //Return a null email entry to skip this row as we don't recognize the volunteer
                                 }
 
                                 rowFuture.onSuccess{
-                                    updateVolunteerStatus(services.googleAPI, eventSheetId, volunteer.email, "Waiting for response", null)
+                                    updateVolunteerStatus(services.db, task.eventId,  eventSheetId, volunteer.email, "Waiting for response", null)
                                         .onSuccess{
                                             log.info "volunteer contact status updated"
                                         }

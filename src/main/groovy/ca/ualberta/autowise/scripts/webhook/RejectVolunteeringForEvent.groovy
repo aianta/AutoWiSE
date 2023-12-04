@@ -1,5 +1,6 @@
 package ca.ualberta.autowise.scripts.webhook
 
+import ca.ualberta.autowise.model.Webhook
 import groovy.transform.Field
 import io.vertx.core.CompositeFuture
 import io.vertx.core.Future
@@ -7,7 +8,7 @@ import io.vertx.core.Promise
 import org.slf4j.LoggerFactory
 
 import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.hasVolunteerAlreadyCancelled
-import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.updateVolunteerContactStatusTable
+
 import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.updateVolunteerStatus
 import static ca.ualberta.autowise.scripts.google.DocumentSlurper.slurpDocument
 import static ca.ualberta.autowise.scripts.google.SendEmail.*
@@ -16,12 +17,12 @@ import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.sendSlackMessa
 @Field static def log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.webhook.RejectVolunteeringForEvent.class)
 
 
-static def rejectVolunteeringForEvent(services, webhook, config){
+static def rejectVolunteeringForEvent(services, Webhook webhook, config){
 
     def eventSheetId = webhook.data.getString("eventSheetId")
     def volunteerEmail = webhook.data.getString("volunteerEmail")
 
-    return hasVolunteerAlreadyCancelled(services.googleAPI, eventSheetId, volunteerEmail)
+    return hasVolunteerAlreadyCancelled(services.db, webhook.eventId, volunteerEmail)
         .compose{
             alreadyCancelled->
                 if (alreadyCancelled){
@@ -34,7 +35,7 @@ static def rejectVolunteeringForEvent(services, webhook, config){
                 def eventSlackChannel = webhook.data.getString("eventSlackChannel")
 
                 return CompositeFuture.all(
-                        updateVolunteerStatus(services.googleAPI, eventSheetId, volunteerEmail, "Rejected", "-" ),      //Update the status
+                        updateVolunteerStatus(services.db, webhook.eventId, eventSheetId, volunteerEmail, "Rejected", "-" ),      //Update the status
                         slurpDocument(services.googleAPI, webhook.data.getString("emailTemplateId"))
                 ).compose{
                     composite->

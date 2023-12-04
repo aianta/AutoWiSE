@@ -42,7 +42,7 @@ static def confirmationEmailTask(Vertx vertx, services, Task task, config, subje
         .compose{
             volunteers->
                 return CompositeFuture.all(
-                        syncEventVolunteerContactSheet(services.googleAPI, eventSheetId, volunteers),
+                        syncEventVolunteerContactSheet(services.db, task.eventId, eventSheetId, volunteers),
                         slurpDocument(services.googleAPI, task.data.getString("emailTemplateId"))
 
                 ).compose{
@@ -53,21 +53,20 @@ static def confirmationEmailTask(Vertx vertx, services, Task task, config, subje
                         Promise promise = Promise.promise();
                         MassEmailSender sender = new MassEmailSender(vertx, services, config, volunteerContactStatusData)
 
-                        sender.sendMassEmail((rowData, rowFuture)->{
-                            if(rowData.get(0).toLowerCase().equals("Volunteers".toLowerCase())){ //Ignore case, just in case...
-                                return null //Return a null email entry to skip this row as it is the header row
-                            }
+                        sender.sendMassEmail((contactStatus, rowFuture)->{
 
-                            if(rowData.get(2).equals("Accepted")){
-                                def volunteer = getVolunteerByEmail(rowData.get(0), volunteers)
+
+
+                            if(contactStatus.status.equals("Accepted")){
+                                def volunteer = getVolunteerByEmail(contactStatus.volunteerEmail, volunteers)
                                 if(volunteer == null){
-                                    log.warn "Volunteer with email ${rowData.get(0)} does not appear in WiSER volunteer pool, skipping confirmation email"
-                                    sendSlackMessage(services.slackAPI, eventSlackChannel, "${rowData.get(0)} appears on the ${eventName}' volunteer contact status' sheet but does not appear in the WiSER general volunteer list. No email will be sent to ${rowData.get(0)}.")
+                                    log.warn "Volunteer with email ${contactStatus.volunteerEmail} does not appear in WiSER volunteer pool, skipping confirmation email"
+                                    sendSlackMessage(services.slackAPI, eventSlackChannel, "${contactStatus.volunteerEmail} appears on the ${eventName}' volunteer contact status' sheet but does not appear in the WiSER general volunteer list. No email will be sent to ${contactStatus.volunteerEmail}.")
                                     return null //Return a null email entry to skip this row as we don't recognize the volunteer
                                 }
 
                                 //Fetch the relevant shift role
-                                ShiftRole shiftRole = getShiftRole(rowData.get(7), eventRoles)
+                                ShiftRole shiftRole = getShiftRole(contactStatus.desiredShiftRole, eventRoles)
 
                                 //Make the confirmation webhook
                                 Webhook confirmHook = new Webhook(

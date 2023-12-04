@@ -1,11 +1,13 @@
 package ca.ualberta.autowise
 
 import ca.ualberta.autowise.model.APICallContext
+import ca.ualberta.autowise.model.ContactStatus
 import ca.ualberta.autowise.model.HookType
 import ca.ualberta.autowise.model.Task
 import ca.ualberta.autowise.model.TaskStatus
 import ca.ualberta.autowise.model.Webhook
 import ca.ualberta.autowise.scripts.google.EventSlurper
+import io.vertx.core.AsyncResult
 import io.vertx.core.Future
 import io.vertx.core.Promise
 import io.vertx.core.CompositeFuture
@@ -19,6 +21,7 @@ import org.slf4j.LoggerFactory
 
 import java.time.ZoneOffset
 import java.time.ZonedDateTime
+import java.util.logging.Handler
 import java.util.stream.Collectors
 
 
@@ -60,6 +63,7 @@ class SQLite {
         CompositeFuture.all(
                 createTasksTable(),
                 createWebhooksTable(),
+                createContactStatusTable(),
                 createAPICallContextTable().compose {createAPICallTruncateTrigger()}
         ).onSuccess(done->{
             startup.complete(this)
@@ -508,15 +512,7 @@ class SQLite {
                     invoked_on TEXT
                 )
         ''').execute({
-            res->
-                if(res){
-                    log.info "Created webhooks table successfully"
-                    promise.complete()
-                }else{
-                    log.error "Error creating webhooks table"
-                    log.error res.cause().getMessage(), res.cause()
-                    promise.fail(res.cause())
-                }
+            handleTableCreate(promise, it, "Webhooks")
         })
 
         return promise.future();
@@ -543,13 +539,7 @@ class SQLite {
                 PRIMARY KEY (call_id, attempt)
             )
         ''').execute({
-            if (it){
-                log.info "API Calls table created!"
-                promise.complete()
-            }else{
-                log.error it.cause().getMessage(), it.cause()
-                promise.fail(it.cause())
-            }
+            handleTableCreate(promise, it, "API Calls")
         })
 
         return promise.future()
@@ -600,17 +590,315 @@ class SQLite {
             )
         ''')
         .execute({
-            res->{
-                if (res){
-                    log.info "Tasks table created!"
-                    promise.complete()
-                }else{
-                    log.error res.cause().getMessage(), res.cause()
-                    promise.fail(res.cause())
-                }
-            }
+            handleTableCreate(promise, it, "Tasks")
         })
 
         return promise.future()
     }
+
+    def createContactStatusTable(){
+        Promise promise = Promise.promise();
+
+        pool.preparedQuery('''
+            CREATE TABLE IF NOT EXISTS contact_status(
+                event_id TEXT NOT NULL,
+                sheet_id TEXT NOT NULL,
+                volunteer_email TEXT NOT NULL,
+                last_contacted TEXT,
+                status TEXT NOT NULL,
+                accepted_on TEXT,
+                rejected_on TEXT,
+                cancelled_on TEXT,
+                waitlisted_on TEXT,
+                desired_shift_role TEXT,
+                PRIMARY KEY (event_id, volunteer_email)
+            )
+        ''').execute({
+            handleTableCreate(promise, it, "Contact Status")
+                })
+
+        return promise.future();
+    }
+
+    def createVolunteerTable(){
+        Promise promise = Promise.promise();
+
+        pool.preparedQuery('''
+            CREATE TABLE IF NOT EXISTS volunteers (
+                id TEXT PRIMARY KEY,
+                email TEXT NOT NULL,
+                name TEXT NOT NULL
+            )
+        ''')
+        .execute({
+            handleTableCreate(promise, it, "Volunteer")
+        })
+
+        return promise.future();
+    }
+
+    def createShiftAssignmentTable(){
+        Promise promise = Promise.promise();
+
+        pool.preparedQuery('''
+            CREATE TABLE IF NOT EXISTS shift_assignments (
+                event_id TEXT NOT NULL,
+                shift_id TEXT NOT NULL,
+                shift_number NUMERIC NOT NULL,
+                volunteer_id TEXT NOT NULL
+                PRIMARY KEY (event_id, shift_id,shift_number)
+            )
+        ''')
+        .execute({
+            handleTableCreate(promise, it, "Shift Assignment")
+        })
+
+        return promise.future();
+    }
+
+    def createRoleTable(){
+        Promise promise = Promise.promise();
+
+        pool.preparedQuery('''
+            CREATE TABLE IF NOT EXISTS roles (
+                id TEXT PRIMARY KEY,
+                event_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL
+            )
+        ''')        .execute({
+            handleTableCreate(promise, it, "Role")
+        })
+
+        return promise.future();
+    }
+
+    def createShiftTable(){
+        Promise promise = Promise.promise();
+
+        pool.preparedQuery('''
+            CREATE TABLE IF NOT EXISTS shift (
+                shift_id TEXT PRIMARY KEY,
+                event_id TEXT NOT NULL,
+                role_id TEXT NOT NULL,
+                shift_index NUMERIC NOT NULL,
+                num_volunteers NUMERIC NOT NULL,
+                start_time NUMERIC NOT NULL,
+                end_time NUMERIC NOT NULL
+            )
+        ''')
+                .execute({
+                    handleTableCreate(promise, it, "Shift")
+                })
+
+        return promise.future();
+    }
+
+    def createEventTable(){
+        Promise promise = Promise.promise();
+
+        pool.preparedQuery('''
+            CREATE TABLE IF NOT EXISTS events (
+                id TEXT PRIMARY KEY,
+                spreadsheet_id TEXT,
+                name TEXT NOT NULL,
+                start_time NUMERIC NOT NULL,
+                end_time NUMERIC NOT NULL,
+                data TEXT NOT NULL
+            )
+        ''').execute({
+            handleTableCreate(promise, it, "Event")
+        })
+        return promise.future();
+    }
+
+    def createVolunteerConfirmationTable(){
+        Promise promise = Promise.promise();
+
+        pool.preparedQuery('''
+            CREATE TABLE IF NOT EXISTS confirmations (
+                event_id TEXT NOT NULL,
+                sheet_id TEXT NOT NULL,
+                volunteer_email TEXT NOT NULL,
+                volunteer_name TEXT NOT NULL,
+                shift_role TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                PRIMARY KEY (event_id, volunteer_email)
+                                                
+            )
+        ''').execute({
+            handleTableCreate(promise, it, "Volunteer Confirmations")
+        })
+
+        return promise.future();
+
+    }
+
+    def createShiftRoleTable(){
+        Promise promise = Promise.promise();
+
+        pool.preparedQuery('''
+            CREATE TABLE IF NOT EXISTS shift_roles (
+                shift_role TEXT NOT NULL,
+                volunteer_email TEXT NOT NULL,
+                volunteer_name TEXT NOT NULL,
+                event_id TEXT NOT NULL,
+                sheet_id TEXT NOT NULL
+            )
+        ''')
+        .execute({ handleTableCreate(promise, it, "Shift Role Table")})
+
+        return promise.future();
+    }
+
+
+
+
+    private void handleTableCreate(Promise promise, AsyncResult<RowSet<Row>> result, String tableName){
+        if(result){
+            log.info "${tableName} table created!"
+            promise.complete()
+        }else{
+            log.error result.cause().getMessage(), result.cause()
+            promise.fail(result.cause())
+        }
+    }
+
+
+    def updateVolunteerContactStatus(ContactStatus contactStatus){
+        Promise promise = Promise.promise();
+
+
+
+        pool.preparedQuery('''
+            UPDATE contact_status 
+            SET 
+                last_contacted = ?,
+                status = ?,
+                accepted_on = ?,
+                rejected_on = ?,
+                cancelled_on = ?,
+                waitlisted_on = ?,
+                desired_shift_role = ?
+            WHERE
+                event_id = ? AND sheet_id = ? AND volunteer_email = ?
+        ''')
+        .execute(Tuple.of(
+                contactStatus.lastContacted.format(EventSlurper.eventTimeFormatter),
+                contactStatus.status,
+                contactStatus.acceptedOn,
+                contactStatus.rejectedOn,
+                contactStatus.waitlistedOn,
+                contactStatus.desiredShiftRole,
+                contactStatus.eventId.toString(),
+                contactStatus.sheetId,
+                contactStatus.volunteerEmail
+        ))
+        .onSuccess {promise.complete()}
+        .onFailure { log.error it.getMessage(), it
+                promise.fail(it)
+        }
+
+        return promise.future();
+
+    }
+
+    def getEventContactStatusTable(UUID eventId){
+        Promise<List<ContactStatus>> promise = Promise.promise();
+
+        pool.preparedQuery('''
+            SELECT * FROM contact_status WHERE event_id = ?;
+        ''')
+        .execute(Tuple.of(eventId.toString()))
+        .onSuccess {
+
+            List<ContactStatus> contactStatusTable = new ArrayList<>();
+            Iterator<Row> iterator = it.iterator();
+            while (iterator.hasNext()){
+                Row row = iterator.next();
+                contactStatusTable.add(contactStatusFromRow(row))
+            }
+            promise.complete(contactStatusTable)
+
+        }
+        .onFailure {log.error it.getMessage(), it
+            promise.fail(it)
+        }
+
+        return promise.future();
+    }
+
+    def insertContactStatus(ContactStatus contactStatus){
+        Promise promise = Promise.promise();
+
+        pool.preparedQuery('''
+        INSERT INTO contact_status (
+            event_id,
+            sheet_id,
+            volunteer_email,
+            last_contacted, 
+            status,
+            accepted_on,
+            rejected_on,
+            cancelled_on,
+            waitlisted_on,
+            desired_shift_role                                    
+        ) VALUES (?,?,?,?,?,?,?,?,?,?)
+        ''')
+        .execute(Tuple.of(
+                contactStatus.eventId.toString(),
+                contactStatus.sheetId,
+                contactStatus.volunteerEmail,
+                contactStatus.lastContacted != null?contactStatus.lastContacted.format(EventSlurper.eventTimeFormatter):null,
+                contactStatus.status,
+                contactStatus.acceptedOn != null? contactStatus.acceptedOn.format(EventSlurper.eventTimeFormatter):null,
+                contactStatus.rejectedOn != null? contactStatus.rejectedOn.format(EventSlurper.eventTimeFormatter):null,
+                contactStatus.cancelledOn != null? contactStatus.cancelledOn.format(EventSlurper.eventTimeFormatter): null,
+                contactStatus.waitlistedOn !=null? contactStatus.waitlistedOn.format(EventSlurper.eventTimeFormatter): null,
+                contactStatus.desiredShiftRole
+        ))
+        .onSuccess {promise.complete()}
+        .onFailure {log.error it.getMessage(), it
+            promise.fail(it)
+        }
+
+        return promise.future();
+    }
+
+
+    def getVolunteerContactStatus(UUID eventId, String volunteerEmail){
+        Promise<ContactStatus> promise = Promise.promise();
+
+
+        pool.preparedQuery('''
+            SELECT * FROM contact_status WHERE event_id = ? AND volunteer_email = ?;
+        ''').execute(Tuple.of(eventId.toString(), volunteerEmail))
+        .onSuccess {rowSet->{
+            if(rowSet.size() == 0){
+                promise.fail("Could not find contact status for event ${eventId.toString()} and volunteer ${volunteerEmail} ")
+            }
+            Row row = rowSet.iterator().next();
+            promise.complete(contactStatusFromRow(row))
+        }}
+
+        return promise.future();
+
+    }
+
+    ContactStatus contactStatusFromRow(Row row){
+        ContactStatus contactStatus = new ContactStatus()
+        contactStatus.eventId = UUID.fromString(row.getString("event_id"));
+        contactStatus.sheetId = row.getString("sheet_id");
+        contactStatus.volunteerEmail = row.getString("volunteer_email");
+        contactStatus.lastContacted = ZonedDateTime.parse(row.getString("last_contacted"), EventSlurper.eventTimeFormatter)
+        contactStatus.status = row.getString("status")
+        contactStatus.acceptedOn = row.getString("accepted_on") != null?ZonedDateTime.parse(row.getString("accepted_on"), EventSlurper.eventTimeFormatter): null;
+        contactStatus.rejectedOn = row.getString("rejected_on") != null?ZonedDateTime.parse(row.getString("rejected_on"), EventSlurper.eventTimeFormatter): null;
+        contactStatus.cancelledOn = row.getString("cancelled_on") != null?ZonedDateTime.parse(row.getString("cancelled_on"), EventSlurper.eventTimeFormatter): null;
+        contactStatus.waitlistedOn = row.getString("waitlisted_on") != null?ZonedDateTime.parse(row.getString("waitlisted_on"), EventSlurper.eventTimeFormatter): null;
+        contactStatus.desiredShiftRole = row.getString("desired_shift_role ")
+        return contactStatus;
+    }
+
+
 }

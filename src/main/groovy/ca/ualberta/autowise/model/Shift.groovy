@@ -7,6 +7,9 @@ import java.time.LocalTime
 import java.time.ZonedDateTime
 
 class Shift {
+    UUID id;
+    UUID roleId;
+    UUID eventId;
     int index
     LocalTime startTime
     LocalTime endTime

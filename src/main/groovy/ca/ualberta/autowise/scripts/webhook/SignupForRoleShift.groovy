@@ -52,10 +52,11 @@ import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.*
 static def acceptShiftRole(services, Webhook webhook, config){
         def eventSheetId = webhook.data.getString "eventSheetId"
         def volunteerEmail = webhook.data.getString "volunteerEmail"
+        def eventId = webhook.eventId;
 
         CompositeFuture.all(
-                hasVolunteerAlreadySignedUp(services.googleAPI, eventSheetId, volunteerEmail),
-                hasVolunteerAlreadyCancelled(services.googleAPI, eventSheetId, volunteerEmail)
+                hasVolunteerAlreadySignedUp(services.db, eventId, volunteerEmail),
+                hasVolunteerAlreadyCancelled(services.db, eventId, volunteerEmail)
         ).compose{
             volunteerCheck->
                 def alreadySignedUp = volunteerCheck.resultAt(0)
@@ -115,7 +116,7 @@ static def acceptShiftRole(services, Webhook webhook, config){
                                 }
                                 return CompositeFuture.all(
                                         updateEventStatusTable(services.googleAPI, eventSheetId, data),
-                                        updateVolunteerStatus(services.googleAPI, eventSheetId, volunteerEmail, "Accepted", targetShiftRoleString)
+                                        updateVolunteerStatus(services.db, eventId, eventSheetId, volunteerEmail, "Accepted", targetShiftRoleString)
                                 ).compose{
                                     Webhook cancelHook = new Webhook(
                                             id: UUID.randomUUID(),
@@ -161,7 +162,7 @@ static def acceptShiftRole(services, Webhook webhook, config){
 
                         //If we make it to here, there are no available slots for the target shift role.
                         CompositeFuture.all(
-                                updateVolunteerStatus(services.googleAPI, eventSheetId, volunteerEmail, "Waitlisted", targetShiftRoleString),
+                                updateVolunteerStatus(services.db,eventId,  eventSheetId, volunteerEmail, "Waitlisted", targetShiftRoleString),
                                 slurpDocument(services.googleAPI, webhook.data.getString("confirmWaitlistEmailTemplateId"))
                         ).compose{
                             compositeResult->
