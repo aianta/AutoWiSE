@@ -766,9 +766,7 @@ class SQLite {
 
 
     def updateVolunteerContactStatus(ContactStatus contactStatus){
-        Promise promise = Promise.promise();
-
-
+        Promise promise = Promise.promise()
 
         pool.preparedQuery('''
             UPDATE contact_status 
@@ -784,11 +782,12 @@ class SQLite {
                 event_id = ? AND sheet_id = ? AND volunteer_email = ?
         ''')
         .execute(Tuple.of(
-                contactStatus.lastContacted.format(EventSlurper.eventTimeFormatter),
+                contactStatus.lastContacted != null?contactStatus.lastContacted.format(EventSlurper.eventTimeFormatter):null,
                 contactStatus.status,
-                contactStatus.acceptedOn,
-                contactStatus.rejectedOn,
-                contactStatus.waitlistedOn,
+                contactStatus.acceptedOn != null?contactStatus.acceptedOn.format(EventSlurper.eventTimeFormatter):null,
+                contactStatus.rejectedOn != null?contactStatus.rejectedOn.format(EventSlurper.eventTimeFormatter):null,
+                contactStatus.cancelledOn != null?contactStatus.cancelledOn.format(EventSlurper.eventTimeFormatter):null,
+                contactStatus.waitlistedOn != null?contactStatus.waitlistedOn.format(EventSlurper.eventTimeFormatter):null,
                 contactStatus.desiredShiftRole,
                 contactStatus.eventId.toString(),
                 contactStatus.sheetId,
@@ -890,13 +889,13 @@ class SQLite {
         contactStatus.eventId = UUID.fromString(row.getString("event_id"));
         contactStatus.sheetId = row.getString("sheet_id");
         contactStatus.volunteerEmail = row.getString("volunteer_email");
-        contactStatus.lastContacted = ZonedDateTime.parse(row.getString("last_contacted"), EventSlurper.eventTimeFormatter)
+        contactStatus.lastContacted = row.getString("last_contacted") != null?ZonedDateTime.parse(row.getString("last_contacted"), EventSlurper.eventTimeFormatter):null;
         contactStatus.status = row.getString("status")
         contactStatus.acceptedOn = row.getString("accepted_on") != null?ZonedDateTime.parse(row.getString("accepted_on"), EventSlurper.eventTimeFormatter): null;
         contactStatus.rejectedOn = row.getString("rejected_on") != null?ZonedDateTime.parse(row.getString("rejected_on"), EventSlurper.eventTimeFormatter): null;
         contactStatus.cancelledOn = row.getString("cancelled_on") != null?ZonedDateTime.parse(row.getString("cancelled_on"), EventSlurper.eventTimeFormatter): null;
         contactStatus.waitlistedOn = row.getString("waitlisted_on") != null?ZonedDateTime.parse(row.getString("waitlisted_on"), EventSlurper.eventTimeFormatter): null;
-        contactStatus.desiredShiftRole = row.getString("desired_shift_role ")
+        contactStatus.desiredShiftRole = row.getString("desired_shift_role")
         return contactStatus;
     }
 

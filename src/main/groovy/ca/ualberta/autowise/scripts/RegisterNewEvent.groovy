@@ -247,7 +247,7 @@ private static def makeCampaignPlan(Event event){
     plan.add(notifyEventLeadsAndVolCoordinatorsOfEventRegistration)
 
     //If this event is being registered after when the initial recruitment email should have gone out, instead, send it now.
-    def _initialRecruitmentTaskExecutionTime = event.startTime.minus(event.campaignStartOffset, ChronoUnit.MILLIS)
+    def _initialRecruitmentTaskExecutionTime = event.campaignStart
     def _initialRecruitmentTaskAdvanceNotifyOffset = Duration.ofDays(1).toMillis() // 1-day before
     def _initialRecruitmentTaskAdvancedNotify = true
     if(_initialRecruitmentTaskExecutionTime.isBefore(ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone))){
@@ -331,7 +331,7 @@ private static def makeCampaignPlan(Event event){
             advanceNotify: true,
             advanceNotifyOffset: Duration.ofDays(1).toMillis(),
             notify: true,
-            taskExecutionTime: event.startTime.minus(event.followupOffset, ChronoUnit.MILLIS),
+            taskExecutionTime: event.followupTime,
             status: TaskStatus.PENDING,
             data: new JsonObject()
                     .put("eventSheetId", event.sheetId)

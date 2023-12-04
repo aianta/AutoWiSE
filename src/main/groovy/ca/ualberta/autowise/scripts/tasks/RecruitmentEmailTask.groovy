@@ -105,6 +105,7 @@ static def recruitmentEmailTask(Vertx vertx, services, Task task, config, Predic
                                 }
 
                                 rowFuture.onSuccess{
+                                    log.info "updating ${task.eventId} - ${eventSheetId} - ${volunteer.email} - \"Waiting for response\" - null"
                                     updateVolunteerStatus(services.db, task.eventId,  eventSheetId, volunteer.email, "Waiting for response", null)
                                         .onSuccess{
                                             log.info "volunteer contact status updated"

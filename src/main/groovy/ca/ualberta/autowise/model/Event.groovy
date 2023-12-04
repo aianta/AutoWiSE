@@ -25,9 +25,11 @@ class Event {
 
     //Recruitment campaign info
     double executiveRatio
-    long campaignStartOffset //in milliseconds
+    ZonedDateTime campaignStart
+    ZonedDateTime followupTime;
+    //long campaignStartOffset //in milliseconds
     long resolicitFrequency //In milliseconds
-    long followupOffset //Offset in milliseconds from start time when the follow up email should be sent.
+    //long followupOffset //Offset in milliseconds from start time when the follow up email should be sent.
     String initialRecruitmentEmailTemplateId
     String recruitmentEmailTemplateId
     String followupEmailTemplateId

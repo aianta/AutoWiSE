@@ -28,8 +28,8 @@ import static ca.ualberta.autowise.scripts.google.GetSheetValue.getValuesAt
 
 static def getWaitlistForShiftRole(SQLite db, UUID eventId, shiftRoleString){
 
-    db.getEventContactStatusTable(eventId).onSuccess {
-        List<WaitlistEntry> result = it.stream().filter {it.desiredShiftRole.equals(shiftRoleString)}
+    return db.getEventContactStatusTable(eventId).compose {
+        List<WaitlistEntry> result = it.stream().filter {it.desiredShiftRole.equals(shiftRoleString) && it.status.equals("Waitlisted") && it.waitlistedOn != null}
             .map {new WaitlistEntry(email: it.volunteerEmail, waitlistedOn: it.waitlistedOn, desiredShiftRole: it.desiredShiftRole)}
             .collect(Collectors.toList())
 
@@ -127,34 +127,33 @@ static def hasVolunteerAlreadyCancelled(SQLite db, UUID eventId, volunteerEmail)
 
 static def updateVolunteerStatus(SQLite db, UUID eventId, sheetId, volunteerEmail, volunteerStatus, shiftRoleString){
 
-    ContactStatus updatedStatus = new ContactStatus();
-    updatedStatus.eventId = eventId;
-    updatedStatus.sheetId = sheetId;
-    updatedStatus.volunteerEmail = volunteerEmail;
-    updatedStatus.status = volunteerStatus;
-    updatedStatus.desiredShiftRole = shiftRoleString;
+    return db.getVolunteerContactStatus(eventId, volunteerEmail).compose {
+        it.status = volunteerStatus
+        it.desiredShiftRole = shiftRoleString
 
-    switch (volunteerStatus){
-        case "Accepted":
-            updatedStatus.acceptedOn = ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone);
-            break;
-        case "Rejected":
-            updatedStatus.rejectedOn = ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone);
-            break;
-        case "Cancelled":
-            updatedStatus.rejectedOn = ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone);
-            break;
-        case "Waitlisted":
-            updatedStatus.waitlistedOn = ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone)
-            break;
-        case "Waiting for response":
-            updatedStatus.lastContacted = ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone)
-            break;
-        default:
-            log.warn "Unrecognized volunteer status string!"
+        switch (volunteerStatus){
+            case "Accepted":
+                it.acceptedOn = ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone);
+                break;
+            case "Rejected":
+                it.rejectedOn = ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone);
+                break;
+            case "Cancelled":
+                it.cancelledOn = ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone);
+                break;
+            case "Waitlisted":
+                it.waitlistedOn = ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone)
+                break;
+            case "Waiting for response":
+                it.lastContacted = ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone)
+                break;
+            default:
+                log.warn "Unrecognized volunteer status string!"
+        }
+
+        return db.updateVolunteerContactStatus(it);
+
     }
-
-    return db.updateVolunteerContactStatus(updatedStatus);
 
 
 //    return getValuesAt(googleAPI, sheetId, VOLUNTEER_CONTACT_STATUS_RANGE).compose {

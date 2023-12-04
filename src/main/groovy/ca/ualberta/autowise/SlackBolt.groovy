@@ -44,6 +44,7 @@ import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.*
 import static ca.ualberta.autowise.scripts.google.CreateEventSheet.*
 import static ca.ualberta.autowise.scripts.slack.boltapp.NewCampaignBlock.*;
 import static ca.ualberta.autowise.scripts.google.GetFilesInFolder.*
+import static ca.ualberta.autowise.scripts.RegisterNewEvent.*;
 
 
 
@@ -153,7 +154,10 @@ class SlackBolt implements Runnable{
                         .onSuccess { log.info "Event sheet generated!"
                             //TODO: Need to make sure this doesn't have strange implications because it's in a separate thread.
                             // better yet can we just register the newly created sheet directly?
-                            autoWiSE.doExternalTick(services, config)
+                            partialEvent.sheetId = it
+
+//                            autoWiSE.doExternalTick(services, config)
+                            registerNewEvent(services, partialEvent, it, config)
                         }
                         .onFailure { log.error it.getMessage(), it})
 
@@ -351,17 +355,10 @@ class SlackBolt implements Runnable{
 
         ZonedDateTime campaignStartTime = ZonedDateTime.ofInstant(Instant.ofEpochSecond(stateValues.get(EVENT_CAMPAIGN_START_BLOCK).get(EVENT_CAMPAIGN_START_ACTION).getSelectedDateTime()), AutoWiSE.timezone);
 
-        long campaignStartOffset = ChronoUnit.MILLIS.between(campaignStartTime, startTime)
-
-        log.info "campaign start offset: ${campaignStartOffset}"
 
         long resolicitFrequency = Duration.ofDays(Long.parseLong(stateValues.get(EVENT_RESOLICIT_FREQUENCY_BLOCK).get(EVENT_RESOLICIT_FREQUENCY_ACTION).getValue())).toMillis();
 
         ZonedDateTime followupDateTime = ZonedDateTime.ofInstant(Instant.ofEpochSecond(stateValues.get(EVENT_FOLLOWUP_BLOCK).get(EVENT_FOLLOWUP_ACTION).getSelectedDateTime()), AutoWiSE.timezone)
-
-        long followupOffset = ChronoUnit.MILLIS.between(followupDateTime, startTime)
-
-        log.info "followup offset: ${followupOffset}"
 
         String initialRecruitmentEmailTemplateId = stateValues.get(EVENT_INITIAL_RECRUITMENT_EMAIL_TEMPLATE_BLOCK).get(EVENT_INITIAL_RECURITMENT_EMAIL_TEMPLATE_ACTION).getSelectedOption().getValue();
         String recruitmentEmailTemplateId = stateValues.get(EVENT_RECRUITMENT_EMAIL_TEMPLATE_BLOCK).get(EVENT_RECRUITMENT_EMAIL_TEMPLATE_ACTION).getSelectedOption().getValue();
@@ -433,9 +430,9 @@ class SlackBolt implements Runnable{
         result.setEndTime(endTime)
         result.setEventbriteLink(eventbriteLink)
         result.setEventSlackChannel(eventSlackChannel)
-        result.setCampaignStartOffset(campaignStartOffset)
+        result.setCampaignStart(campaignStartTime)
         result.setResolicitFrequency(resolicitFrequency)
-        result.setFollowupOffset(followupOffset)
+        result.setFollowupTime(followupDateTime)
         result.setInitialRecruitmentEmailTemplateId(initialRecruitmentEmailTemplateId)
         result.setRecruitmentEmailTemplateId(recruitmentEmailTemplateId)
         result.setFollowupEmailTemplateId(followupEmailTemplateId)

@@ -101,9 +101,9 @@ static def slurpSheet(GoogleAPI googleAPI, spreadsheetId){
                     eventSlackChannel: slurped.get("eventSlackChannel"),
                     eventOrganizers: eventOrganizers,
                     volunteerCoordinators: volunteerCoordinators,
-                    campaignStartOffset: Duration.ofDays(Long.parseLong(slurped.get("campaignStartOffset"))).toMillis(), //Convert days to ms
+                    campaignStart: ZonedDateTime.parse(slurped.get("campaignStartOffset"), eventTimeFormatter),
                     resolicitFrequency: Duration.ofDays(Long.parseLong(slurped.get("resolicitFrequency"))).toMillis(),   //Convert days to ms
-                    followupOffset: Duration.ofHours(Long.parseLong(slurped.get("followupOffset"))).toMillis(),          //Convert hours to ms
+                    followupTime: ZonedDateTime.parse(slurped.get("followupOffset"), eventTimeFormatter),
                     initialRecruitmentEmailTemplateId: slurped.get("initialRecruitmentEmailTemplateId"),
                     recruitmentEmailTemplateId: slurped.get("recruitmentEmailTemplateId"),
                     followupEmailTemplateId: slurped.get("followupEmailTemplateId"),

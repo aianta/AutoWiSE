@@ -56,6 +56,9 @@ static def slurpEventJson(String json){
     result.startTime = ZonedDateTime.parse(result.startTime, EventSlurper.eventTimeFormatter)
     result.endTime = ZonedDateTime.parse(result.endTime, EventSlurper.eventTimeFormatter)
 
+    result.campaignStart = ZonedDateTime.parse(result.campaignStart, EventSlurper.eventTimeFormatter);
+    result.followupTime = ZonedDateTime.parse(result.followupTime, EventSlurper.eventTimeFormatter);
+
     result.roles.forEach { role->
 
         role.shifts.forEach { shift->

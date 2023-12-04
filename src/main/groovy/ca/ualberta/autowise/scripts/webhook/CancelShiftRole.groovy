@@ -142,8 +142,8 @@ static def cancelShiftRole(services, Webhook webhook, config){
                                                                         slurpDocument(services.googleAPI, webhook.data.getString("confirmCancelledEmailTemplateId")) //Get the email template to send to the cancelling volunteer
                                                                 ).compose{
                                                                     compositeResult->
-                                                                        def confirmAssignmentEmailTemplate = compositeResult.resultAt(0)
-                                                                        def confirmCancelEmailTemplate = compositeResult.resultAt(1)
+                                                                        def confirmAssignmentEmailTemplate = compositeResult.resultAt(1)
+                                                                        def confirmCancelEmailTemplate = compositeResult.resultAt(2)
 
                                                                         def emailContent = confirmAssignmentEmailTemplate.replaceAll("%EVENT_NAME%", eventName)
                                                                         emailContent = emailContent.replaceAll("%ROLE_NAME%", shiftRole.role.name )
