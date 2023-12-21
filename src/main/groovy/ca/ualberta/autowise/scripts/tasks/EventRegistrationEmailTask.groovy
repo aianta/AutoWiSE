@@ -79,7 +79,9 @@ static Future eventRegistrationEmailTask(services, Task t, emailTemplateId, conf
                     slurpDocument(services.googleAPI, confirmCancelledEmailTemplateId),
                     slurpDocument(services.googleAPI, confirmRejectedEmailTemplatedId),
                     slurpDocument(services.googleAPI, followupEmailTemplateId),
-                    findAvailableShiftRoles(services.googleAPI, eventSheetId)]
+                    services.db.findAvailableShiftRoles(eventSheetId)
+                    //findAvailableShiftRoles(services.googleAPI, eventSheetId)
+                    ]
             ).compose{
                 compositeResult->
                     def emailTemplate = compositeResult.resultAt(0)

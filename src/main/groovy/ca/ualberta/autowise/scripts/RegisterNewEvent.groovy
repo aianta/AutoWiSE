@@ -119,6 +119,7 @@ static def registerNewEvent(services, event, sheetId, config){
         log.info "Cleared ranges! Now updating"
         return CompositeFuture.all(
                 updateColumnValueAt(services.googleAPI, sheetId, EVENT_STATUS_ROLE_SHIFT_CELL_ADDRESS, produceRoleShiftList(event)),        // Update 'Event Status' Sheet
+                services.db.populateShiftRoles(event.id, sheetId, produceRoleShiftList(event)),
                 updateSingleValueAt(services.googleAPI, sheetId, "Event!A2", event.id.toString()),     //Update the event id in the sheet
                 updateSingleValueAt(services.googleAPI, sheetId, "Event!A3", EventStatus.PENDING.toString()),     // Update the event status
                 slurpVolunteerList(services.googleAPI, config.getString("autowise_volunteer_pool_id"), config.getString("autowise_volunteer_table_range")), //Get the volunteer list,
@@ -126,13 +127,13 @@ static def registerNewEvent(services, event, sheetId, config){
         ).compose{
             composite->
 
-                def spreadsheet = ((File)composite.resultAt(4))
+                def spreadsheet = ((File)composite.resultAt(5))
                 log.info "event sheet ${spreadsheet.toPrettyString()}"
                 def spreadsheetLink = spreadsheet.getWebViewLink()
                 log.info "event spreadsheet link: ${spreadsheetLink}"
                 plan.get(0).data.put("eventSpreadsheetLink", spreadsheetLink) //Include the spreadsheet link in the new campaign email.
 
-                Set<Volunteer> volunteers = composite.resultAt(3)
+                Set<Volunteer> volunteers = composite.resultAt(4)
                 log.info "got volunteers! ${volunteers}"
 
                 List<ContactStatus> contactStatuses = new ArrayList<>();

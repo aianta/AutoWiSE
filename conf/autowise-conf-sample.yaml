@@ -5,26 +5,41 @@ internal_tick_rate: 30000 # How often does AutoWiSE execute its internal loop (t
 mass_email_delay: 1000 # Time in ms between emails in a mass send task. Need to keep below 2 emails/second.
 
 # SQLite Config
-db_connection_string: 'jdbc:sqlite:autowise.db'
+db_connection_string: 'jdbc:sqlite:data/autowise.db'
 
 # Web Server Config
 host: localhost
-port: 8080
+port: 8001
+jks_path: conf/autowise-local.jks # path to the keystore
+jks_password: autowise # keystore password
+protocol: https
 
 # Google API Configs
 application_name: AutoWiSE
-credentials_path: credentials.json
-auth_tokens_directory_path: tokens
-auth_server_receiver_port: 8888
+credentials_path: conf/credentials.json
+auth_tokens_directory_path: conf/tokens
+auth_server_host: localhost
+auth_server_receiver_port: 8002
+
+# Gmail Config
+sender_email: <email address to appear as sender> # Needs to be set properly to avoid triggering spam filters
 
 # Google Drive Configs
 autowise_event_prefix: "[AutoWiSE][Event]"
-autowise_drive_folder_id:
-autowise_volunteer_pool_id:  # Drive id of the sheet containing the volunteer list
+autowise_drive_folder_id: 14kqs83NGNJYOtzhx6iG2sJoR9MTi6f4N # Root autowise folder id on google drive
+autowise_volunteer_pool_id: 1V-f7hhY2_nsoSOGgPKDmUCpScjFACo1TWNaGY6hQBIs # Drive id of the sheet containing the volunteer list
 autowise_volunteer_table_range: Sheet1!A:B
-autowise_new_recruitment_campaign_email_template:
+autowise_new_recruitment_campaign_email_template: 1HhYJ2HX0aZ2IFbowzQXF7k1uUSIAT-ASazliGog9mjc #Google Doc id of the template to use when a new recruitment campaign is created.
+autowise_event_template_sheet: 1yhB6ynS2b769oy7dQ--0lsJ_xhZaDr1VBolxb4Ci8UQ
+
+# Sheet clearing ranges, these are the ranges that are cleared when a new campaign is registered. They do not include headers.
+volunteer_contact_status_clearing_range: "'Volunteer Contact Status'!A2:H"
+event_status_clearing_range: "'Event Status'!A5:E"
+confirmation_status_clearing_range: "'Volunteer Confirmations'!A2:D"
+max_roles_per_event: 12
 
 # Slack Config
-slack_token:
-
-...
+slack_token: <from OAuth & Permissions section of app control panel>
+slack_signing_secret: <from basic information part of app control panel>
+technical_channel: "#autowise-technical"
+socket_mode_token: <from App-Level tokens part of app control panel>

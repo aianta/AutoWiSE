@@ -72,7 +72,8 @@ static def recruitmentEmailTask(Vertx vertx, services, Task task, config, Predic
                 return CompositeFuture.all(
                         syncEventVolunteerContactSheet(services.db,task.eventId, eventSheetId, volunteers),
                         slurpDocument(services.googleAPI, task.data.getString("emailTemplateId")),
-                        findAvailableShiftRoles(services.googleAPI, eventSheetId)
+                        services.db.findAvailableShiftRoles(eventSheetId)
+                        //findAvailableShiftRoles(services.googleAPI, eventSheetId)
                 ).onFailure{
                     err->Future.failedFuture(err)
                 }

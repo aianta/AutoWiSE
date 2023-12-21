@@ -3,6 +3,7 @@ package ca.ualberta.autowise
 import ca.ualberta.autowise.model.APICallContext
 import ca.ualberta.autowise.model.ContactStatus
 import ca.ualberta.autowise.model.HookType
+import ca.ualberta.autowise.model.ShiftAssignment
 import ca.ualberta.autowise.model.Task
 import ca.ualberta.autowise.model.TaskStatus
 import ca.ualberta.autowise.model.Webhook
@@ -64,6 +65,7 @@ class SQLite {
                 createTasksTable(),
                 createWebhooksTable(),
                 createContactStatusTable(),
+                createEventStatusTable(),
                 createAPICallContextTable().compose {createAPICallTruncateTrigger()}
         ).onSuccess(done->{
             startup.complete(this)
@@ -637,6 +639,187 @@ class SQLite {
         return promise.future();
     }
 
+
+
+
+    def populateShiftRoles(UUID eventId, String sheetId, List<String> shiftRoles ){
+        Promise promise = Promise.promise()
+
+        //If shift roles for this event already exist, remove them this generally should only occur in debugging/development scenarios.
+        pool.preparedQuery('''
+            DELETE FROM event_status WHERE sheet_id = ?;
+        ''').execute(Tuple.from(sheetId), {
+            if(it){
+
+                CompositeFuture.all(shiftRoles.stream()
+                        .map(shiftRole->insertAvailableShiftRole(eventId, sheetId, shiftRole))
+                        .collect(Collectors.toList()))
+                        .onSuccess {promise.complete()}
+                        .onFailure {promise.fail(it)}
+
+            }else{
+                log.error "Error clearing any existing shift roles under sheetId {}", sheetId
+                log.error it.cause().getMessage(), it.cause()
+                promise.fail(it.cause())
+            }
+        })
+
+        return promise.future()
+    }
+
+    def insertAvailableShiftRole(UUID eventId, String sheetId, String shiftRole){
+        Promise promise = Promise.promise();
+
+        pool.preparedQuery('''
+            INSERT INTO event_status (event_id, sheet_id, shift_role) VALUES (?,?,?);
+        ''').execute(Tuple.from([
+                eventId.toString(),
+                sheetId,
+                shiftRole
+        ]), {
+            if(it){
+                promise.complete()
+            }else{
+                log.error "Error creating assignable shift role for event {} sheetId {} shiftRole: {}", eventId.toString(), sheetId, shiftRole
+                log.error it.cause().getMessage(), it.cause()
+                promise.fail(it.cause())
+            }
+        })
+
+        return promise.future()
+    }
+
+    def assignShiftRole(sheetId, String shiftRole, volunteerEmail, volunteerName){
+        return assignShiftRole(sheetId, shiftRole, null, volunteerEmail, null, volunteerName)
+    }
+
+/**
+ * https://stackoverflow.com/questions/29071169/update-query-with-limit-cause-sqlite
+ * Update the event status table to assign a volunteer to a particular shift role.
+ *
+ * @param sheetId the sheet id of the event in question.
+ * @param shiftRole the shift role being assigned.
+ * @param originalVolunteerEmail the original volunteer email assigned to this shift role if it has already been assigned.
+ * @param newVolunteerEmail the new volunteer email assigned to this shift role.
+ * @param originalVolunteerName the original volunteer name assigned to this shift role if it has already been assigned.
+ * @param newVolunteerName the new volunteer name assigned to this shift role.
+ * @return a promise containing a boolean which will be true if the assignment was made, or false if the there was no valid shift role to assign the volunteer to
+ */
+    def assignShiftRole(sheetId, String shiftRole, originalVolunteerEmail, newVolunteerEmail, originalVolunteerName, newVolunteerName){
+        Promise<Boolean> promise = Promise.promise();
+
+        //First check to see if we have an assignable shift role for the parameters given
+        pool.preparedQuery("""
+            SELECT rowid FROM event_status 
+                WHERE shift_role = ? AND
+                      ${originalVolunteerEmail == null?"volunteer_email IS NULL": "volunteer_email = ?"} AND
+                      ${originalVolunteerName == null?"volunteer_name IS NULL":"volunteer_name = ?"} AND
+                      sheet_id = ? 
+            ORDER BY sheet_id LIMIT 1
+        """).execute(Tuple.from(
+                originalVolunteerName == null ? [
+                        shiftRole,sheetId
+                ]:[
+                shiftRole,
+                originalVolunteerEmail,
+                originalVolunteerName,
+                sheetId
+        ]), {
+            if (it){
+                //If the result size is 1 then we found an assignable slot
+                if(it.result().size() == 1) {
+                    //Go ahead and assign it.
+                    pool.preparedQuery("""
+                        UPDATE  event_status SET volunteer_email = ?,
+                                                 volunteer_name = ?
+                        WHERE rowid IN (
+                            SELECT rowid FROM event_status 
+                                         WHERE shift_role = ? AND
+                                              ${originalVolunteerEmail == null?"volunteer_email IS NULL": "volunteer_email = ?"} AND
+                                              ${originalVolunteerName == null?"volunteer_name IS NULL":"volunteer_name = ?"} AND
+                                               sheet_id = ? ORDER BY sheet_id LIMIT 1 )
+                    """)
+                            .execute(Tuple.from(
+                                    originalVolunteerName == null?
+                                            [
+                                            newVolunteerEmail,
+                                            newVolunteerName,
+                                            shiftRole,
+                                            sheetId
+                                    ]:[
+                                    newVolunteerEmail,
+                                    newVolunteerName,
+                                    shiftRole,
+                                    originalVolunteerEmail,
+                                    originalVolunteerName,
+                                    sheetId
+                            ]), {
+                                if(it){
+                                    promise.complete(true)
+                                }else{
+                                    log.error "Error assigning {}({}) to shiftrole {} for sheetId {}", newVolunteerName, newVolunteerEmail, shiftRole, sheetId
+                                    log.error it.cause().getMessage(), it.cause()
+                                    promise.fail(it.cause())
+                                }
+                            })
+                }else{
+                    //No assignable slot found for given parameters
+                    promise.complete(false)
+                }
+            }else{
+                log.error "Error checking for assignable {} for sheetId: {}", shiftRole, sheetId
+                log.error it.cause().getMessage(), it.cause()
+                promise.fail(it.cause())
+            }
+        })
+
+
+
+
+        return promise.future()
+    }
+
+    def findAvailableShiftRoles(sheetId){
+        Promise<Set<String>> promise = Promise.promise();
+
+        pool.preparedQuery('''
+            SELECT * from event_status WHERE volunteer_email IS NULL AND sheet_id = ?;
+        ''')
+        .execute(Tuple.from([
+                sheetId
+        ]), {
+            if (it){
+                Set<String> unassignedShiftRoles = new HashSet<>();
+                for(Row row: it.result()){
+                    unassignedShiftRoles.add(row.getString("shift_role"))
+                }
+                promise.complete(unassignedShiftRoles)
+            }else{
+                log.error "Error looking up available shift roles for sheet id {}", sheetId
+                log.error it.cause().getMessage(), it.cause()
+                promise.fail(it.cause())
+            }
+        })
+
+        return promise.future();
+    }
+
+    def createEventStatusTable(){
+        Promise promise = Promise.promise();
+        pool.preparedQuery('''
+            CREATE TABLE IF NOT EXISTS event_status (
+                event_id TEXT NOT NULL,
+                sheet_id TEXT NOT NULL, 
+                shift_role TEXT NOT NULL,
+                volunteer_email TEXT,
+                volunteer_name TEXT    
+            )
+        ''').execute({
+            handleTableCreate(promise, it, "Event Status")
+        })
+        return promise.future();
+    }
+
     def createShiftAssignmentTable(){
         Promise promise = Promise.promise();
 
@@ -882,6 +1065,15 @@ class SQLite {
 
         return promise.future();
 
+    }
+
+    ShiftAssignment shiftAssignmentFromRow(Row row){
+        ShiftAssignment result = new ShiftAssignment();
+        result.eventId = UUID.fromString(row.getString("event_id"));
+        result.sheetId = row.getString("sheet_id");
+        result.volunteerEmail = row.getString("volunteer_email");
+        result.volunteerName = row.get("volunteer_name");
+        return  result;
     }
 
     ContactStatus contactStatusFromRow(Row row){

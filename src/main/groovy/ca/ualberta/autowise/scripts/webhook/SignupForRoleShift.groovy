@@ -80,86 +80,47 @@ static def acceptShiftRole(services, Webhook webhook, config){
                 def eventSlackChannel = webhook.data.getString("eventSlackChannel")
                 ShiftRole shiftRole = getShiftRole(targetShiftRoleString, roles)
 
-                return getValuesAt(services.googleAPI, eventSheetId, FindAvailableShiftRoles.EVENT_STATUS_RANGE ).compose {
-                    data ->
+                return services.db.assignShiftRole(eventSheetId, targetShiftRoleString, volunteerEmail, volunteerName).compose {
+                    if(it){
+                        //The volunteer has been successfully assigned
+                        return updateVolunteerStatus(services.db, eventId, eventSheetId, volunteerEmail, "Accepted", targetShiftRoleString)
+                            .compose {
+                                Webhook cancelHook = new Webhook(
+                                        id: UUID.randomUUID(),
+                                        eventId: webhook.eventId,
+                                        type: HookType.CANCEL_ROLE_SHIFT,
+                                        expiry: eventStartTime.toInstant().toEpochMilli(),
+                                        invoked: false,
+                                        data: new JsonObject()
+                                                .put("volunteerEmail", volunteerEmail)
+                                                .put("eventSheetId", eventSheetId)
+                                                .put("eventStartTime", eventStartTime.format(EventSlurper.eventTimeFormatter))
+                                                .put("shiftRoleString", targetShiftRoleString)
+                                                .put("eventSlackChannel", eventSlackChannel)
+                                                .put("volunteerName", volunteerName)
+                                                .put("eventName", eventName)
+                                                .put("rolesJsonString", webhook.data.getString("rolesJsonString"))
+                                                .put("confirmAssignedEmailTemplateId", webhook.data.getString("confirmAssignedEmailTemplateId"))
+                                                .put("confirmCancelledEmailTemplateId", webhook.data.getString("confirmCancelledEmailTemplateId"))
+                                )
+                                services.db.insertWebhook(cancelHook)
+                                services.server.mountWebhook(cancelHook)
 
-                        def tableFirstColHeader = "Shift - Role"
-                        def it = data.listIterator()
+                                return slurpDocument(services.googleAPI, webhook.data.getString("confirmAssignedEmailTemplateId")).compose{
+                                    emailTemplate ->
+                                        def emailContents = makeAssignedEmail(emailTemplate, shiftRole, eventName, eventStartTime, cancelHook, config)
 
-                        //Skip irrelevant rows at the top of the sheet.
-                        while(it.hasNext()) {
-                            def rowData = it.next();
-                            log.info rowData.toString()
-                            if (rowData.isEmpty() || !rowData.get(0).equals(tableFirstColHeader)) {
-                                log.info "Skipping row before shift-role header: ${!rowData.isEmpty()?rowData.get(0).equals(tableFirstColHeader):"empty"}"
-                                continue //Skip all lines until 'Shift - Role' header
-                            }
-                            if (rowData.get(0).equals(tableFirstColHeader)){
-                                break
-                            }
-                        }
+                                        log.info "email contents: \n${emailContents}"
 
-                        while (it.hasNext()){
-                            def rowData = it.next()
-
-                            //Check if shift-role has been filled.
-                            if ((rowData.size() == 1 || rowData.get(1).equals("") || rowData.get(1).equals("-")) && rowData.get(0).equals(targetShiftRoleString) ){
-                                //If there is no value beside this shiftRoleString, or the value is empty, or a dash the shift-role has not been filled.
-                                log.info "Target shift-role ${targetShiftRoleString} has available slot!"
-
-                                if (rowData.size() < 3){
-                                    rowData.add(volunteerEmail)
-                                    rowData.add(volunteerName)
-                                }else{
-                                    rowData.set(1, volunteerEmail) //Assign this volunteer to the shift-role
-                                    rowData.set(2, volunteerName)
+                                        return CompositeFuture.all(
+                                                sendEmail(config, services.googleAPI, config.getString("sender_email"), volunteerEmail, "[WiSER] Volunteer Sign-up Confirmation for ${eventName}", emailContents),
+                                                sendSlackMessage(services.slackAPI, eventSlackChannel, "${volunteerName} has expressed interest in volunteering for ${eventName} as ${shiftRole.role.name}. They have been successfully assigned shift ${shiftRole.shift.index} starting at ${shiftRole.shift.startTime.format(EventSlurper.shiftTimeFormatter)} and ending at ${shiftRole.shift.endTime.format(EventSlurper.shiftTimeFormatter)}. "  ) // Notify Slack
+                                        )
                                 }
-                                return CompositeFuture.all(
-                                        updateEventStatusTable(services.googleAPI, eventSheetId, data),
-                                        updateVolunteerStatus(services.db, eventId, eventSheetId, volunteerEmail, "Accepted", targetShiftRoleString)
-                                ).compose{
-                                    Webhook cancelHook = new Webhook(
-                                            id: UUID.randomUUID(),
-                                            eventId: webhook.eventId,
-                                            type: HookType.CANCEL_ROLE_SHIFT,
-                                            expiry: eventStartTime.toInstant().toEpochMilli(),
-                                            invoked: false,
-                                            data: new JsonObject()
-                                                    .put("volunteerEmail", volunteerEmail)
-                                                    .put("eventSheetId", eventSheetId)
-                                                    .put("eventStartTime", eventStartTime.format(EventSlurper.eventTimeFormatter))
-                                                    .put("shiftRoleString", targetShiftRoleString)
-                                                    .put("eventSlackChannel", eventSlackChannel)
-                                                    .put("volunteerName", volunteerName)
-                                                    .put("eventName", eventName)
-                                                    .put("rolesJsonString", webhook.data.getString("rolesJsonString"))
-                                                    .put("confirmAssignedEmailTemplateId", webhook.data.getString("confirmAssignedEmailTemplateId"))
-                                                    .put("confirmCancelledEmailTemplateId", webhook.data.getString("confirmCancelledEmailTemplateId"))
-                                    )
-                                    services.db.insertWebhook(cancelHook)
-                                    services.server.mountWebhook(cancelHook)
-
-
-                                    return slurpDocument(services.googleAPI, webhook.data.getString("confirmAssignedEmailTemplateId")).compose{
-                                        emailTemplate ->
-                                            def emailContents = makeAssignedEmail(emailTemplate, shiftRole, eventName, eventStartTime, cancelHook, config)
-
-                                            log.info "email contents: \n${emailContents}"
-
-                                            return CompositeFuture.all(
-                                                    sendEmail(config, services.googleAPI, config.getString("sender_email"), volunteerEmail, "[WiSER] Volunteer Sign-up Confirmation for ${eventName}", emailContents),
-                                                    sendSlackMessage(services.slackAPI, eventSlackChannel, "${volunteerName} has expressed interest in volunteering for ${eventName} as ${shiftRole.role.name}. They have been successfully assigned shift ${shiftRole.shift.index} starting at ${shiftRole.shift.startTime.format(EventSlurper.shiftTimeFormatter)} and ending at ${shiftRole.shift.endTime.format(EventSlurper.shiftTimeFormatter)}. "  ) // Notify Slack
-                                            )
-                                    }
-
-                                }
-
-
-
                             }
-                            log.info "Shift-role ${rowData.get(0)} has been filled!"
-                        }
 
+                    }else{
+                        //If we make it to here, there are no available slots for the target shift role.
                         //If we make it to here, there are no available slots for the target shift role.
                         CompositeFuture.all(
                                 updateVolunteerStatus(services.db,eventId,  eventSheetId, volunteerEmail, "Waitlisted", targetShiftRoleString),
@@ -174,7 +135,104 @@ static def acceptShiftRole(services, Webhook webhook, config){
                                         sendSlackMessage(services.slackAPI, eventSlackChannel, "${volunteerName} has expressed interest in volunteering for ${eventName} as ${shiftRole.role.name}. However there were no matching free slots for this volunteer, so they have been waitlisted and notified that they will be contacted if a slot frees up.")
                                 )
                         }
+                    }
                 }
+
+//                return getValuesAt(services.googleAPI, eventSheetId, FindAvailableShiftRoles.EVENT_STATUS_RANGE ).compose {
+//                    data ->
+//
+//                        def tableFirstColHeader = "Shift - Role"
+//                        def it = data.listIterator()
+//
+//                        //Skip irrelevant rows at the top of the sheet.
+//                        while(it.hasNext()) {
+//                            def rowData = it.next();
+//                            log.info rowData.toString()
+//                            if (rowData.isEmpty() || !rowData.get(0).equals(tableFirstColHeader)) {
+//                                log.info "Skipping row before shift-role header: ${!rowData.isEmpty()?rowData.get(0).equals(tableFirstColHeader):"empty"}"
+//                                continue //Skip all lines until 'Shift - Role' header
+//                            }
+//                            if (rowData.get(0).equals(tableFirstColHeader)){
+//                                break
+//                            }
+//                        }
+//
+//                        while (it.hasNext()){
+//                            def rowData = it.next()
+//
+//                            //Check if shift-role has been filled.
+//                            if ((rowData.size() == 1 || rowData.get(1).equals("") || rowData.get(1).equals("-")) && rowData.get(0).equals(targetShiftRoleString) ){
+//                                //If there is no value beside this shiftRoleString, or the value is empty, or a dash the shift-role has not been filled.
+//                                log.info "Target shift-role ${targetShiftRoleString} has available slot!"
+//
+//                                if (rowData.size() < 3){
+//                                    rowData.add(volunteerEmail)
+//                                    rowData.add(volunteerName)
+//                                }else{
+//                                    rowData.set(1, volunteerEmail) //Assign this volunteer to the shift-role
+//                                    rowData.set(2, volunteerName)
+//                                }
+//                                return CompositeFuture.all(
+//                                        updateEventStatusTable(services.googleAPI, eventSheetId, data),
+//                                        updateVolunteerStatus(services.db, eventId, eventSheetId, volunteerEmail, "Accepted", targetShiftRoleString)
+//                                ).compose{
+//                                    Webhook cancelHook = new Webhook(
+//                                            id: UUID.randomUUID(),
+//                                            eventId: webhook.eventId,
+//                                            type: HookType.CANCEL_ROLE_SHIFT,
+//                                            expiry: eventStartTime.toInstant().toEpochMilli(),
+//                                            invoked: false,
+//                                            data: new JsonObject()
+//                                                    .put("volunteerEmail", volunteerEmail)
+//                                                    .put("eventSheetId", eventSheetId)
+//                                                    .put("eventStartTime", eventStartTime.format(EventSlurper.eventTimeFormatter))
+//                                                    .put("shiftRoleString", targetShiftRoleString)
+//                                                    .put("eventSlackChannel", eventSlackChannel)
+//                                                    .put("volunteerName", volunteerName)
+//                                                    .put("eventName", eventName)
+//                                                    .put("rolesJsonString", webhook.data.getString("rolesJsonString"))
+//                                                    .put("confirmAssignedEmailTemplateId", webhook.data.getString("confirmAssignedEmailTemplateId"))
+//                                                    .put("confirmCancelledEmailTemplateId", webhook.data.getString("confirmCancelledEmailTemplateId"))
+//                                    )
+//                                    services.db.insertWebhook(cancelHook)
+//                                    services.server.mountWebhook(cancelHook)
+//
+//
+//                                    return slurpDocument(services.googleAPI, webhook.data.getString("confirmAssignedEmailTemplateId")).compose{
+//                                        emailTemplate ->
+//                                            def emailContents = makeAssignedEmail(emailTemplate, shiftRole, eventName, eventStartTime, cancelHook, config)
+//
+//                                            log.info "email contents: \n${emailContents}"
+//
+//                                            return CompositeFuture.all(
+//                                                    sendEmail(config, services.googleAPI, config.getString("sender_email"), volunteerEmail, "[WiSER] Volunteer Sign-up Confirmation for ${eventName}", emailContents),
+//                                                    sendSlackMessage(services.slackAPI, eventSlackChannel, "${volunteerName} has expressed interest in volunteering for ${eventName} as ${shiftRole.role.name}. They have been successfully assigned shift ${shiftRole.shift.index} starting at ${shiftRole.shift.startTime.format(EventSlurper.shiftTimeFormatter)} and ending at ${shiftRole.shift.endTime.format(EventSlurper.shiftTimeFormatter)}. "  ) // Notify Slack
+//                                            )
+//                                    }
+//
+//                                }
+//
+//
+//
+//                            }
+//                            log.info "Shift-role ${rowData.get(0)} has been filled!"
+//                        }
+//
+//                        //If we make it to here, there are no available slots for the target shift role.
+//                        CompositeFuture.all(
+//                                updateVolunteerStatus(services.db,eventId,  eventSheetId, volunteerEmail, "Waitlisted", targetShiftRoleString),
+//                                slurpDocument(services.googleAPI, webhook.data.getString("confirmWaitlistEmailTemplateId"))
+//                        ).compose{
+//                            compositeResult->
+//                                def emailTemplate = compositeResult.resultAt(1)
+//                                def emailContents = makeWaitlistEmail(emailTemplate, shiftRole, eventName)
+//
+//                                return CompositeFuture.all(
+//                                        sendEmail(config, services.googleAPI, config.getString("sender_email"), volunteerEmail, "[WiSER] Volunteer Sign-up Waitlist Confirmation for ${eventName}", emailContents),
+//                                        sendSlackMessage(services.slackAPI, eventSlackChannel, "${volunteerName} has expressed interest in volunteering for ${eventName} as ${shiftRole.role.name}. However there were no matching free slots for this volunteer, so they have been waitlisted and notified that they will be contacted if a slot frees up.")
+//                                )
+//                        }
+//                }
 
 
         }
