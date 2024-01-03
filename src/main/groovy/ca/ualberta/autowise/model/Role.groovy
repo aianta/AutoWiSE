@@ -4,8 +4,6 @@ import io.vertx.core.json.JsonObject
 import io.vertx.core.json.JsonArray
 
 class Role {
-    UUID id;
-    UUID eventId;
     String name
     String description
     List<Shift> shifts = new ArrayList()

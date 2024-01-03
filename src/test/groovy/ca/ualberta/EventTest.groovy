@@ -51,37 +51,7 @@ class EventTest {
 
         VertxTestContext testContext = new VertxTestContext();
 
-        Event event = new Event()
-        event.id = UUID.randomUUID();
-        event.status = EventStatus.READY
-        event.startTime = ZonedDateTime.now()
-        event.endTime = ZonedDateTime.now()
-        event.name = "Test Event"
-        event.description = "A badly put together event"
-        event.campaignStart = ZonedDateTime.now()
-        event.followupTime = ZonedDateTime.now()
-        event.sheetId = dummyEventSheet
-        event.confirmAssignedEmailTemplateId = dummyEventSheet
-        event.confirmCancelledEmailTemplateId = dummyEventSheet
-        event.confirmAssignedEmailTemplateId = dummyEventSheet
-        event.confirmRejectedEmailTemplateId = dummyEventSheet
-        event.eventOrganizers = ["aianta03@gmail.com", "ianta@ualberta.ca"]
-        event.volunteerCoordinators = ["aianta03@gmail.com", "ianta@ualberta.ca"]
-        event.eventbriteLink = "eventbrite.ca"
-        event.eventSlackChannel = "auto-wise"
-
-        Shift s = new Shift()
-        s.startTime = LocalTime.now()
-        s.endTime = LocalTime.now()
-        s.id = UUID.randomUUID()
-        s.index = 1
-
-        Role r = new Role()
-        r.name = "General Volunteer"
-        r.description = "Generally volunteer"
-        r.shifts = [s]
-
-        event.roles = [r]
+        Event event = new TestEventGenerator.EventBuilder().build()
 
         db.insert(event).onSuccess {
             testContext.completeNow()
