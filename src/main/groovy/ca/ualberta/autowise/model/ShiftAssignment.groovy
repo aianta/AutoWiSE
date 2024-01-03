@@ -6,6 +6,6 @@ class ShiftAssignment {
     String sheetId;
     String volunteerEmail;
     String volunteerName;
-
+    String shiftRole;
 
 }

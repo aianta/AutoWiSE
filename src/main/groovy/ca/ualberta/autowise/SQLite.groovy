@@ -2,10 +2,13 @@ package ca.ualberta.autowise
 
 import ca.ualberta.autowise.model.APICallContext
 import ca.ualberta.autowise.model.ContactStatus
+import ca.ualberta.autowise.model.Event
+import ca.ualberta.autowise.model.EventStatus
 import ca.ualberta.autowise.model.HookType
 import ca.ualberta.autowise.model.ShiftAssignment
 import ca.ualberta.autowise.model.Task
 import ca.ualberta.autowise.model.TaskStatus
+import ca.ualberta.autowise.model.VolunteerConfirmation
 import ca.ualberta.autowise.model.Webhook
 import ca.ualberta.autowise.scripts.google.EventSlurper
 import io.vertx.core.AsyncResult
@@ -25,7 +28,7 @@ import java.time.ZonedDateTime
 import java.util.logging.Handler
 import java.util.stream.Collectors
 
-
+import static ca.ualberta.autowise.utils.JsonUtils.*;
 /**
  * @Author Alexandru Ianta
  *
@@ -61,13 +64,15 @@ class SQLite {
             .put("max_pool_size", 16)
 
         pool = JDBCPool.pool(vertx, config);
-        CompositeFuture.all(
+        CompositeFuture.all([
                 createTasksTable(),
                 createWebhooksTable(),
                 createContactStatusTable(),
                 createEventStatusTable(),
+                createEventTable(),
+                createVolunteerConfirmationTable(),
                 createAPICallContextTable().compose {createAPICallTruncateTrigger()}
-        ).onSuccess(done->{
+        ]).onSuccess(done->{
             startup.complete(this)
         })
 
@@ -418,6 +423,63 @@ class SQLite {
         return promise.future()
     }
 
+    def confirmVolunteerShiftRole(sheetId, UUID eventId, volunteerName, volunteerEmail, shiftRoleString){
+        Promise promise = Promise.promise();
+
+        pool.preparedQuery('''
+            INSERT INTO confirmations (
+                                       event_id,
+                                       sheet_id,
+                                       volunteer_email,
+                                       volunteer_name,
+                                       shift_role,
+                                       timestamp
+            ) VALUES (?,?,?,?,?,?);
+        ''').execute(Tuple.from([
+                eventId.toString(),
+                sheetId,
+                volunteerEmail,
+                volunteerName,
+                shiftRoleString,
+                ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone).format(EventSlurper.eventTimeFormatter)
+        ]), {
+            if(it){
+                promise.complete()
+            }else{
+                log.error "Error recording volunteer confirmation [{}-{}] sheetId: {} eventId:{}", shiftRoleString, volunteerName, sheetId, eventId
+                log.error it.cause().getMessage(), it.cause()
+                promise.fail(it.cause())
+            }
+        })
+
+        return promise.future();
+    }
+
+
+    def getVolunteerConfirmations(String sheetId){
+        Promise<List<VolunteerConfirmation>> promise = Promise.promise();
+
+        pool.preparedQuery('''
+            SELECT * FROM confirmations WHERE sheet_id = ?;
+        ''').execute(Tuple.from([
+                sheetId
+        ]), {
+            if(it){
+                List<VolunteerConfirmation> confirmations = new ArrayList<>();
+                it.result().forEach {confirmations.add(VolunteerConfirmation.fromRow(it))}
+
+                promise.complete(confirmations)
+            }else{
+                log.error "Error getting volunteer confirmations for event sheet: {}", sheetId
+                log.error it.cause().getMessage(), it.cause()
+                promise.fail(it.cause())
+            }
+        })
+
+
+        return promise.future();
+
+    }
     def saveAPICallContext(APICallContext context){
         try{
             Promise promise = Promise.promise();
@@ -804,6 +866,35 @@ class SQLite {
         return promise.future();
     }
 
+    /**
+     * Return all the shift roles for a particular event using the event's sheetId
+     * This includes filled and unfilled shift roles.
+     *
+     * Primary use of this method is to build the event status sheet for an event.
+     * @param sheetId
+     * @return a list of shiftRoles for the given event sheet.
+     */
+    def getAllShiftRoles(sheetId){
+        Promise<List<ShiftAssignment>> promise = Promise.promise()
+
+        pool.preparedQuery('''
+            SELECT * FROM event_status WHERE sheet_id = ?;
+        ''').execute(Tuple.from([sheetId]), {
+            if(it){
+                List<ShiftAssignment> result  = new ArrayList<>()
+                it.result().forEach {result.add(shiftAssignmentFromRow(it))}
+
+                promise.complete(result)
+            }else{
+                log.error "Error getting all shift roles for sheetId: {}", sheetId
+                log.error it.cause().getMessage(), it.cause()
+                promise.fail(it.cause())
+            }
+        })
+
+        return promise.future();
+    }
+
     def createEventStatusTable(){
         Promise promise = Promise.promise();
         pool.preparedQuery('''
@@ -877,12 +968,87 @@ class SQLite {
         return promise.future();
     }
 
+
+    def getUpcomingEvents(){
+        Promise<List<Event>> promise = Promise.promise();
+
+        pool.preparedQuery('''
+            SELECT data FROM events WHERE start_time >= ?; 
+        ''').execute(Tuple.from([
+                ZonedDateTime.now().toInstant().toEpochMilli()
+        ]), {
+            if(it){
+                List<Event> results = new ArrayList<>();
+
+                it.result().forEach {results.add(slurpEventJson(it.getString("data")))}
+            }else{
+                log.error "Error fetching upcoming events!"
+                log.error it.cause().getMessage(), it.cause()
+                promise.fail(it.cause())
+            }
+        })
+
+        return promise.future()
+    }
+
+    def updateEventStatus(UUID eventId, EventStatus status){
+        Promise promise = Promise.promise();
+
+        pool.preparedQuery('''
+            UPDATE events 
+            SET
+                status = ?
+            WHERE
+                id = ?;
+        ''').execute(Tuple.from([
+                status.toString(), eventId.toString()
+        ]), {
+            if(it){
+                promise.complete()
+            }else{
+                log.error "Error updating event status"
+                log.error it.cause().getMessage(), it.cause()
+                promise.fail(it.cause())
+            }
+        })
+
+        return promise.future();
+    }
+
+    def insert(Event event){
+        Promise<Event> promise = Promise.promise();
+
+        pool.preparedQuery('''
+            INSERT INTO events (id, status,spreadsheet_id, name, start_time, end_time, data) VALUES (?,?,?,?,?,?,?);
+        ''').execute(Tuple.from([
+                event.id.toString(),
+                event.status,
+                event.sheetId,
+                event.name,
+                event.startTime.toInstant().toEpochMilli(),
+                event.endTime.toInstant().toEpochMilli(),
+                getEventGenerator().toJson(event)
+        ]), {
+            if(it){
+                promise.complete(event)
+            }else{
+                log.error "Error inserting new event into database"
+                log.error it.cause().getMessage(), it.cause()
+                promise.fail(it.cause())
+            }
+        })
+
+
+        return promise.future();
+    }
+
     def createEventTable(){
         Promise promise = Promise.promise();
 
         pool.preparedQuery('''
             CREATE TABLE IF NOT EXISTS events (
                 id TEXT PRIMARY KEY,
+                status TEXT NOT NULL,
                 spreadsheet_id TEXT,
                 name TEXT NOT NULL,
                 start_time NUMERIC NOT NULL,
@@ -905,7 +1071,7 @@ class SQLite {
                 volunteer_email TEXT NOT NULL,
                 volunteer_name TEXT NOT NULL,
                 shift_role TEXT NOT NULL,
-                timestamp TEXT NOT NULL,
+                timestamp TEXT,
                 PRIMARY KEY (event_id, volunteer_email)
                                                 
             )
@@ -946,6 +1112,8 @@ class SQLite {
             promise.fail(result.cause())
         }
     }
+
+
 
 
     def updateVolunteerContactStatus(ContactStatus contactStatus){
@@ -1071,8 +1239,9 @@ class SQLite {
         ShiftAssignment result = new ShiftAssignment();
         result.eventId = UUID.fromString(row.getString("event_id"));
         result.sheetId = row.getString("sheet_id");
-        result.volunteerEmail = row.getString("volunteer_email");
-        result.volunteerName = row.get("volunteer_name");
+        result.volunteerEmail = row.getString("volunteer_email") == null?null:row.getString("volunteer_email");
+        result.volunteerName = row.getString("volunteer_name") == null?null:row.getString("volunteer_name");
+        result.shiftRole = row.getString("shift_role")
         return  result;
     }
 

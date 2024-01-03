@@ -26,6 +26,10 @@ configurations.all {
     }
 }
 
+test{
+    useJUnitPlatform()
+}
+
 dependencies {
 
 
@@ -37,6 +41,7 @@ dependencies {
     implementation 'io.vertx:vertx-config'
     implementation 'io.vertx:vertx-config-yaml'
     implementation 'io.vertx:vertx-jdbc-client'
+    testImplementation 'io.vertx:vertx-junit5'
 
     implementation 'com.google.api-client:google-api-client:2.0.0'
     implementation 'com.google.oauth-client:google-oauth-client-jetty:1.34.1'

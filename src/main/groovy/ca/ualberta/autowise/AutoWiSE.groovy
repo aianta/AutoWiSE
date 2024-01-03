@@ -157,7 +157,7 @@ void vertxStart(Promise<Void> startup){
 
                 boltApp.updateValidGDriveIds(); //refresh template options
 
-                doExternalTick(services, config)
+                //doExternalTick(services, config)
 
 
             })

@@ -109,7 +109,6 @@ static def cancelShiftRole(services, Webhook webhook, config){
 
                                             return CompositeFuture.all(
                                                     services.db.assignShiftRole(eventSheetId, targetShiftRoleString, volunteerEmail, replacementEmail, volunteerName, replacementName), //Update the event status table with the replacements info.
-                                                    //updateEventStatusTable(services.googleAPI,eventSheetId, data), //Update the event status table with the replacements info.
                                                     slurpDocument(services.googleAPI, webhook.data.getString("confirmAssignedEmailTemplateId")), //Get the email template to send to the waitlisted volunteer
                                                     slurpDocument(services.googleAPI, webhook.data.getString("confirmCancelledEmailTemplateId")) //Get the email template to send to the cancelling volunteer
                                             ).compose{
@@ -129,7 +128,7 @@ static def cancelShiftRole(services, Webhook webhook, config){
 
                                                     return CompositeFuture.all(
                                                             sendEmail(config, services.googleAPI, config.getString("sender_email"), replacementEmail, "[WiSER] Moved off waitlist, assigned volunteer role for ${eventName}",emailContent),
-                                                            updateVolunteerStatus(services.db, eventId, eventSheetId, replacementEmail, "Accepted", targetShiftRoleString ),
+                                                            updateVolunteerStatus(services.db, eventId, eventSheetId, replacementEmail, "Accepted", targetShiftRoleString ).compose {return updateEventStatusTable(services, eventSheetId)},
                                                             sendSlackMessage(services.slackAPI, eventSlackChannel, slackMessage),
                                                             sendEmail(config, services.googleAPI, config.getString("sender_email"), volunteerEmail,"[WiSER] Volunteering Cancellation Confirmation for ${eventName}", confirmCancelEmailTemplate)
                                                     )
@@ -139,7 +138,7 @@ static def cancelShiftRole(services, Webhook webhook, config){
 
                                         return CompositeFuture.all(
                                                 //updateEventStatusTable(services.googleAPI,eventSheetId, data),
-                                                services.db.assignShiftRole(eventSheetId, targetShiftRoleString, volunteerEmail, null, volunteerName, null), // Clear assignment for shift role to allow it to be filled again.
+                                                services.db.assignShiftRole(eventSheetId, targetShiftRoleString, volunteerEmail, null, volunteerName, null).compose{ return updateEventStatusTable(services, eventSheetId)}, // Clear assignment for shift role to allow it to be filled again.
                                                 slurpDocument(services.googleAPI, webhook.data.getString("confirmCancelledEmailTemplateId"))
                                         ).compose {
                                             compositeResult->

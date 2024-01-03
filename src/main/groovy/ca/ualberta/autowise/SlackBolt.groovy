@@ -151,13 +151,17 @@ class SlackBolt implements Runnable{
                 //Make an event sheet for our glorious new event
                 //Do this in a seprate thread so that the Bolt Socket App doesn't hang/lose connection to slack.
                 Thread paperwork = new Thread(()->createEventSheet(config, services.googleAPI, "${config.getString("autowise_event_prefix")}${partialEvent.getName()}", partialEvent)
+                .compose {
+                    //TODO: Need to make sure this doesn't have strange implications because it's in a separate thread.
+                    // better yet can we just register the newly created sheet directly?
+                    partialEvent.sheetId = it
+                    return services.db.insert(partialEvent)
+                }
                         .onSuccess { log.info "Event sheet generated!"
-                            //TODO: Need to make sure this doesn't have strange implications because it's in a separate thread.
-                            // better yet can we just register the newly created sheet directly?
-                            partialEvent.sheetId = it
+
 
 //                            autoWiSE.doExternalTick(services, config)
-                            registerNewEvent(services, partialEvent, it, config)
+                            registerNewEvent(services, partialEvent, partialEvent.sheetId, config)
                         }
                         .onFailure { log.error it.getMessage(), it})
 

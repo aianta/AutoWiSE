@@ -304,6 +304,40 @@ static def updateVolunteerContactStatusTable(GoogleAPI googleAPI, sheetId, data)
     valueRange.setValues(data)
     return updateAt(googleAPI, sheetId, VOLUNTEER_CONTACT_STATUS_RANGE, valueRange )
 }
+
+static def updateVolunteerContactStatusTable(services, sheetId, UUID eventId){
+
+    return ((SQLite)services.db).getEventContactStatusTable(eventId).compose {
+
+        List<List<String>> tableData = new ArrayList<>();
+        tableData.add(makeHeaderRow());
+
+        it.forEach {contactStatus->
+            tableData.add([
+                    contactStatus.volunteerEmail,
+                    contactStatus.lastContacted == null?"":contactStatus.lastContacted.format(EventSlurper.eventTimeFormatter),
+                    contactStatus.status,
+                    contactStatus.acceptedOn == null?"":contactStatus.acceptedOn.format(EventSlurper.eventTimeFormatter),
+                    contactStatus.rejectedOn == null?"":contactStatus.rejectedOn.format(EventSlurper.eventTimeFormatter),
+                    contactStatus.cancelledOn == null?"":contactStatus.cancelledOn.format(EventSlurper.eventTimeFormatter),
+                    contactStatus.waitlistedOn == null?"":contactStatus.waitlistedOn.format(EventSlurper.eventTimeFormatter),
+                    contactStatus.desiredShiftRole
+            ])
+        }
+
+        ValueRange valueRange = new ValueRange();
+        valueRange.setValues(tableData)
+        valueRange.setRange(VOLUNTEER_CONTACT_STATUS_RANGE)
+        valueRange.setMajorDimension("ROWS")
+        return updateAt(services.googleAPI, sheetId, VOLUNTEER_CONTACT_STATUS_RANGE, valueRange)
+    }
+
+
+}
+
+static def makeHeaderRow(){
+    return ["Volunteer","Last Contacted", "Status","Accepted On","Rejected On","Cancelled On","Waitlisted On","Desired Shift - Role"]
+}
 //
 //private static makeNewVolunteerEntries(volunteers){
 //    def result = new ArrayList<ContactStatus>();
