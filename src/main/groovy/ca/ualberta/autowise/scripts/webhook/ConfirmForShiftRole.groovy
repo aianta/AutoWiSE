@@ -1,5 +1,6 @@
 package ca.ualberta.autowise.scripts.webhook
 
+import ca.ualberta.autowise.model.Event
 import ca.ualberta.autowise.model.Webhook
 import ca.ualberta.autowise.scripts.google.EventSlurper
 import com.google.api.services.sheets.v4.model.ValueRange
@@ -17,12 +18,11 @@ import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.*
 @Field static CONFIRMATION_TABLE = "\'Volunteer Confirmations\'!A1"
 
 
-static def confirmShiftRole(services, Webhook webhook){
+static def confirmShiftRole(services, Webhook webhook, Event event){
 
     def volunteerEmail = webhook.data.getString("volunteerEmail")
-    def eventSheetId = webhook.data.getString("eventSheetId")
 
-    return hasVolunteerAlreadyCancelled(services.googleAPI, eventSheetId, volunteerEmail).compose{
+    return hasVolunteerAlreadyCancelled(services.googleAPI, event.sheetId, volunteerEmail).compose{
         alreadyCancelled->
             if(alreadyCancelled){
                 log.info "${volunteerEmail} has already cancelled or rejected for this event."
@@ -32,17 +32,9 @@ static def confirmShiftRole(services, Webhook webhook){
             def volunteerName = webhook.data.getString("volunteerName")
             def shiftRoleString = webhook.data.getString("shiftRoleString")
 
-            return services.db.confirmVolunteerShiftRole(eventSheetId, webhook.eventId, volunteerName, volunteerEmail, shiftRoleString )
-                .compose{ return updateVolunteerConfirmationTable(services, eventSheetId)}
+            return services.db.confirmVolunteerShiftRole(event.sheetId, webhook.eventId, volunteerName, volunteerEmail, shiftRoleString )
+                .compose{ return updateVolunteerConfirmationTable(services, event.sheetId)}
 
-
-
-//            ValueRange valueRange = new ValueRange()
-//            valueRange.setValues([[volunteerEmail, volunteerName, shiftRoleString, ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone).format(EventSlurper.eventTimeFormatter)]])
-//            valueRange.setMajorDimension("ROWS")
-//            valueRange.setRange(CONFIRMATION_TABLE)
-//
-//            return appendAt(services.googleAPI, eventSheetId, CONFIRMATION_TABLE, valueRange)
     }
 
 }

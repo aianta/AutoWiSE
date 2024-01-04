@@ -340,7 +340,7 @@ static def _executeTask(Task task, Event event, vertx, services, config){
         case "Initial Recruitment Email":
             return recruitmentEmailTask(vertx, services, task, event, config, (status)->{
                 return status.equals("Not Contacted")
-            }, "[WiSER] Volunteer opportunities for ${task.data.getString("eventName")}!")
+            }, "[WiSER] Volunteer opportunities for ${event.name}!")
             .onSuccess{
                 log.info "Initial Recruitment Email task executed successfully!"
             }.onFailure{err-> handleTaskError(config, services, err, task)}
@@ -348,14 +348,14 @@ static def _executeTask(Task task, Event event, vertx, services, config){
         case "Recruitment Email":
             return recruitmentEmailTask(vertx, services, task, event, config, (status)->{
                 return status.equals("Not Contacted") || status.equals("Waiting for response")
-            }, "[WiSER] Volunteer opportunities for ${task.data.getString("eventName")}!")
+            }, "[WiSER] Volunteer opportunities for ${event.name}!")
             .onSuccess{
                 log.info "Recruitment email task executed successfully!"
             }.onFailure{err-> handleTaskError(config, services, err, task)}
 
             break
         case "Follow-up Email":
-            return confirmationEmailTask(vertx, services, task, event, config, "[WiSER] Confirm your upcomming volunteer shift for ${task.data.getString("eventName")}!" )
+            return confirmationEmailTask(vertx, services, task, event, config, "[WiSER] Confirm your upcomming volunteer shift for ${event.name}!" )
                 .onSuccess{
                     log.info "Confirmation email task completed successfully!"
                 }.onFailure{err-> handleTaskError(config, services, err, task)}

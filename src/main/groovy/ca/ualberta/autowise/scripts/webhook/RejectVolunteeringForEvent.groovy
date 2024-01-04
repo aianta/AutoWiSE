@@ -1,11 +1,11 @@
 package ca.ualberta.autowise.scripts.webhook
 
+import ca.ualberta.autowise.model.Event
 import ca.ualberta.autowise.model.Webhook
 import ca.ualberta.autowise.scripts.ManageEventStatusTable
 import groovy.transform.Field
 import io.vertx.core.CompositeFuture
 import io.vertx.core.Future
-import io.vertx.core.Promise
 import org.slf4j.LoggerFactory
 
 import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.hasVolunteerAlreadyCancelled
@@ -18,9 +18,8 @@ import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.sendSlackMessa
 @Field static def log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.webhook.RejectVolunteeringForEvent.class)
 
 
-static def rejectVolunteeringForEvent(services, Webhook webhook, config){
+static def rejectVolunteeringForEvent(services, Webhook webhook, Event event, config){
 
-    def eventSheetId = webhook.data.getString("eventSheetId")
     def volunteerEmail = webhook.data.getString("volunteerEmail")
 
     return hasVolunteerAlreadyCancelled(services.db, webhook.eventId, volunteerEmail)
@@ -32,20 +31,18 @@ static def rejectVolunteeringForEvent(services, Webhook webhook, config){
                 }
 
                 def volunteerName = webhook.data.getString("volunteerName")
-                def eventName = webhook.data.getString("eventName")
-                def eventSlackChannel = webhook.data.getString("eventSlackChannel")
 
                 return CompositeFuture.all(
-                        updateVolunteerStatus(services.db, webhook.eventId, eventSheetId, volunteerEmail, "Rejected", "-" ).compose {return ManageEventStatusTable.updateEventStatusTable(services, eventSheetId)},      //Update the status
+                        updateVolunteerStatus(services.db, webhook.eventId, event.sheetId, volunteerEmail, "Rejected", "-" ).compose {return ManageEventStatusTable.updateEventStatusTable(services, event.sheetId)},      //Update the status
                         slurpDocument(services.googleAPI, webhook.data.getString("emailTemplateId"))
                 ).compose{
                     composite->
                         def emailTemplate = composite.resultAt(1)
-                        def emailContents = makeRejectedEmail(emailTemplate, eventName)
+                        def emailContents = makeRejectedEmail(emailTemplate, event.name)
 
                         return CompositeFuture.all(
-                                sendEmail(config, services.googleAPI, config.getString("sender_email"), volunteerEmail, "[WiSER] Confirmation of Volunteer Opportunity Rejection for ${eventName}", emailContents ),
-                                sendSlackMessage(services.slackAPI, eventSlackChannel, "${volunteerName} has indicated they are not interested or unable to volunteer for ${eventName}!")
+                                sendEmail(config, services.googleAPI, config.getString("sender_email"), volunteerEmail, "[WiSER] Confirmation of Volunteer Opportunity Rejection for ${event.name}", emailContents ),
+                                sendSlackMessage(services.slackAPI, event.eventSlackChannel, "${volunteerName} has indicated they are not interested or unable to volunteer for ${event.name}!")
                         )
                 }
         }

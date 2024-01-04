@@ -146,95 +146,107 @@ class AutoWiSEServer {
         def webhookId = UUID.fromString(new String(Base64.decodeBase64(encodedHookId)))
         log.info "decoded webhook id: ${webhookId.toString()}"
 
-        db.invokeAndGetWebhookById(webhookId).onSuccess{ Webhook webhook->{
+        db.invokeAndGetWebhookById(webhookId)
+                .onSuccess{ Webhook webhook->{
+
+                    db.getEvent(webhook.eventId).onSuccess {
+
+                        event->
 
 
-            switch (webhook.type){
-                case HookType.ACCEPT_ROLE_SHIFT:
-                    finishResponse(rc, "Please note: If you've already been assigned for a volunteer shift, clicking a different volunteer link from the recruitment email will NOT do anything. However if you've only been waitlisted you can still signup for something else.")
-                    acceptShiftRole(services, webhook, config)
-                            .onSuccess{
-                                log.info "ACCEPT_ROLE_SHIFT webhook ${webhook.id.toString()} executed successfully!"
-                            }
-                            .onFailure{err->webhookFailureHandler(config, services, err, webhook)}
-                    break
-                case HookType.CANCEL_ROLE_SHIFT:
-                    finishResponse(rc, "We are cancelling your shift and will send you a confirmation soon.")
-                    cancelShiftRole(services, webhook, config)
-                        .onSuccess{
-                            log.info "CANCEL_ROLE_SHIFT webhook ${webhook.id.toString()} executed successfully!"
-                        }
-                        .onFailure{ err->webhookFailureHandler(config, services, err, webhook)}
-                    break
-                case HookType.CONFIRM_ROLE_SHIFT:
-                    finishResponse(rc,"Your availability for your volunteer shift has been confirmed.")
-                    confirmShiftRole(services, webhook)
-                        .onSuccess{log.info("CONFIRM_ROLE_SHIFT webhook ${webhook.id.toString()} executed successfully!")}
-                        .onFailure(err->webhookFailureHandler(config, services, err, webhook))
-                    break
-                case HookType.REJECT_VOLUNTEERING_FOR_EVENT:
-                    finishResponse(rc,"Sorry it didn't work out this time.")
-                    rejectVolunteeringForEvent(services, webhook, config)
-                        .onSuccess{log.info("REJECT_VOLUNTEERING_FOR_EVENT webhook ${webhook.id.toString()} executed successfully!")}
-                        .onFailure{err->webhookFailureHandler(config, services, err, webhook)}
-                    break
+                            switch (webhook.type){
+                                case HookType.ACCEPT_ROLE_SHIFT:
+                                    finishResponse(rc, "Please note: If you've already been assigned for a volunteer shift, clicking a different volunteer link from the recruitment email will NOT do anything. However if you've only been waitlisted you can still signup for something else.")
+                                    acceptShiftRole(services, webhook, event, config)
+                                            .onSuccess{
+                                                log.info "ACCEPT_ROLE_SHIFT webhook ${webhook.id.toString()} executed successfully!"
+                                            }
+                                            .onFailure{err->webhookFailureHandler(config, services, err, webhook)}
+                                    break
+                                case HookType.CANCEL_ROLE_SHIFT:
+                                    finishResponse(rc, "We are cancelling your shift and will send you a confirmation soon.")
+                                    cancelShiftRole(services, webhook, event, config)
+                                            .onSuccess{
+                                                log.info "CANCEL_ROLE_SHIFT webhook ${webhook.id.toString()} executed successfully!"
+                                            }
+                                            .onFailure{ err->webhookFailureHandler(config, services, err, webhook)}
+                                    break
+                                case HookType.CONFIRM_ROLE_SHIFT:
+                                    finishResponse(rc,"Your availability for your volunteer shift has been confirmed.")
+                                    confirmShiftRole(services, webhook, event)
+                                            .onSuccess{log.info("CONFIRM_ROLE_SHIFT webhook ${webhook.id.toString()} executed successfully!")}
+                                            .onFailure(err->webhookFailureHandler(config, services, err, webhook))
+                                    break
+                                case HookType.REJECT_VOLUNTEERING_FOR_EVENT:
+                                    finishResponse(rc,"Sorry it didn't work out this time.")
+                                    rejectVolunteeringForEvent(services, webhook, event, config)
+                                            .onSuccess{log.info("REJECT_VOLUNTEERING_FOR_EVENT webhook ${webhook.id.toString()} executed successfully!")}
+                                            .onFailure{err->webhookFailureHandler(config, services, err, webhook)}
+                                    break
 
-                case HookType.EXECUTE_TASK_NOW:
-                    finishResponse(rc, "The specified task will begin execution imminently")
-                    db.getWorkByTaskId(webhook.data.getString("taskId"))
-                        .onSuccess{
-                            task->AutoWiSE.executeTask(task, vertx, services, config)
-                                    .onSuccess{
-                                        log.info "Successfully executed task ${webhook.data.getString("taskId")} through webhook  ${webhook.id.toString()}!"
+                                case HookType.EXECUTE_TASK_NOW:
+                                    finishResponse(rc, "The specified task will begin execution imminently")
+                                    db.getWorkByTaskId(webhook.data.getString("taskId"))
+                                            .onSuccess{
+                                                task->AutoWiSE.executeTask(task, event, vertx, services, config)
+                                                        .onSuccess{
+                                                            log.info "Successfully executed task ${webhook.data.getString("taskId")} through webhook  ${webhook.id.toString()}!"
+                                                        }
+                                                        .onFailure{ err->
+                                                            log.error "Error executing task  ${webhook.data.getString("taskId")} through webhook ${webhook.id.toString()}!"
+                                                            webhookFailureHandler(config, services, err, webhook)
+                                                        }
+                                            }.onFailure{
+                                        err->
+                                            log.error "Error attempting to fetch task to execute now!"
+                                            log.error err.getMessage(), err
                                     }
-                                    .onFailure{ err->
-                                        log.error "Error executing task  ${webhook.data.getString("taskId")} through webhook ${webhook.id.toString()}!"
+
+                                    break
+                                case HookType.CANCEL_TASK:
+                                    finishResponse(rc, "The specified task will be cancelled imminently. If you'd like to cancel the entire campaign click the campaign cancellation link instead.")
+                                    db.cancelTaskById(webhook.data.getString("taskId"))
+                                            .onSuccess{
+                                                log.info "Successfully cancelled task ${webhook.data.getString("taskId")}!"
+                                            }
+                                            .onFailure{
+                                                err->log.error err.getMessage(), err
+                                                    webhookFailureHandler(config, services, err, webhook)
+                                            }
+                                    break
+                                case HookType.CANCEL_CAMPAIGN:
+                                    finishResponse(rc, "The campaign will be cancelled imminently.")
+                                    db.cancelCampaign(webhook.eventId).compose {return db.updateEventStatus(webhook.eventId, EventStatus.CANCELLED)}.onSuccess{
+                                        log.info "Campaign for eventId ${webhook.eventId.toString()} has been cancelled."
+                                        updateSingleValueAt(services.googleAPI, webhook.data.getString("eventSheetId"), 'Event!A3', TaskStatus.CANCELLED.toString())
+
+                                    }.onFailure{ err->
+                                        log.error "Error cancelling campaign for event id: ${webhook.eventId.toString()}"
+                                        log.error err.getMessage(), err
                                         webhookFailureHandler(config, services, err, webhook)
                                     }
-                        }.onFailure{
-                        err->
-                            log.error "Error attempting to fetch task to execute now!"
-                            log.error err.getMessage(), err
+                                    break
+                                case HookType.BEGIN_CAMPAIGN:
+                                    finishResponse(rc, "The campaign tasks will be scheduled according to plan imminently.")
+                                    db.beginCampaign(webhook.eventId).compose{return db.updateEventStatus(webhook.eventId, EventStatus.IN_PROGRESS)}.onSuccess{
+                                        log.info "Campagin for eventId ${webhook.eventId.toString()} has begun!"
+                                        updateSingleValueAt(services.googleAPI, webhook.data.getString("eventSheetId"), "Event!A3", TaskStatus.IN_PROGRESS.toString())
+                                                .onFailure {err->webhookFailureHandler(config, services, err, webhook)}
+                                    }.onFailure{
+                                        err-> log.error "Error starting campaign for event id: ${webhook.eventId.toString()}"
+                                            log.error err.getMessage(), err
+                                            webhookFailureHandler(config, services, err, webhook)
+                                    }
+                                    break
+                                default:log.warn "Unknown hook type! ${webhook.type.toString()}"
+                            }
+
+
                     }
 
-                    break
-                case HookType.CANCEL_TASK:
-                    finishResponse(rc, "The specified task will be cancelled imminently. If you'd like to cancel the entire campaign click the campaign cancellation link instead.")
-                    db.cancelTaskById(webhook.data.getString("taskId"))
-                        .onSuccess{
-                            log.info "Successfully cancelled task ${webhook.data.getString("taskId")}!"
-                        }
-                        .onFailure{
-                            err->log.error err.getMessage(), err
-                                webhookFailureHandler(config, services, err, webhook)
-                        }
-                    break
-                case HookType.CANCEL_CAMPAIGN:
-                    finishResponse(rc, "The campaign will be cancelled imminently.")
-                    db.cancelCampaign(webhook.eventId).compose {return db.updateEventStatus(webhook.eventId, EventStatus.CANCELLED)}.onSuccess{
-                        log.info "Campaign for eventId ${webhook.eventId.toString()} has been cancelled."
-                        updateSingleValueAt(services.googleAPI, webhook.data.getString("eventSheetId"), 'Event!A3', TaskStatus.CANCELLED.toString())
 
-                    }.onFailure{ err->
-                        log.error "Error cancelling campaign for event id: ${webhook.eventId.toString()}"
-                        log.error err.getMessage(), err
-                        webhookFailureHandler(config, services, err, webhook)
-                    }
-                    break
-                case HookType.BEGIN_CAMPAIGN:
-                    finishResponse(rc, "The campaign tasks will be scheduled according to plan imminently.")
-                    db.beginCampaign(webhook.eventId).compose{return db.updateEventStatus(webhook.eventId, EventStatus.IN_PROGRESS)}.onSuccess{
-                        log.info "Campagin for eventId ${webhook.eventId.toString()} has begun!"
-                        updateSingleValueAt(services.googleAPI, webhook.data.getString("eventSheetId"), "Event!A3", TaskStatus.IN_PROGRESS.toString())
-                            .onFailure {err->webhookFailureHandler(config, services, err, webhook)}
-                    }.onFailure{
-                        err-> log.error "Error starting campaign for event id: ${webhook.eventId.toString()}"
-                            log.error err.getMessage(), err
-                            webhookFailureHandler(config, services, err, webhook)
-                    }
-                    break
-                default:log.warn "Unknown hook type! ${webhook.type.toString()}"
-            }
+
+
 
 
         }}.onFailure {

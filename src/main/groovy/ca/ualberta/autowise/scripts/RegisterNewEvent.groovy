@@ -202,17 +202,7 @@ private static def makeCampaignPlan(Event event){
             taskExecutionTime: _initialRecruitmentTaskExecutionTime,
             status: TaskStatus.PENDING
     )
-    initialRecruitmentEmail.data.put("eventSheetId", event.sheetId)
-    initialRecruitmentEmail.data.put("eventSlackChannel", event.eventSlackChannel)
-    initialRecruitmentEmail.data.put("rolesJsonString", JsonUtils.getEventGenerator().toJson(event.roles))
-    initialRecruitmentEmail.data.put("eventStartTime", event.startTime.format(EventSlurper.eventTimeFormatter))
     initialRecruitmentEmail.data.put("emailTemplateId", event.initialRecruitmentEmailTemplateId)
-    initialRecruitmentEmail.data.put("confirmAssignedEmailTemplateId", event.confirmAssignedEmailTemplateId)
-    initialRecruitmentEmail.data.put("confirmWaitlistEmailTemplateId", event.confirmWaitlistEmailTemplateId)
-    initialRecruitmentEmail.data.put("confirmCancelledEmailTemplateId", event.confirmCancelledEmailTemplateId)
-    initialRecruitmentEmail.data.put("confirmRejectedEmailTemplatedId", event.confirmRejectedEmailTemplateId)
-    initialRecruitmentEmail.data.put("eventbriteLink", event.eventbriteLink)
-    initialRecruitmentEmail.data.put("eventName", event.name)
     plan.add(initialRecruitmentEmail)
 
     /**
@@ -236,17 +226,7 @@ private static def makeCampaignPlan(Event event){
                     taskExecutionTime: resolicitTime,
                     status: TaskStatus.PENDING,
                     data: new JsonObject()
-                        .put("eventSheetId", event.sheetId)
-                        .put("eventSlackChannel", event.eventSlackChannel)
-                        .put("rolesJsonString", JsonUtils.getEventGenerator().toJson(event.roles))
-                        .put("eventStartTime", event.startTime.format(EventSlurper.eventTimeFormatter))
                         .put("emailTemplateId", event.recruitmentEmailTemplateId)
-                        .put("confirmAssignedEmailTemplateId", event.confirmAssignedEmailTemplateId)
-                        .put("confirmWaitlistEmailTemplateId", event.confirmWaitlistEmailTemplateId)
-                        .put("confirmCancelledEmailTemplateId", event.confirmCancelledEmailTemplateId)
-                        .put("confirmRejectedEmailTemplateId", event.confirmRejectedEmailTemplateId)
-                        .put("eventbriteLink", event.eventbriteLink)
-                        .put("eventName", event.name)
             )
             plan.add(reminder)
         }
@@ -263,13 +243,8 @@ private static def makeCampaignPlan(Event event){
             taskExecutionTime: event.followupTime,
             status: TaskStatus.PENDING,
             data: new JsonObject()
-                    .put("eventSheetId", event.sheetId)
                     .put("eventSlackChannel", event.eventSlackChannel)
                     .put("emailTemplateId", event.followupEmailTemplateId)
-                    .put("eventbriteLink", event.eventbriteLink)
-                    .put("eventName", event.name)
-                    .put("eventStartTime", event.startTime.format(EventSlurper.eventTimeFormatter))
-                    .put("rolesJsonString", JsonUtils.getEventGenerator().toJson(event.roles))
                     .put("confirmAssignedEmailTemplateId", event.confirmAssignedEmailTemplateId)
                     .put("confirmCancelledEmailTemplateId", event.confirmCancelledEmailTemplateId)
     )

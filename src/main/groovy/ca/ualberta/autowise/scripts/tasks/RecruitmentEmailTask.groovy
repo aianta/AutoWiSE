@@ -56,26 +56,19 @@ import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.upda
  */
 
 static def recruitmentEmailTask(Vertx vertx, services, Task task, Event event, config, Predicate<String> statusPredicate, subject){
-    log.info "In recruitment email task!"
+    log.info "Executing recruitment email task!"
     // Fetch all the data we'll need to execute the task
     return slurpVolunteerList(services.googleAPI, config.getString("autowise_volunteer_pool_id"), config.getString("autowise_volunteer_table_range"))
         .compose {
             volunteers->
 
-                log.info "got volunteers"
+                log.info "got volunteer list"
 
-                def eventName = task.data.getString("eventName")
-                def eventSheetId = task.data.getString("eventSheetId")
-                def eventbriteLink = task.data.getString("eventbriteLink")
-                def eventSlackChannel  = task.data.getString("eventSlackChannel")
-                List<Role> eventRoles = slurpRolesJson(task.data.getString("rolesJsonString"))
-                def eventStartTime = ZonedDateTime.parse(task.data.getString("eventStartTime"), EventSlurper.eventTimeFormatter)
-                log.info "About to enter composite future"
 
                 return CompositeFuture.all(
-                        syncEventVolunteerContactSheet(services.db,task.eventId, eventSheetId, volunteers),
+                        syncEventVolunteerContactSheet(services.db,task.eventId, event.sheetId, volunteers), //Sync the list of volunteers contacted for this event with the global list of wiser volunteers
                         slurpDocument(services.googleAPI, task.data.getString("emailTemplateId")),
-                        services.db.findAvailableShiftRoles(eventSheetId)
+                        services.db.findAvailableShiftRoles(event.sheetId)
                 ).onFailure{
                     err->Future.failedFuture(err)
                 }
@@ -88,10 +81,10 @@ static def recruitmentEmailTask(Vertx vertx, services, Task task, Event event, c
                         log.info "Synced volunteer contact status sheet, slurped email template, and got unfilled shift roles!"
 
                         if(unfilledShiftRoles.size() == 0){
-                            return handleNoAvailableShiftRoles(services, task, eventName)
+                            return handleNoAvailableShiftRoles(services, task, event)
                         }
 
-                        log.info "Unfilled shift roles exist for ${eventName}"
+                        log.info "Unfilled shift roles exist for ${event.name}"
 
                         Promise promise = Promise.promise()
                         MassEmailSender sender = new MassEmailSender(vertx, services, config, volunteerContactStatusData)
@@ -103,13 +96,13 @@ static def recruitmentEmailTask(Vertx vertx, services, Task task, Event event, c
                                 def volunteer = getVolunteerByEmail(contactStatus.volunteerEmail, volunteers)
                                 if(volunteer == null){
                                     log.warn "Volunteer with email ${contactStatus.volunteerEmail} does not appear in WiSER volunteer pool, skipping recruitment email"
-                                    sendSlackMessage(services.slackAPI, eventSlackChannel, "${contactStatus.volunteerEmail} appears on the ${eventName}' volunteer contact status' sheet but does not appear in the WiSER general volunteer list. No email will be sent to ${contactStatus.volunteerEmail}.")
+                                    sendSlackMessage(services.slackAPI, event.eventSlackChannel, "${contactStatus.volunteerEmail} appears on the ${event.name}' volunteer contact status' sheet but does not appear in the WiSER general volunteer list. No email will be sent to ${contactStatus.volunteerEmail}.")
                                     return null //Return a null email entry to skip this row as we don't recognize the volunteer
                                 }
 
                                 rowFuture.onSuccess{
-                                    log.info "updating ${task.eventId} - ${eventSheetId} - ${volunteer.email} - \"Waiting for response\" - null"
-                                    updateVolunteerStatus(services.db, task.eventId,  eventSheetId, volunteer.email, "Waiting for response", null)
+                                    log.info "updating ${task.eventId} - ${event.sheetId} - ${volunteer.email} - \"Waiting for response\" - null"
+                                    updateVolunteerStatus(services.db, task.eventId,  event.sheetId, volunteer.email, "Waiting for response", null)
                                         .onSuccess{
                                             log.info "volunteer contact status updated"
                                         }
@@ -118,7 +111,7 @@ static def recruitmentEmailTask(Vertx vertx, services, Task task, Event event, c
                                         }
                                 }
 
-                                def emailContents = makeShiftRoleEmail(services, config, volunteer, task, unfilledShiftRoles, eventRoles, eventStartTime, eventName, eventSheetId, eventSlackChannel, eventbriteLink, emailTemplate)
+                                def emailContents = makeShiftRoleEmail(services, config, volunteer, task, unfilledShiftRoles, event.roles, event.startTime, event.name, event.sheetId, event.eventSlackChannel, event.eventbriteLink, emailTemplate)
                                 return new MassEmailEntry(target: volunteer.email, content: emailContents, subject: subject)
 
 
@@ -126,31 +119,31 @@ static def recruitmentEmailTask(Vertx vertx, services, Task task, Event event, c
 
                         }, taskComplete->{
                             taskComplete.onSuccess{
-                                log.info "Sent all recruitment emails for ${eventName} completing task ${task.taskId.toString()}"
+                                log.info "Sent all recruitment emails for ${event.name} completing task ${task.taskId.toString()}"
                                 services.db.markTaskComplete(task.taskId)
                                 vertx.setTimer(CONTACT_STATUS_SHEET_UPDATE_DELAY, timer->{
-                                    ManageEventVolunteerContactSheet.updateVolunteerContactStatusTable(services, eventSheetId, task.eventId)
+                                    ManageEventVolunteerContactSheet.updateVolunteerContactStatusTable(services, event.sheetId, task.eventId)
                                 })
 
 
-                                if(task.notify){
-                                    sendSlackMessage(services.slackAPI, eventSlackChannel, "Sent recruitment emails for ${eventName} successfully!")
-                                        .onSuccess{
-                                            promise.tryComplete()
-                                        }
-                                        .onFailure{
-                                            err->log.error err.getMessage(), err
-                                                promise.fail(err)
-                                        }
-                                }
+
+                                sendSlackMessage(services.slackAPI, event.eventSlackChannel, "Sent recruitment emails for ${event.name} successfully!")
+                                    .onSuccess{
+                                        promise.tryComplete()
+                                    }
+                                    .onFailure{
+                                        err->log.error err.getMessage(), err
+                                            promise.fail(err)
+                                    }
+
 
                                 promise.tryComplete()
 
 
                             }.onFailure{err->
-                                log.info "Error sending recruitment emails for ${eventName}, task ${task.taskId.toString()}"
+                                log.info "Error sending recruitment emails for ${event.name}, task ${task.taskId.toString()}"
                                 log.error err.getMessage(), err
-                                sendSlackMessage(services.slackAPI, eventSlackChannel, "Error while sending recruitment emails for ${eventName}.  TaskId: ${task.taskId.toString()}. Error Message: ${err.getMessage()}")
+                                sendSlackMessage(services.slackAPI, event.eventSlackChannel, "Error while sending recruitment emails for ${event.name}.  TaskId: ${task.taskId.toString()}. Error Message: ${err.getMessage()}")
                                 promise.fail(err)
                             }
 
@@ -181,15 +174,7 @@ private static String makeShiftRoleEmail(services, config, Volunteer volunteer, 
                         data: new JsonObject()
                                 .put("volunteerName", volunteer.name)
                                 .put("volunteerEmail", volunteer.email)
-                                .put("eventName", eventName)
-                                .put("eventSheetId", eventSheetId)
                                 .put("shiftRoleString", shiftRole.shiftRoleString)
-                                .put("confirmAssignedEmailTemplateId", task.data.getString("confirmAssignedEmailTemplateId"))
-                                .put("confirmWaitlistEmailTemplateId", task.data.getString("confirmWaitlistEmailTemplateId"))
-                                .put("confirmCancelledEmailTemplateId", task.data.getString("confirmCancelledEmailTemplateId"))
-                                .put("eventSlackChannel", eventSlackChannel)
-                                .put("rolesJsonString", task.data.getString("rolesJsonString"))
-                                .put("eventStartTime", eventStartTime.format(EventSlurper.eventTimeFormatter))
                 )
                 services.db.insertWebhook(volunteerWebhook)
                 services.server.mountWebhook(volunteerWebhook)
@@ -208,9 +193,6 @@ private static String makeShiftRoleEmail(services, config, Volunteer volunteer, 
             data: new JsonObject()
                     .put("volunteerName", volunteer.name)
                     .put("volunteerEmail", volunteer.email)
-                    .put("eventSheetId", eventSheetId)
-                    .put("eventName", eventName)
-                    .put("eventSlackChannel", eventSlackChannel)
                     .put("emailTemplateId",task.data.getString("confirmRejectedEmailTemplatedId") )
 
     )
@@ -226,10 +208,10 @@ private static String makeShiftRoleEmail(services, config, Volunteer volunteer, 
     return emailContents
 }
 
-private static def handleNoAvailableShiftRoles(services, Task task, eventName){
+private static def handleNoAvailableShiftRoles(services, Task task, Event event){
     services.db.markTaskComplete(task.taskId)
     if(task.notify){
-        return sendSlackMessage(services.slackAPI, task.data.getString("eventSlackChannel"), "No unfilled shifts for ${eventName}. Aborting recruitment email task.")
+        return sendSlackMessage(services.slackAPI, event.eventSlackChannel, "No unfilled shifts for ${event.name}. Aborting recruitment email task.")
     }
     return Future.succeededFuture()
 }
