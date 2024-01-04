@@ -1,5 +1,6 @@
 package ca.ualberta.autowise.scripts.tasks
 
+import ca.ualberta.autowise.model.Event
 import ca.ualberta.autowise.model.HookType
 import ca.ualberta.autowise.model.MassEmailEntry
 import ca.ualberta.autowise.model.MassEmailSender
@@ -28,7 +29,7 @@ import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.sendSlackMessa
 
 @Field static def log = LoggerFactory.getLogger(ConfirmationEmailTask.class)
 
-static def confirmationEmailTask(Vertx vertx, services, Task task, config, subject){
+static def confirmationEmailTask(Vertx vertx, services, Task task, Event event, config, subject){
 
     def eventName = task.data.getString("eventName")
     def eventSheetId = task.data.getString("eventSheetId")
@@ -79,7 +80,7 @@ static def confirmationEmailTask(Vertx vertx, services, Task task, config, subje
                                                 .put("volunteerName", volunteer.name)
                                                 .put("volunteerEmail", volunteer.email)
                                                 .put("eventSheetId", eventSheetId)
-                                                .put("shiftRoleString", rowData.get(7))
+                                                .put("shiftRoleString", contactStatus.desiredShiftRole)
                                 )
                                 services.db.insertWebhook(confirmHook)
                                 services.server.mountWebhook(confirmHook)

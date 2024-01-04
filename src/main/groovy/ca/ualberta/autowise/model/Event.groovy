@@ -3,7 +3,7 @@ package ca.ualberta.autowise.model
 import java.time.ZonedDateTime
 
 enum EventStatus{
-    PENDING,READY, IN_PROGRESS, COMPLETE, CANCELLED
+    PENDING,READY, IN_PROGRESS, COMPLETE, CANCELLED, RECRUITING
 }
 
 class Event {
@@ -12,6 +12,7 @@ class Event {
     UUID id
     String status
     String sheetId
+    String weblink
 
     //Event info
     String name

@@ -1,6 +1,7 @@
 package ca.ualberta.autowise.scripts.webhook
 
 import ca.ualberta.autowise.model.Webhook
+import ca.ualberta.autowise.scripts.ManageEventStatusTable
 import groovy.transform.Field
 import io.vertx.core.CompositeFuture
 import io.vertx.core.Future
@@ -35,7 +36,7 @@ static def rejectVolunteeringForEvent(services, Webhook webhook, config){
                 def eventSlackChannel = webhook.data.getString("eventSlackChannel")
 
                 return CompositeFuture.all(
-                        updateVolunteerStatus(services.db, webhook.eventId, eventSheetId, volunteerEmail, "Rejected", "-" ),      //Update the status
+                        updateVolunteerStatus(services.db, webhook.eventId, eventSheetId, volunteerEmail, "Rejected", "-" ).compose {return ManageEventStatusTable.updateEventStatusTable(services, eventSheetId)},      //Update the status
                         slurpDocument(services.googleAPI, webhook.data.getString("emailTemplateId"))
                 ).compose{
                     composite->

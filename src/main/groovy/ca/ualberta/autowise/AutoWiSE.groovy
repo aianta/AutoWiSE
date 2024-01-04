@@ -1,8 +1,13 @@
 package ca.ualberta.autowise
 
+import ca.ualberta.autowise.model.Event
+import ca.ualberta.autowise.model.EventStatus
 import ca.ualberta.autowise.model.SlackBrowser
 import ca.ualberta.autowise.model.Task
 import ca.ualberta.autowise.model.Volunteer
+import ca.ualberta.autowise.scripts.ManageEventStatusTable
+import ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet
+import ca.ualberta.autowise.scripts.ManageVolunteerConfirmationTable
 import ca.ualberta.autowise.scripts.google.EventSlurper
 import com.google.api.client.googleapis.json.GoogleJsonError
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
@@ -18,6 +23,7 @@ import io.vertx.core.json.JsonObject
 
 import org.slf4j.LoggerFactory
 
+import java.awt.Composite
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
@@ -157,7 +163,14 @@ void vertxStart(Promise<Void> startup){
 
                 boltApp.updateValidGDriveIds(); //refresh template options
 
-                //doExternalTick(services, config)
+                doExternalTick(services, config)
+                    .onSuccess {
+                        log.info "External tick complete! {}", ZonedDateTime.now().format(EventSlurper.eventTimeFormatter)
+                    }
+                    .onFailure {
+                        log.error "External tick error! {}", ZonedDateTime.now().format(EventSlurper.eventTimeFormatter)
+                        log.error it.getMessage(), it
+                    }
 
 
             })
@@ -167,15 +180,19 @@ void vertxStart(Promise<Void> startup){
 
                 db.getWork().onSuccess(taskList->{
                     taskList.forEach( task-> {
-                        log.info "Looking through task ${task.name}"
+                        task = (Task)task;
+                        log.info "Retrieving associated event ({}) for task [{}] {}", task.eventId.toString(), task.taskId.toString(), task.name
 
-                        executeTask(task, vertx, services, config).onSuccess{
-                            log.info "Task ${task.taskId.toString()} executed sucessfully!"
-                        }.onFailure{ err->
-                            log.error "Error executing task ${task.taskId.toString()}!"
-                            log.error err.getMessage(), err
+                        db.getEvent(task.eventId)
+                        .onFailure {log.error it.getMessage(), it}
+                        .onSuccess {
+                            executeTask(task, it, vertx, services, config).onSuccess{
+                                log.info "Task ${task.taskId.toString()} executed sucessfully!"
+                            }.onFailure{ err->
+                                log.error "Error executing task ${task.taskId.toString()}!"
+                                log.error err.getMessage(), err
+                            }
                         }
-
                     })
                 })
 
@@ -205,83 +222,123 @@ void vertxStart(Promise<Void> startup){
 
 }
 
-def doExternalTick(services, config){
-    def server = services.server
-    def googleApi = services.googleAPI
+static def doExternalTick(services, config) {
+    log.info "External tick!"
+    SQLite db = services.db
+    return db.getUpcomingEvents().compose {
 
-    log.info "external tick - ${ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone).format(EventSlurper.eventTimeFormatter)}"
+        log.info "Upcoming events:"
+        it.forEach { event ->
+            log.info "{} - {}", event.id.toString(), event.name
+            if (event.status == EventStatus.IN_PROGRESS.toString() ) {
 
-    try{
-        log.info "Refreshing webhooks"
-        server.loadWebhooks() //(re)Load webhooks from database.
+                //Other parts of the event sheet won't have updates until after recruitment emails are sent.
+                db.isInitialRecruitmentComplete(event.id).compose { initialRecruitmentTaskComplete->
+                    if(initialRecruitmentTaskComplete){
+                        log.info "Updating spreadsheet {} for event {} - {}", event.sheetId, event.id.toString(), event.name
 
+                        List<Future> todoForEvent = [
+                                ManageEventStatusTable.updateEventStatusTable(services, event.sheetId),
+                                ManageEventVolunteerContactSheet.updateVolunteerContactStatusTable(services, event.sheetId, event.id),
+                                ManageVolunteerConfirmationTable.updateVolunteerConfirmationTable(services, event.sheetId)
+                        ]
 
-        /**
-         * On every tick check google drive for new events to process.
-         */
-        /**
-         * Start going through all the google sheets in the autowise folder on google drive.
-         */
-        getFiles(googleApi, config.getString("autowise_drive_folder_id"), "application/vnd.google-apps.spreadsheet")
-                .onSuccess {
-                    files->
-                        files.forEach {f->
-                            log.info "${f.getName()} - ${f.getMimeType()} - ${f.getId()}"
-                            /**
-                             * If the sheet name starts with the specified autowise_event_prefix process it
-                             */
-                            if (f.getName().startsWith(config.getString("autowise_event_prefix"))){
-
-                                // Do processing in separate thread to avoid blocking the main loop.
-                                vertx.executeBlocking(blocking->{
-
-                                    processEventSheet(services, f.getId(), config)
-                                            .onSuccess {
-                                                blocking.complete()
-                                            }.onFailure{err->
-                                        log.error err.getMessage(), err
-                                    }
-                                }, true){
-                                    log.info "Allegedly done processing"
-                                }
-
-
-                            }
+                        CompositeFuture.all(todoForEvent).onSuccess {
+                            log.info "Spreadsheet {} for event {} - {} updated successfully!", event.sheetId, event.id.toString(), event.name
                         }
-                }
-                .onFailure { err->
-                    log.error "Error getting files from google drive!"
-                    log.error err.getMessage(), err
+                    }
                 }
 
+                //Mark events whose end time has elapsed as complete.
+                if (event.endTime.isBefore(ZonedDateTime.now())) {
+                    db.updateEventStatus(event.id, EventStatus.COMPLETE)
+                }
 
-    }catch(Exception e){
-        log.error e.getMessage(), e
 
+            }
+
+        }
+
+        return Future.succeededFuture()
     }
 }
 
+//    def server = services.server
+//    def googleApi = services.googleAPI
+//
+//    log.info "external tick - ${ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone).format(EventSlurper.eventTimeFormatter)}"
+//
+//    try{
+//        log.info "Refreshing webhooks"
+//        server.loadWebhooks() //(re)Load webhooks from database.
+//
+//
+//        /**
+//         * On every tick check google drive for new events to process.
+//         */
+//        /**
+//         * Start going through all the google sheets in the autowise folder on google drive.
+//         */
+//        getFiles(googleApi, config.getString("autowise_drive_folder_id"), "application/vnd.google-apps.spreadsheet")
+//                .onSuccess {
+//                    files->
+//                        files.forEach {f->
+//                            log.info "${f.getName()} - ${f.getMimeType()} - ${f.getId()}"
+//                            /**
+//                             * If the sheet name starts with the specified autowise_event_prefix process it
+//                             */
+//                            if (f.getName().startsWith(config.getString("autowise_event_prefix"))){
+//
+//                                // Do processing in separate thread to avoid blocking the main loop.
+//                                vertx.executeBlocking(blocking->{
+//
+//                                    processEventSheet(services, f.getId(), config)
+//                                            .onSuccess {
+//                                                blocking.complete()
+//                                            }.onFailure{err->
+//                                        log.error err.getMessage(), err
+//                                    }
+//                                }, true){
+//                                    log.info "Allegedly done processing"
+//                                }
+//
+//
+//                            }
+//                        }
+//                }
+//                .onFailure { err->
+//                    log.error "Error getting files from google drive!"
+//                    log.error err.getMessage(), err
+//                }
+//
+//
+//    }catch(Exception e){
+//        log.error e.getMessage(), e
+//
+//    }
 
-static def executeTask(task, vertx, services, config){
+
+
+static def executeTask(Task task, Event event, vertx, services, config){
     return vertx.executeBlocking(blocking->{
-        _executeTask(task, vertx, services, config)
+        _executeTask(task, event, vertx, services, config)
             .onComplete{
                 blocking.complete()
             }
     },true)
 }
 
-static def _executeTask(task, vertx, services, config){
+static def _executeTask(Task task, Event event, vertx, services, config){
 
     switch (task.name) {
         case "AutoWiSE Event Registration Email":
-            return eventRegistrationEmailTask(services, task, config.getString("autowise_new_recruitment_campaign_email_template"), config)
+            return eventRegistrationEmailTask(services, task, event, config.getString("autowise_new_recruitment_campaign_email_template"), config)
                 .onSuccess{
                     log.info "Event registration email task complete."
                 }.onFailure{err-> handleTaskError(config, services, err, task)}
             break
         case "Initial Recruitment Email":
-            return recruitmentEmailTask(vertx, services, task, config, (status)->{
+            return recruitmentEmailTask(vertx, services, task, event, config, (status)->{
                 return status.equals("Not Contacted")
             }, "[WiSER] Volunteer opportunities for ${task.data.getString("eventName")}!")
             .onSuccess{
@@ -289,7 +346,7 @@ static def _executeTask(task, vertx, services, config){
             }.onFailure{err-> handleTaskError(config, services, err, task)}
             break
         case "Recruitment Email":
-            return recruitmentEmailTask(vertx, services, task, config, (status)->{
+            return recruitmentEmailTask(vertx, services, task, event, config, (status)->{
                 return status.equals("Not Contacted") || status.equals("Waiting for response")
             }, "[WiSER] Volunteer opportunities for ${task.data.getString("eventName")}!")
             .onSuccess{
@@ -298,7 +355,7 @@ static def _executeTask(task, vertx, services, config){
 
             break
         case "Follow-up Email":
-            return confirmationEmailTask(vertx, services, task, config, "[WiSER] Confirm your upcomming volunteer shift for ${task.data.getString("eventName")}!" )
+            return confirmationEmailTask(vertx, services, task, event, config, "[WiSER] Confirm your upcomming volunteer shift for ${task.data.getString("eventName")}!" )
                 .onSuccess{
                     log.info "Confirmation email task completed successfully!"
                 }.onFailure{err-> handleTaskError(config, services, err, task)}

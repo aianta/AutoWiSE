@@ -81,8 +81,9 @@ static def getShiftRole(shiftRoleString, List<Role> roles){
     def shiftIndex = Integer.parseInt(shiftRoleComponents[0].trim())
 
     def roleName = shiftRoleComponents[1].trim()
-
-    Role role = roles.stream().filter {role->role.getName().equals(roleName)}
+    log.info "shiftRoleString: ${shiftRoleString}"
+    log.info "roleName: ${roleName}"
+    Role role = roles.stream().filter {role->role.name.equals(roleName)}
                 .findFirst().orElse(null)
 
     if (role == null){

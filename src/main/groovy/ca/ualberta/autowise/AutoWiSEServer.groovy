@@ -1,5 +1,6 @@
 package ca.ualberta.autowise
 
+import ca.ualberta.autowise.model.EventStatus
 import ca.ualberta.autowise.model.HookType
 import ca.ualberta.autowise.model.TaskStatus
 import ca.ualberta.autowise.model.Webhook
@@ -210,7 +211,7 @@ class AutoWiSEServer {
                     break
                 case HookType.CANCEL_CAMPAIGN:
                     finishResponse(rc, "The campaign will be cancelled imminently.")
-                    db.cancelCampaign(webhook.eventId).onSuccess{
+                    db.cancelCampaign(webhook.eventId).compose {return db.updateEventStatus(webhook.eventId, EventStatus.CANCELLED)}.onSuccess{
                         log.info "Campaign for eventId ${webhook.eventId.toString()} has been cancelled."
                         updateSingleValueAt(services.googleAPI, webhook.data.getString("eventSheetId"), 'Event!A3', TaskStatus.CANCELLED.toString())
 
@@ -222,7 +223,7 @@ class AutoWiSEServer {
                     break
                 case HookType.BEGIN_CAMPAIGN:
                     finishResponse(rc, "The campaign tasks will be scheduled according to plan imminently.")
-                    db.beginCampaign(webhook.eventId).onSuccess{
+                    db.beginCampaign(webhook.eventId).compose{return db.updateEventStatus(webhook.eventId, EventStatus.IN_PROGRESS)}.onSuccess{
                         log.info "Campagin for eventId ${webhook.eventId.toString()} has begun!"
                         updateSingleValueAt(services.googleAPI, webhook.data.getString("eventSheetId"), "Event!A3", TaskStatus.IN_PROGRESS.toString())
                             .onFailure {err->webhookFailureHandler(config, services, err, webhook)}

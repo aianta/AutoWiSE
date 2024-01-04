@@ -6,6 +6,7 @@ import ca.ualberta.autowise.model.Role
 import ca.ualberta.autowise.model.ShiftRole
 import ca.ualberta.autowise.model.Webhook
 import ca.ualberta.autowise.scripts.FindAvailableShiftRoles
+import ca.ualberta.autowise.scripts.ManageEventStatusTable
 import ca.ualberta.autowise.scripts.google.EventSlurper
 import groovy.transform.Field
 import io.vertx.core.CompositeFuture
@@ -84,6 +85,7 @@ static def acceptShiftRole(services, Webhook webhook, config){
                     if(it){
                         //The volunteer has been successfully assigned
                         return updateVolunteerStatus(services.db, eventId, eventSheetId, volunteerEmail, "Accepted", targetShiftRoleString)
+
                             .compose {
                                 Webhook cancelHook = new Webhook(
                                         id: UUID.randomUUID(),
@@ -113,6 +115,7 @@ static def acceptShiftRole(services, Webhook webhook, config){
                                         log.info "email contents: \n${emailContents}"
 
                                         return CompositeFuture.all(
+                                                updateEventStatusTable(services, eventSheetId),
                                                 sendEmail(config, services.googleAPI, config.getString("sender_email"), volunteerEmail, "[WiSER] Volunteer Sign-up Confirmation for ${eventName}", emailContents),
                                                 sendSlackMessage(services.slackAPI, eventSlackChannel, "${volunteerName} has expressed interest in volunteering for ${eventName} as ${shiftRole.role.name}. They have been successfully assigned shift ${shiftRole.shift.index} starting at ${shiftRole.shift.startTime.format(EventSlurper.shiftTimeFormatter)} and ending at ${shiftRole.shift.endTime.format(EventSlurper.shiftTimeFormatter)}. "  ) // Notify Slack
                                         )
@@ -120,10 +123,10 @@ static def acceptShiftRole(services, Webhook webhook, config){
                             }
 
                     }else{
-                        //If we make it to here, there are no available slots for the target shift role.
+
                         //If we make it to here, there are no available slots for the target shift role.
                         CompositeFuture.all(
-                                updateVolunteerStatus(services.db,eventId,  eventSheetId, volunteerEmail, "Waitlisted", targetShiftRoleString),
+                                updateVolunteerStatus(services.db,eventId,  eventSheetId, volunteerEmail, "Waitlisted", targetShiftRoleString).compose { return updateEventStatusTable(services, eventSheetId)},
                                 slurpDocument(services.googleAPI, webhook.data.getString("confirmWaitlistEmailTemplateId"))
                         ).compose{
                             compositeResult->

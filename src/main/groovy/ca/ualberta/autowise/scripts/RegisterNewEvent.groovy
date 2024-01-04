@@ -38,26 +38,23 @@ import static ca.ualberta.autowise.scripts.google.GetFilesInFolder.*
 @Field static def log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.RegisterNewEvent.class)
 @Field static def EVENT_STATUS_ROLE_SHIFT_CELL_ADDRESS = "\'Event Status\'!A5"
 
-static def registerNewEvent(services, event, sheetId, config){
+static def registerNewEvent(services, event, config){
 
     log.info "Starting new event registration!"
     /**
      * Registering a new event means:
      *
-     * 1. Assigning it an event id
+     *
      * 2. Creating an automated recruitment campaign plan
      *      This will consist of a series of scheduled tasks to execute for this event.
      * 3. Create a 'begin campaign' webhook
      * 4. Create 'cancel campaign' webhook
      * 4. Create webhooks to cancel and instantly execute any task.
-     * 5. Update 'Event Status' sheet in the event spreadsheet.
-     * 6. Initialize the 'Volunteer Contact Status' sheet in the event spreadsheet.
-     * 7. Set the event status to 'IN_PROGRESS' in the event spreadsheet.
+     * 5. Update the Event Status in the database.
+     * 6. Initialize the 'Volunteer Contact Status' entries in the database for this event
+     * 7. Set the event status to 'IN_PROGRESS'
      */
 
-    //assert event.id == null // Events processed by this script should not have ids
-    // Set the event id
-    //event.id = UUID.randomUUID() // Generate an id for this event.
 
 
     // Make campaign plan
@@ -108,32 +105,14 @@ static def registerNewEvent(services, event, sheetId, config){
         }
     }
 
-
-
-
-    return CompositeFuture.all(
-            clearRange(services.googleAPI, sheetId, config.getString("volunteer_contact_status_clearing_range")), // Clear volunteer contact status
-            clearRange(services.googleAPI, sheetId, config.getString("event_status_clearing_range")), // Clear the event status range
-            clearRange(services.googleAPI, sheetId, config.getString("confirmation_status_clearing_range")) // Clear the confirmation status range
-    ).compose{
-        log.info "Cleared ranges! Now updating"
         return CompositeFuture.all(
-                updateColumnValueAt(services.googleAPI, sheetId, EVENT_STATUS_ROLE_SHIFT_CELL_ADDRESS, produceRoleShiftList(event)),        // Update 'Event Status' Sheet
-                services.db.populateShiftRoles(event.id, sheetId, produceRoleShiftList(event)),
-                updateSingleValueAt(services.googleAPI, sheetId, "Event!A2", event.id.toString()),     //Update the event id in the sheet
-                updateSingleValueAt(services.googleAPI, sheetId, "Event!A3", EventStatus.PENDING.toString()),     // Update the event status
+                services.db.populateShiftRoles(event.id, event.sheetId, produceRoleShiftList(event)),
                 slurpVolunteerList(services.googleAPI, config.getString("autowise_volunteer_pool_id"), config.getString("autowise_volunteer_table_range")), //Get the volunteer list,
-                getFile(services.googleAPI, sheetId)
+                services.db.updateEventStatus(event.id, EventStatus.PENDING)
         ).compose{
             composite->
 
-                def spreadsheet = ((File)composite.resultAt(5))
-                log.info "event sheet ${spreadsheet.toPrettyString()}"
-                def spreadsheetLink = spreadsheet.getWebViewLink()
-                log.info "event spreadsheet link: ${spreadsheetLink}"
-                plan.get(0).data.put("eventSpreadsheetLink", spreadsheetLink) //Include the spreadsheet link in the new campaign email.
-
-                Set<Volunteer> volunteers = composite.resultAt(4)
+                Set<Volunteer> volunteers = composite.resultAt(1)
                 log.info "got volunteers! ${volunteers}"
 
                 List<ContactStatus> contactStatuses = new ArrayList<>();
@@ -146,25 +125,13 @@ static def registerNewEvent(services, event, sheetId, config){
                     ))
                 }
 
-                return CompositeFuture.all(contactStatuses.stream().map {services.db.insertContactStatus(it)}
-                    .collect(Collectors.toList())
-                ).onSuccess {
+                return CompositeFuture.all(contactStatuses.stream().map {services.db.insertContactStatus(it)}.collect(Collectors.toList()))
+                        .onFailure {log.error it.cause.getMessage(), it.cause}
+                        .onSuccess {
                     // Persist plan in sqlite, make sure to do this after webhook generation, so webhook info makes it into the db.
                     services.db.insertPlan(plan)
                 }
 
-//
-//
-//                def volunteerContactStatusData = makeInitialVolunteerContactStatus(volunteers)
-//                def volunteerContactStatusCellAddress = "\'Volunteer Contact Status\'!A2"
-//                ValueRange valueRange = new ValueRange()
-//                valueRange.setMajorDimension("ROWS")
-//                valueRange.setRange(volunteerContactStatusCellAddress)
-//                valueRange.setValues(volunteerContactStatusData)
-//                return updateAt(services.googleAPI, sheetId, volunteerContactStatusCellAddress, valueRange).onSuccess{
-//                    // Persist plan in sqlite, make sure to do this after webhook generation, so webhook info makes it into the db.
-//                    services.db.insertPlan(plan)
-//                }
 
 
         }
@@ -172,7 +139,7 @@ static def registerNewEvent(services, event, sheetId, config){
 
 
 
-}
+
 
 private static def produceRoleShiftSet(Event event){
     return produceRoleShiftList(event).stream().collect(Collectors.toSet())
@@ -206,15 +173,7 @@ private static def produceRoleShiftList(Event event){
 
 }
 
-private static def makeInitialVolunteerContactStatus(Set<Volunteer> volunteers){
 
-    def result = []
-    volunteers.forEach {volunteer->
-        result.add([volunteer.email, "-", "Not Contacted","-","-","-","-","-"])
-    }
-
-    return result
-}
 
 
 private static def makeCampaignPlan(Event event){
@@ -224,47 +183,22 @@ private static def makeCampaignPlan(Event event){
             taskId: UUID.randomUUID(),
             eventId: event.id,
             name: 'AutoWiSE Event Registration Email',
-            advanceNotify: false,
-            advanceNotifyOffset: 0,
-            notify: false,
             taskExecutionTime: ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone),
             status: TaskStatus.SCHEDULED, //This is the only task that is actually scheduled when an event is registered.
             data: new JsonObject()
-                .put("eventName", event.name)
-                .put("eventSheetId", event.sheetId)
-                .put("eventbriteLink", event.eventbriteLink)
-                .put("eventStartTime", event.startTime.format(EventSlurper.eventTimeFormatter))
-                .put("rolesJsonString", JsonUtils.getEventGenerator().toJson(event.roles))
-                .put("eventLeads", event.eventOrganizers.stream().collect(JsonArray::new, JsonArray::add, JsonArray::addAll))
-                .put("volunteerCoordinators", event.volunteerCoordinators.stream().collect(JsonArray::new, JsonArray::add, JsonArray::addAll))
-                .put("initialRecruitmentEmailTemplateId", event.initialRecruitmentEmailTemplateId)
-                .put("recruitmentEmailTemplateId", event.recruitmentEmailTemplateId)
-                .put("confirmAssignedEmailTemplateId", event.confirmAssignedEmailTemplateId)
-                .put("confirmWaitlistEmailTemplateId", event.confirmWaitlistEmailTemplateId)
-                .put("confirmCancelledEmailTemplateId", event.confirmCancelledEmailTemplateId)
-                .put("confirmRejectedEmailTemplatedId", event.confirmRejectedEmailTemplateId)
-                .put("followupEmailTemplateId", event.followupEmailTemplateId)
     )
     plan.add(notifyEventLeadsAndVolCoordinatorsOfEventRegistration)
 
     //If this event is being registered after when the initial recruitment email should have gone out, instead, send it now.
     def _initialRecruitmentTaskExecutionTime = event.campaignStart
-    def _initialRecruitmentTaskAdvanceNotifyOffset = Duration.ofDays(1).toMillis() // 1-day before
-    def _initialRecruitmentTaskAdvancedNotify = true
     if(_initialRecruitmentTaskExecutionTime.isBefore(ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone))){
         _initialRecruitmentTaskExecutionTime = ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone)
-        _initialRecruitmentTaskAdvanceNotifyOffset = 0L //No more advanced notification
-        _initialRecruitmentTaskAdvancedNotify = false
-
     }
 
     Task initialRecruitmentEmail = new Task(
             taskId: UUID.randomUUID(),
             eventId: event.id,
             name: 'Initial Recruitment Email',
-            advanceNotify: _initialRecruitmentTaskAdvancedNotify,
-            advanceNotifyOffset: _initialRecruitmentTaskAdvanceNotifyOffset,
-            notify: true,
             taskExecutionTime: _initialRecruitmentTaskExecutionTime,
             status: TaskStatus.PENDING
     )
@@ -299,9 +233,6 @@ private static def makeCampaignPlan(Event event){
                     taskId: UUID.randomUUID(),
                     eventId: event.id,
                     name: 'Recruitment Email',
-                    advanceNotify: true,
-                    advanceNotifyOffset: Duration.ofDays(1).toMillis(),
-                    notify: true,
                     taskExecutionTime: resolicitTime,
                     status: TaskStatus.PENDING,
                     data: new JsonObject()
@@ -329,9 +260,6 @@ private static def makeCampaignPlan(Event event){
             taskId: UUID.randomUUID(),
             eventId: event.id,
             name: 'Follow-up Email',
-            advanceNotify: true,
-            advanceNotifyOffset: Duration.ofDays(1).toMillis(),
-            notify: true,
             taskExecutionTime: event.followupTime,
             status: TaskStatus.PENDING,
             data: new JsonObject()

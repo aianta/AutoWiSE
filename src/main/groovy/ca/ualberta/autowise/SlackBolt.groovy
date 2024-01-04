@@ -154,14 +154,15 @@ class SlackBolt implements Runnable{
                 .compose {
                     //TODO: Need to make sure this doesn't have strange implications because it's in a separate thread.
                     // better yet can we just register the newly created sheet directly?
-                    partialEvent.sheetId = it
+                    partialEvent.sheetId = it.getId()
+                    partialEvent.weblink = it.getWebViewLink()
                     return services.db.insert(partialEvent)
                 }
                         .onSuccess { log.info "Event sheet generated!"
 
 
 //                            autoWiSE.doExternalTick(services, config)
-                            registerNewEvent(services, partialEvent, partialEvent.sheetId, config)
+                            registerNewEvent(services, partialEvent, config)
                         }
                         .onFailure { log.error it.getMessage(), it})
 

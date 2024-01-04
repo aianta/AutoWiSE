@@ -102,25 +102,19 @@ class SQLite {
                                task_id,
                                event_id,
                                name,
-                               advance_notify,
-                               advance_notify_offset,
-                               notify,
                                task_execution_time,
                                task_execution_time_epoch_milli,
                                status,
                                data
                                )
             VALUES (
-                    ?,?,?,?,?,?,?,?,?,?
+                    ?,?,?,?,?,?,?
             );
             '''
             ).execute(Tuple.from([
                     task.taskId,
                     task.eventId,
                     task.name,
-                    task.advanceNotify,
-                    task.advanceNotifyOffset,
-                    task.notify,
                     task.taskExecutionTime.format(EventSlurper.eventTimeFormatter),
                     task.taskExecutionTime.toInstant().toEpochMilli(),
                     task.status.toString(),
@@ -330,14 +324,28 @@ class SQLite {
         return promise.future()
     }
 
+    def isInitialRecruitmentComplete(UUID eventId){
+        def promise = Promise.promise();
+
+        pool.preparedQuery('''
+            SELECT status FROM tasks WHERE name = "Initial Recruitment Email" AND event_id = ?;
+        ''').execute(Tuple.from([eventId.toString()]), {
+            if(it){
+                promise.complete(it.result().iterator().next().getString("status").equals("COMPLETE"))
+            }else{
+                promise.fail(it.cause())
+            }
+
+        })
+
+        return promise.future()
+    }
+
     private Task taskFromRow(Row row){
         Task t = new Task(
                 taskId: UUID.fromString(row.getString("task_id")),
                 eventId: UUID.fromString(row.getString("event_id")),
                 name: row.getString("name"),
-                advanceNotify: row.getInteger("advance_notify") == 0?false:true,
-                advanceNotifyOffset: row.getLong("advance_notify_offset"),
-                notify: row.getInteger("notify") == 0?false:true,
                 taskExecutionTime: ZonedDateTime.parse(row.getString("task_execution_time"), EventSlurper.eventTimeFormatter),
                 status: TaskStatus.valueOf(row.getString("status")),
                 data: new JsonObject(row.getString("data"))
@@ -644,9 +652,6 @@ class SQLite {
                 task_id TEXT PRIMARY KEY,
                 event_id TEXT NOT NULL, 
                 name TEXT NOT NULL,
-                advance_notify INTEGER NOT NULL,
-                advance_notify_offset INTEGER NOT NULL,
-                notify INTEGER NOT NULL,
                 task_execution_time TEXT NOT NULL,
                 task_execution_time_epoch_milli INTEGER NOT NULL,
                 status TEXT NOT NULL,
@@ -981,6 +986,8 @@ class SQLite {
                 List<Event> results = new ArrayList<>();
 
                 it.result().forEach {results.add(slurpEventJson(it.getString("data")))}
+
+                promise.complete(results)
             }else{
                 log.error "Error fetching upcoming events!"
                 log.error it.cause().getMessage(), it.cause()
@@ -1015,11 +1022,32 @@ class SQLite {
         return promise.future();
     }
 
+    def getEvent(UUID eventId){
+        Promise<Event> promise = Promise.promise();
+
+        pool.preparedQuery('''
+            SELECT data FROM events WHERE id = ?;
+        ''').execute(Tuple.from([eventId.toString()]),
+                {
+                    if(it){
+                        Row eventRow = it.result().iterator().next()
+                        promise.complete(slurpEventJson(eventRow.getString("data")))
+                    }else{
+                        log.error "Error getting event {} from database", eventId.toString()
+                        log.error it.cause().getMessage(), it.cause()
+                        promise.fail(it.cause())
+                    }
+                }
+        )
+
+        return promise.future()
+    }
+
     def insert(Event event){
         Promise<Event> promise = Promise.promise();
 
         pool.preparedQuery('''
-            INSERT INTO events (id, status,spreadsheet_id, name, start_time, end_time, data) VALUES (?,?,?,?,?,?,?);
+            INSERT INTO events (id, status,spreadsheet_id, name, start_time, end_time, data, weblink) VALUES (?,?,?,?,?,?,?,?);
         ''').execute(Tuple.from([
                 event.id.toString(),
                 event.status,
@@ -1027,7 +1055,8 @@ class SQLite {
                 event.name,
                 event.startTime.toInstant().toEpochMilli(),
                 event.endTime.toInstant().toEpochMilli(),
-                getEventGenerator().toJson(event)
+                getEventGenerator().toJson(event),
+                event.weblink
         ]), {
             if(it){
                 promise.complete(event)
@@ -1050,6 +1079,7 @@ class SQLite {
                 id TEXT PRIMARY KEY,
                 status TEXT NOT NULL,
                 spreadsheet_id TEXT,
+                weblink TEXT, 
                 name TEXT NOT NULL,
                 start_time NUMERIC NOT NULL,
                 end_time NUMERIC NOT NULL,
@@ -1179,6 +1209,9 @@ class SQLite {
     }
 
     def insertContactStatus(ContactStatus contactStatus){
+
+        log.info "Inserting contact status for {}", contactStatus.volunteerEmail
+
         Promise promise = Promise.promise();
 
         pool.preparedQuery('''

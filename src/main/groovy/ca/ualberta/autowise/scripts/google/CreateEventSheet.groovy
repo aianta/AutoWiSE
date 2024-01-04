@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory
 import java.util.concurrent.TimeUnit
 import java.util.stream.Collectors
 import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.batchUpdate
+import static ca.ualberta.autowise.scripts.google.GetFilesInFolder.getFile
 
 @Field static def log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.google.CreateEventSheet.class)
 
@@ -35,7 +36,7 @@ def static createEventSheet(config, GoogleAPI googleAPI, String sheetName, Event
             updates.add(generateHorizontalListUpdate(e.volunteerCoordinators, "Event!B8"))
             updates.add(new ValueRange().setRange(EventSlurper.ROLES_AND_SHIFTS_RANGE).setValues(generateRolesAndShiftsSection(config, e)))
 
-            return batchUpdate(googleAPI, file.getId(), updates)
+            return batchUpdate(googleAPI, file.getId(), updates).compose {sheetId->return getFile(googleAPI, sheetId )}
     }
 
 }

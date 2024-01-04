@@ -1,6 +1,7 @@
 package ca.ualberta.autowise.scripts.tasks
 
 import ca.ualberta.autowise.AutoWiSE
+import ca.ualberta.autowise.model.Event
 import ca.ualberta.autowise.model.Role
 import ca.ualberta.autowise.model.Shift
 import ca.ualberta.autowise.model.ShiftRole
@@ -38,28 +39,11 @@ import static ca.ualberta.autowise.scripts.webhook.RejectVolunteeringForEvent.ma
 @Field static log = LoggerFactory.getLogger(ca.ualberta.autowise.scripts.tasks.EventRegistrationEmailTask.class)
 
 //TODO - preview all emails + start campaign link
-static Future eventRegistrationEmailTask(services, Task t, emailTemplateId, config){
+static Future eventRegistrationEmailTask(services, Task t, Event event, emailTemplateId, config){
+
     def recipients = new HashSet<String>()
-    def volunteerCoordinators = t.data.getJsonArray("volunteerCoordinators")
-    def eventLeads = t.data.getJsonArray("eventLeads")
-    def eventSheetId = t.data.getString("eventSheetId")
-    def eventbriteLink = t.data.getString("eventbriteLink")
-    def eventStartTime = ZonedDateTime.parse(t.data.getString("eventStartTime"), EventSlurper.eventTimeFormatter)
-    def eventName = t.data.getString("eventName")
-    def eventSpreadsheetLink = t.data.getString("eventSpreadsheetLink")
-    List<Role> eventRoles =  slurpRolesJson(t.data.getString("rolesJsonString"))
-
-    //Get all email templates that will be used in this campaign
-    def initialRecruitmentEmailTemplateId = t.data.getString("initialRecruitmentEmailTemplateId")
-    def recruitmentEmailTemplateId = t.data.getString("recruitmentEmailTemplateId")
-    def confirmAssignedEmailTemplateId = t.data.getString("confirmAssignedEmailTemplateId")
-    def confirmWaitlistEmailTemplateId = t.data.getString("confirmWaitlistEmailTemplateId")
-    def confirmCancelledEmailTemplateId = t.data.getString("confirmCancelledEmailTemplateId")
-    def confirmRejectedEmailTemplatedId = t.data.getString("confirmRejectedEmailTemplatedId")
-    def followupEmailTemplateId = t.data.getString("followupEmailTemplateId")
-
-    volunteerCoordinators.forEach {entry->recipients.add(entry)}
-    eventLeads.forEach {entry->recipients.add(entry)}
+    event.eventOrganizers.forEach {recipients.add(it)}
+    event.volunteerCoordinators.forEach {recipients.add(it)}
 
     def campaignCancelHookPath = "/" + Base64.encodeBase64URLSafeString(t.data.getString("campaignCancelHookId").getBytes())
     def campaignBeginHookPath = "/" + Base64.encodeBase64URLSafeString(t.data.getString("campaignBeginHookId").getBytes())
@@ -72,15 +56,14 @@ static Future eventRegistrationEmailTask(services, Task t, emailTemplateId, conf
 
             CompositeFuture.all(
                     [slurpDocument(services.googleAPI, emailTemplateId),
-                    slurpDocument(services.googleAPI, initialRecruitmentEmailTemplateId),
-                    slurpDocument(services.googleAPI, recruitmentEmailTemplateId),
-                    slurpDocument(services.googleAPI, confirmAssignedEmailTemplateId),
-                    slurpDocument(services.googleAPI, confirmWaitlistEmailTemplateId),
-                    slurpDocument(services.googleAPI, confirmCancelledEmailTemplateId),
-                    slurpDocument(services.googleAPI, confirmRejectedEmailTemplatedId),
-                    slurpDocument(services.googleAPI, followupEmailTemplateId),
-                    services.db.findAvailableShiftRoles(eventSheetId)
-                    //findAvailableShiftRoles(services.googleAPI, eventSheetId)
+                    slurpDocument(services.googleAPI, event.initialRecruitmentEmailTemplateId),
+                    slurpDocument(services.googleAPI, event.recruitmentEmailTemplateId),
+                    slurpDocument(services.googleAPI, event.confirmAssignedEmailTemplateId),
+                    slurpDocument(services.googleAPI, event.confirmWaitlistEmailTemplateId),
+                    slurpDocument(services.googleAPI, event.confirmCancelledEmailTemplateId),
+                    slurpDocument(services.googleAPI, event.confirmRejectedEmailTemplateId),
+                    slurpDocument(services.googleAPI, event.followupEmailTemplateId),
+                    services.db.findAvailableShiftRoles(event.sheetId)
                     ]
             ).compose{
                 compositeResult->
@@ -94,11 +77,10 @@ static Future eventRegistrationEmailTask(services, Task t, emailTemplateId, conf
                     def followupTemplate = compositeResult.resultAt(7)
                     def unfilledShiftRoles = compositeResult.resultAt(8)
 
-                    def emailContents = emailTemplate.replaceAll("%eventName%", eventName)
-                    emailContents = emailContents.replaceAll("%eventSheetLink%", "<a href=\"${eventSpreadsheetLink}\">${eventSpreadsheetLink}</a>")
+                    def emailContents = emailTemplate.replaceAll("%eventName%", event.name)
+                    emailContents = emailContents.replaceAll("%eventSheetLink%", "<a href=\"${event.weblink}\">${event.weblink}</a>")
                     emailContents = emailContents.replaceAll("%taskSummary%", taskSummary)
                     emailContents = emailContents.replaceAll("%cancelLink%", "<a href=\"${config.getString("protocol")}://${config.getString("host")}:${config.getInteger("port").toString()}${campaignCancelHookPath}\">Cancel Campaign</a>" )
-//                   TODO - Re-enable begin link
                     emailContents = emailContents.replaceAll("%beginLink%","<a href=\"${config.getString("protocol")}://${config.getString("host")}:${config.getInteger("port").toString()}${campaignBeginHookPath}\">Begin Campaign</a>" )
                     emailContents = emailContents.replaceAll("%templates%", makeTemplatesPreview(
                             initialRecruitmentTemplate,
@@ -109,15 +91,14 @@ static Future eventRegistrationEmailTask(services, Task t, emailTemplateId, conf
                             confirmRejectedTemplate,
                             followupTemplate,
                             ((Set<String>)unfilledShiftRoles),
-                            eventRoles,
-                            eventName,
-                            eventbriteLink,
-                            eventStartTime,
+                            event.roles,
+                            event.name,
+                            event.eventbriteLink,
+                            event.startTime,
                             config
                     ))
 
-                    //TODO - Error handling
-                    return sendEmailToGroup(config, services.googleAPI, config.getString("sender_email"), recipients, "AutoWiSE Automated Campaign Plan for ${eventName}", emailContents)
+                    return sendEmailToGroup(config, services.googleAPI, config.getString("sender_email"), recipients, "AutoWiSE Automated Campaign Plan for ${event.name}", emailContents)
 
             }.compose{
                 services.db.markTaskComplete(t.taskId)
@@ -225,11 +206,7 @@ private static def makeTemplatesPreview(
     sb.append(rejectEmail)
     sb.append("<br><br>")
     sb.append("-------------------------------------------------------")
-
     sb.append("<br><br>")
-
-
-
     return sb.toString()
 }
 

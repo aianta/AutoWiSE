@@ -1,6 +1,7 @@
 package ca.ualberta.autowise.scripts.tasks
 
-
+import ca.ualberta.autowise.model.ContactStatus
+import ca.ualberta.autowise.model.Event
 import ca.ualberta.autowise.model.HookType
 import ca.ualberta.autowise.model.MassEmailEntry
 import ca.ualberta.autowise.model.MassEmailSender
@@ -9,6 +10,7 @@ import ca.ualberta.autowise.model.ShiftRole
 import ca.ualberta.autowise.model.Task
 import ca.ualberta.autowise.model.Volunteer
 import ca.ualberta.autowise.model.Webhook
+import ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet
 import ca.ualberta.autowise.scripts.google.EventSlurper
 import groovy.transform.Field
 import io.vertx.core.CompositeFuture
@@ -34,6 +36,7 @@ import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.sendSlackMessa
 import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.updateVolunteerStatus
 
 @Field static def log = LoggerFactory.getLogger(RecruitmentEmailTask.class)
+@Field static long CONTACT_STATUS_SHEET_UPDATE_DELAY = 5000; //Wait 5 seconds before updating the contact status sheet.
 
 /**
  * @author Alexandru Ianta
@@ -52,7 +55,7 @@ import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.upda
  *
  */
 
-static def recruitmentEmailTask(Vertx vertx, services, Task task, config, Predicate<String> statusPredicate, subject){
+static def recruitmentEmailTask(Vertx vertx, services, Task task, Event event, config, Predicate<String> statusPredicate, subject){
     log.info "In recruitment email task!"
     // Fetch all the data we'll need to execute the task
     return slurpVolunteerList(services.googleAPI, config.getString("autowise_volunteer_pool_id"), config.getString("autowise_volunteer_table_range"))
@@ -73,13 +76,12 @@ static def recruitmentEmailTask(Vertx vertx, services, Task task, config, Predic
                         syncEventVolunteerContactSheet(services.db,task.eventId, eventSheetId, volunteers),
                         slurpDocument(services.googleAPI, task.data.getString("emailTemplateId")),
                         services.db.findAvailableShiftRoles(eventSheetId)
-                        //findAvailableShiftRoles(services.googleAPI, eventSheetId)
                 ).onFailure{
                     err->Future.failedFuture(err)
                 }
                         .compose{
                     composite->
-                        def volunteerContactStatusData = composite.resultAt(0)
+                        List<ContactStatus> volunteerContactStatusData = composite.resultAt(0)
                         def emailTemplate = composite.resultAt(1)
                         def unfilledShiftRoles = composite.resultAt(2)
 
@@ -126,6 +128,10 @@ static def recruitmentEmailTask(Vertx vertx, services, Task task, config, Predic
                             taskComplete.onSuccess{
                                 log.info "Sent all recruitment emails for ${eventName} completing task ${task.taskId.toString()}"
                                 services.db.markTaskComplete(task.taskId)
+                                vertx.setTimer(CONTACT_STATUS_SHEET_UPDATE_DELAY, timer->{
+                                    ManageEventVolunteerContactSheet.updateVolunteerContactStatusTable(services, eventSheetId, task.eventId)
+                                })
+
 
                                 if(task.notify){
                                     sendSlackMessage(services.slackAPI, eventSlackChannel, "Sent recruitment emails for ${eventName} successfully!")

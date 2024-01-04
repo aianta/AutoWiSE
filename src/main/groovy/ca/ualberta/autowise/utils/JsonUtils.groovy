@@ -53,6 +53,7 @@ static def slurpEventJson(String json){
     def slurper = new JsonSlurper()
     def result = slurper.parseText(json) //This gives us a map
 
+    result.id = UUID.fromString(result.id)
     result.startTime = ZonedDateTime.parse(result.startTime, EventSlurper.eventTimeFormatter)
     result.endTime = ZonedDateTime.parse(result.endTime, EventSlurper.eventTimeFormatter)
 
