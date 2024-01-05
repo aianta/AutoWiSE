@@ -27,7 +27,7 @@ import static ca.ualberta.autowise.scripts.webhook.ConfirmForShiftRole.*
 import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateSingleValueAt
 import static ca.ualberta.autowise.scripts.webhook.RejectVolunteeringForEvent.*
 import static ca.ualberta.autowise.scripts.google.ErrorHandling.handleGoogleAPIError;
-
+import static ca.ualberta.autowise.AutoWiSE.queueEventSheetUpdate
 /**
  * @Author Alexandru Ianta
  *
@@ -158,6 +158,7 @@ class AutoWiSEServer {
                                 case HookType.ACCEPT_ROLE_SHIFT:
                                     finishResponse(rc, "Please note: If you've already been assigned for a volunteer shift, clicking a different volunteer link from the recruitment email will NOT do anything. However if you've only been waitlisted you can still signup for something else.")
                                     acceptShiftRole(services, webhook, event, config)
+                                            .compose {return queueEventSheetUpdate(vertx, services, event,config)}
                                             .onSuccess{
                                                 log.info "ACCEPT_ROLE_SHIFT webhook ${webhook.id.toString()} executed successfully!"
                                             }
@@ -166,6 +167,7 @@ class AutoWiSEServer {
                                 case HookType.CANCEL_ROLE_SHIFT:
                                     finishResponse(rc, "We are cancelling your shift and will send you a confirmation soon.")
                                     cancelShiftRole(services, webhook, event, config)
+                                            .compose {return queueEventSheetUpdate(vertx, services, event, config)}
                                             .onSuccess{
                                                 log.info "CANCEL_ROLE_SHIFT webhook ${webhook.id.toString()} executed successfully!"
                                             }
@@ -174,12 +176,14 @@ class AutoWiSEServer {
                                 case HookType.CONFIRM_ROLE_SHIFT:
                                     finishResponse(rc,"Your availability for your volunteer shift has been confirmed.")
                                     confirmShiftRole(services, webhook, event)
+                                            .compose {return queueEventSheetUpdate(vertx, services, event,config)}
                                             .onSuccess{log.info("CONFIRM_ROLE_SHIFT webhook ${webhook.id.toString()} executed successfully!")}
                                             .onFailure(err->webhookFailureHandler(config, services, err, webhook))
                                     break
                                 case HookType.REJECT_VOLUNTEERING_FOR_EVENT:
                                     finishResponse(rc,"Sorry it didn't work out this time.")
                                     rejectVolunteeringForEvent(services, webhook, event, config)
+                                            .compose {return queueEventSheetUpdate(vertx, services, event,config)}
                                             .onSuccess{log.info("REJECT_VOLUNTEERING_FOR_EVENT webhook ${webhook.id.toString()} executed successfully!")}
                                             .onFailure{err->webhookFailureHandler(config, services, err, webhook)}
                                     break

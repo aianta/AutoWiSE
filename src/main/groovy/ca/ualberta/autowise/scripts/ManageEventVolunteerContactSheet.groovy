@@ -3,6 +3,7 @@ package ca.ualberta.autowise.scripts
 import ca.ualberta.autowise.GoogleAPI
 import ca.ualberta.autowise.SQLite
 import ca.ualberta.autowise.model.ContactStatus
+import ca.ualberta.autowise.model.Event
 import ca.ualberta.autowise.model.Volunteer
 import ca.ualberta.autowise.model.WaitlistEntry
 import ca.ualberta.autowise.scripts.google.EventSlurper
@@ -157,30 +158,30 @@ static Future<List<ContactStatus>> syncEventVolunteerContactSheet(SQLite db, UUI
 
 }
 
-//static def updateVolunteerContactStatusTable(GoogleAPI googleAPI, sheetId, data){
-//    def valueRange = new ValueRange()
-//    valueRange.setRange(VOLUNTEER_CONTACT_STATUS_RANGE)
-//    valueRange.setMajorDimension("ROWS")
-//    valueRange.setValues(data)
-//    return updateAt(googleAPI, sheetId, VOLUNTEER_CONTACT_STATUS_RANGE, valueRange )
-//}
 
-static def updateVolunteerContactStatusTable(services, sheetId, UUID eventId){
+static def updateVolunteerContactStatusTable(services, Event event){
 
-    return ((SQLite)services.db).getEventContactStatusTable(eventId).compose {
+    return generateVolunteerContactStatusTable(services, event).compose {
+        return updateAt(services.googleAPI, event.sheetId, VOLUNTEER_CONTACT_STATUS_RANGE, it)
+    }
+
+}
+
+static def generateVolunteerContactStatusTable(services, Event event){
+    return ((SQLite)services.db).getEventContactStatusTable(event.id).compose {
 
         List<List<String>> tableData = new ArrayList<>();
         tableData.add(makeHeaderRow());
 
-        it.forEach {contactStatus->
+        it.forEach { contactStatus ->
             tableData.add([
                     contactStatus.volunteerEmail,
-                    contactStatus.lastContacted == null?"":contactStatus.lastContacted.format(EventSlurper.eventTimeFormatter),
+                    contactStatus.lastContacted == null ? "" : contactStatus.lastContacted.format(EventSlurper.eventTimeFormatter),
                     contactStatus.status,
-                    contactStatus.acceptedOn == null?"":contactStatus.acceptedOn.format(EventSlurper.eventTimeFormatter),
-                    contactStatus.rejectedOn == null?"":contactStatus.rejectedOn.format(EventSlurper.eventTimeFormatter),
-                    contactStatus.cancelledOn == null?"":contactStatus.cancelledOn.format(EventSlurper.eventTimeFormatter),
-                    contactStatus.waitlistedOn == null?"":contactStatus.waitlistedOn.format(EventSlurper.eventTimeFormatter),
+                    contactStatus.acceptedOn == null ? "" : contactStatus.acceptedOn.format(EventSlurper.eventTimeFormatter),
+                    contactStatus.rejectedOn == null ? "" : contactStatus.rejectedOn.format(EventSlurper.eventTimeFormatter),
+                    contactStatus.cancelledOn == null ? "" : contactStatus.cancelledOn.format(EventSlurper.eventTimeFormatter),
+                    contactStatus.waitlistedOn == null ? "" : contactStatus.waitlistedOn.format(EventSlurper.eventTimeFormatter),
                     contactStatus.desiredShiftRole
             ])
         }
@@ -189,10 +190,9 @@ static def updateVolunteerContactStatusTable(services, sheetId, UUID eventId){
         valueRange.setValues(tableData)
         valueRange.setRange(VOLUNTEER_CONTACT_STATUS_RANGE)
         valueRange.setMajorDimension("ROWS")
-        return updateAt(services.googleAPI, sheetId, VOLUNTEER_CONTACT_STATUS_RANGE, valueRange)
+
+        return Future.succeededFuture(valueRange)
     }
-
-
 }
 
 static def makeHeaderRow(){

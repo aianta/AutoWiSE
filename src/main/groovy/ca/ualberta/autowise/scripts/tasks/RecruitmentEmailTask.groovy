@@ -36,7 +36,7 @@ import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.sendSlackMessa
 import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.updateVolunteerStatus
 
 @Field static def log = LoggerFactory.getLogger(RecruitmentEmailTask.class)
-@Field static long CONTACT_STATUS_SHEET_UPDATE_DELAY = 5000; //Wait 5 seconds before updating the contact status sheet.
+
 
 /**
  * @author Alexandru Ianta
@@ -121,9 +121,6 @@ static def recruitmentEmailTask(Vertx vertx, services, Task task, Event event, c
                             taskComplete.onSuccess{
                                 log.info "Sent all recruitment emails for ${event.name} completing task ${task.taskId.toString()}"
                                 services.db.markTaskComplete(task.taskId)
-                                vertx.setTimer(CONTACT_STATUS_SHEET_UPDATE_DELAY, timer->{
-                                    ManageEventVolunteerContactSheet.updateVolunteerContactStatusTable(services, event.sheetId, task.eventId)
-                                })
 
 
 
@@ -210,8 +207,5 @@ private static String makeShiftRoleEmail(services, config, Volunteer volunteer, 
 
 private static def handleNoAvailableShiftRoles(services, Task task, Event event){
     services.db.markTaskComplete(task.taskId)
-    if(task.notify){
-        return sendSlackMessage(services.slackAPI, event.eventSlackChannel, "No unfilled shifts for ${event.name}. Aborting recruitment email task.")
-    }
-    return Future.succeededFuture()
+    return sendSlackMessage(services.slackAPI, event.eventSlackChannel, "No unfilled shifts for ${event.name}. Aborting recruitment email task.")
 }

@@ -116,7 +116,7 @@ static def cancelShiftRole(services, Webhook webhook, Event event, config){
 
                                                     return CompositeFuture.all(
                                                             sendEmail(config, services.googleAPI, config.getString("sender_email"), replacementEmail, "[WiSER] Moved off waitlist, assigned volunteer role for ${event.name}",emailContent),
-                                                            updateVolunteerStatus(services.db, event.id, event.sheetId, replacementEmail, "Accepted", targetShiftRoleString ).compose {return updateEventStatusTable(services, event.sheetId)},
+                                                            updateVolunteerStatus(services.db, event.id, event.sheetId, replacementEmail, "Accepted", targetShiftRoleString ),
                                                             sendSlackMessage(services.slackAPI, event.eventSlackChannel, slackMessage),
                                                             sendEmail(config, services.googleAPI, config.getString("sender_email"), volunteerEmail,"[WiSER] Volunteering Cancellation Confirmation for ${event.name}", confirmCancelEmailTemplate)
                                                     )
@@ -125,7 +125,7 @@ static def cancelShiftRole(services, Webhook webhook, Event event, config){
                                         }
 
                                         return CompositeFuture.all(
-                                                services.db.assignShiftRole(event.sheetId, targetShiftRoleString, volunteerEmail, null, volunteerName, null).compose{ return updateEventStatusTable(services, event.sheetId)}, // Clear assignment for shift role to allow it to be filled again.
+                                                services.db.assignShiftRole(event.sheetId, targetShiftRoleString, volunteerEmail, null, volunteerName, null), // Clear assignment for shift role to allow it to be filled again.
                                                 slurpDocument(services.googleAPI, event.confirmCancelledEmailTemplateId)
                                         ).compose {
                                             compositeResult->

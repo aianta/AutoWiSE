@@ -1,7 +1,7 @@
 package ca.ualberta.autowise.model
 
 import ca.ualberta.autowise.scripts.google.EventSlurper
-import io.vertx.rxjava3.sqlclient.Row
+import io.vertx.sqlclient.Row
 
 import java.time.ZonedDateTime
 
@@ -22,7 +22,8 @@ class VolunteerConfirmation {
         result.volunteerEmail = row.getString("volunteer_email")
         result.volunteerName = row.getString("volunteer_name")
         result.shiftRole = row.getString("shift_role")
-        result.timestamp = row.toJson().containsKey("timestamp")?EventSlurper.eventTimeFormatter.parse(row.getString("timestamp")):null
+        result.timestamp = row.getString("timestamp")?ZonedDateTime.parse(row.getString("timestamp"), EventSlurper.eventTimeFormatter):null
+
 
         return result;
     }

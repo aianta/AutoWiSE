@@ -18,6 +18,7 @@ import io.vertx.core.json.JsonObject
 
 import org.slf4j.LoggerFactory
 
+import static ca.ualberta.autowise.scripts.FindAvailableShiftRoles.getShiftRole
 import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.syncEventVolunteerContactSheet
 import static ca.ualberta.autowise.scripts.google.DocumentSlurper.slurpDocument
 import static ca.ualberta.autowise.scripts.google.VolunteerListSlurper.getVolunteerByEmail
@@ -48,55 +49,69 @@ static def confirmationEmailTask(Vertx vertx, services, Task task, Event event, 
                         MassEmailSender sender = new MassEmailSender(vertx, services, config, volunteerContactStatusData)
 
                         sender.sendMassEmail((contactStatus, rowFuture)->{
-
+                            log.info "inside row function, processing contact status {} {} status.equals(Accepted)? {}", contactStatus.volunteerEmail, contactStatus.status, contactStatus.status.equals("Accepted")
                             if(contactStatus.status.equals("Accepted")){
-                                def volunteer = getVolunteerByEmail(contactStatus.volunteerEmail, volunteers)
-                                if(volunteer == null){
-                                    log.warn "Volunteer with email ${contactStatus.volunteerEmail} does not appear in WiSER volunteer pool, skipping confirmation email"
-                                    sendSlackMessage(services.slackAPI, event.eventSlackChannel, "${contactStatus.volunteerEmail} appears on the ${event.name}' volunteer contact status' sheet but does not appear in the WiSER general volunteer list. No email will be sent to ${contactStatus.volunteerEmail}.")
-                                    return null //Return a null email entry to skip this row as we don't recognize the volunteer
+                                try {
+
+                                    def volunteer = getVolunteerByEmail(contactStatus.volunteerEmail, volunteers)
+                                    if (volunteer == null) {
+                                        log.warn "Volunteer with email ${contactStatus.volunteerEmail} does not appear in WiSER volunteer pool, skipping confirmation email"
+                                        sendSlackMessage(services.slackAPI, event.eventSlackChannel, "${contactStatus.volunteerEmail} appears on the ${event.name}' volunteer contact status' sheet but does not appear in the WiSER general volunteer list. No email will be sent to ${contactStatus.volunteerEmail}.")
+                                        return null
+                                        //Return a null email entry to skip this row as we don't recognize the volunteer
+                                    }
+
+
+                                    //Make the confirmation webhook
+                                    Webhook confirmHook = new Webhook(
+                                            id: UUID.randomUUID(),
+                                            eventId: task.eventId,
+                                            type: HookType.CONFIRM_ROLE_SHIFT,
+                                            expiry: event.startTime.toInstant().toEpochMilli(),
+                                            invoked: false,
+                                            data: new JsonObject()
+                                                    .put("volunteerName", volunteer.name)
+                                                    .put("volunteerEmail", volunteer.email)
+                                                    .put("shiftRoleString", contactStatus.desiredShiftRole)
+                                    )
+                                    services.db.insertWebhook(confirmHook)
+                                    services.server.mountWebhook(confirmHook)
+
+                                    //Make the cancellation webhook
+                                    Webhook cancelHook = new Webhook(
+                                            id: UUID.randomUUID(),
+                                            eventId: task.eventId,
+                                            type: HookType.CANCEL_ROLE_SHIFT,
+                                            expiry: event.startTime.toInstant().toEpochMilli(),
+                                            invoked: false,
+                                            data: new JsonObject()
+                                                    .put("volunteerEmail", volunteer.email)
+                                                    .put("shiftRoleString", contactStatus.desiredShiftRole)
+                                                    .put("volunteerName", volunteer.name)
+
+
+                                    )
+                                    services.db.insertWebhook(cancelHook)
+                                    services.server.mountWebhook(cancelHook)
+
+                                    ShiftRole shiftRole = getShiftRole(contactStatus.desiredShiftRole, event.roles)
+
+                                    def emailContents = makeConfirmEmail(emailTemplate, shiftRole, volunteer.name, event.eventbriteLink, cancelHook, confirmHook, config)
+
+                                    log.info "Confirmation email content: \n {}", emailContents
+
+                                    return new MassEmailEntry(
+                                            target: volunteer.email,
+                                            content: emailContents,
+                                            subject: subject
+                                    )
+
+                                }catch (Exception e){
+                                    log.error e.getMessage(), e
                                 }
-
-
-                                //Make the confirmation webhook
-                                Webhook confirmHook = new Webhook(
-                                        id: UUID.randomUUID(),
-                                        eventId: task.eventId,
-                                        type: HookType.CONFIRM_ROLE_SHIFT,
-                                        expiry: event.startTime.toInstant().toEpochMilli(),
-                                        invoked: false,
-                                        data: new JsonObject()
-                                                .put("volunteerName", volunteer.name)
-                                                .put("volunteerEmail", volunteer.email)
-                                                .put("shiftRoleString", contactStatus.desiredShiftRole)
-                                )
-                                services.db.insertWebhook(confirmHook)
-                                services.server.mountWebhook(confirmHook)
-
-                                //Make the cancellation webhook
-                                Webhook cancelHook = new Webhook(
-                                        id: UUID.randomUUID(),
-                                        eventId: task.eventId,
-                                        type: HookType.CANCEL_ROLE_SHIFT,
-                                        expiry: eventStartTime.toInstant().toEpochMilli(),
-                                        invoked: false,
-                                        data: new JsonObject()
-                                                .put("volunteerEmail", volunteer.email)
-                                                .put("shiftRoleString", contactStatus.desiredShiftRole)
-                                                .put("volunteerName", volunteer.name)
-
-
-                                )
-                                services.db.insertWebhook(cancelHook)
-                                services.server.mountWebhook(cancelHook)
-                                def emailContents = makeConfirmEmail(emailTemplate, volunteer.name, event.eventbriteLink, cancelHook, confirmHook, config)
-
-                                return new MassEmailEntry(
-                                        target: volunteer.email,
-                                        content: emailContents,
-                                        subject: subject
-                                )
                             }
+
+                            return null;
                         }, complete->{
                             complete.onSuccess{
                                 log.info "Successfully send confirmation emails for ${event.name} taskId: ${task.taskId.toString()}"

@@ -66,10 +66,12 @@ class MassEmailSender {
                 Promise emailEntryPromise = Promise.promise() //Completes when this specific email has been sent.
                 MassEmailEntry emailEntry = rowFunction.apply(contactStatus, emailEntryPromise.future())
                 if(emailEntry == null){
+                    log.info "Email entry was null!"
                     emailEntryPromise.complete() // Complete the email entry promise
                     blocking.complete() //If we're given a null email entry, this row must not require an email so we move on to the next.
                     return
                 }else{
+                    log.info "Got an email entry to send!"
                     //Otherwise there is an email to send so let's do that.
                     send(services.googleAPI, config, emailEntry.subject, emailEntry.content, emailEntry.target)
                             .onSuccess{

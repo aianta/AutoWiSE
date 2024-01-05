@@ -3,6 +3,7 @@
 external_tick_rate: 10800000 # How often does AutoWiSE execute its external loop (the one that checks for new events on GDrive)
 internal_tick_rate: 30000 # How often does AutoWiSE execute its internal loop (the one that dispatches planned tasks from SQLite)
 mass_email_delay: 1000 # Time in ms between emails in a mass send task. Need to keep below 2 emails/second.
+sheet_update_delay: 5000 # Time in ms to wait after task/webhook before updating event spreadsheet values.
 
 # SQLite Config
 db_connection_string: 'jdbc:sqlite:data/autowise.db'

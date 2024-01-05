@@ -101,7 +101,6 @@ static def acceptShiftRole(services, Webhook webhook, Event event,  config){
                                         log.info "email contents: \n${emailContents}"
 
                                         return CompositeFuture.all(
-                                                updateEventStatusTable(services, event.sheetId),
                                                 sendEmail(config, services.googleAPI, config.getString("sender_email"), volunteerEmail, "[WiSER] Volunteer Sign-up Confirmation for ${event.name}", emailContents),
                                                 sendSlackMessage(services.slackAPI, event.eventSlackChannel, "${volunteerName} has expressed interest in volunteering for ${event.name} as ${shiftRole.role.name}. They have been successfully assigned shift ${shiftRole.shift.index} starting at ${shiftRole.shift.startTime.format(EventSlurper.shiftTimeFormatter)} and ending at ${shiftRole.shift.endTime.format(EventSlurper.shiftTimeFormatter)}. "  ) // Notify Slack
                                         )
@@ -112,7 +111,7 @@ static def acceptShiftRole(services, Webhook webhook, Event event,  config){
 
                         //If we make it to here, there are no available slots for the target shift role.
                         CompositeFuture.all(
-                                updateVolunteerStatus(services.db,eventId,  event.sheetId, volunteerEmail, "Waitlisted", targetShiftRoleString).compose { return updateEventStatusTable(services, event.sheetId)},
+                                updateVolunteerStatus(services.db,eventId,  event.sheetId, volunteerEmail, "Waitlisted", targetShiftRoleString),
                                 slurpDocument(services.googleAPI, event.confirmWaitlistEmailTemplateId)
                         ).compose{
                             compositeResult->

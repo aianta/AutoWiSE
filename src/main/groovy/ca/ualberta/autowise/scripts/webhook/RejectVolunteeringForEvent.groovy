@@ -33,8 +33,8 @@ static def rejectVolunteeringForEvent(services, Webhook webhook, Event event, co
                 def volunteerName = webhook.data.getString("volunteerName")
 
                 return CompositeFuture.all(
-                        updateVolunteerStatus(services.db, webhook.eventId, event.sheetId, volunteerEmail, "Rejected", "-" ).compose {return ManageEventStatusTable.updateEventStatusTable(services, event.sheetId)},      //Update the status
-                        slurpDocument(services.googleAPI, webhook.data.getString("emailTemplateId"))
+                        updateVolunteerStatus(services.db, webhook.eventId, event.sheetId, volunteerEmail, "Rejected", "-" ),      //Update the status
+                        slurpDocument(services.googleAPI, event.confirmRejectedEmailTemplateId)
                 ).compose{
                     composite->
                         def emailTemplate = composite.resultAt(1)
