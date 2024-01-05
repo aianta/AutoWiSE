@@ -10,6 +10,7 @@ import ca.ualberta.autowise.model.ShiftRole
 import ca.ualberta.autowise.model.Task
 import ca.ualberta.autowise.model.Webhook
 import ca.ualberta.autowise.scripts.google.EventSlurper
+import ca.ualberta.autowise.scripts.webhook.SignupForRoleShift
 import groovy.transform.Field
 import io.vertx.core.CompositeFuture
 import io.vertx.core.Promise
@@ -96,7 +97,7 @@ static def confirmationEmailTask(Vertx vertx, services, Task task, Event event, 
 
                                     ShiftRole shiftRole = getShiftRole(contactStatus.desiredShiftRole, event.roles)
 
-                                    def emailContents = makeConfirmEmail(emailTemplate, shiftRole, volunteer.name, event.eventbriteLink, cancelHook, confirmHook, config)
+                                    def emailContents = makeConfirmEmail(emailTemplate, shiftRole, volunteer.name, event, cancelHook, confirmHook, config)
 
                                     log.info "Confirmation email content: \n {}", emailContents
 
@@ -141,13 +142,15 @@ static def confirmationEmailTask(Vertx vertx, services, Task task, Event event, 
         }
 }
 
-static def makeConfirmEmail(template, ShiftRole shiftRole, String volunteerName, eventbriteLink, Webhook cancelHook, Webhook confirmHook, config){
+static def makeConfirmEmail(template, ShiftRole shiftRole, String volunteerName, Event event, Webhook cancelHook, Webhook confirmHook, config){
     def emailContents = template.replaceAll("%VOLUNTEER_NAME%", volunteerName)
+    emailContents = emailContents.replaceAll("%EVENT_NAME%", event.name)
+    emailContents = emailContents.replaceAll("%EVENT_DATE%", event.startTime.format(SignupForRoleShift.eventDayFormatter))
     emailContents = emailContents.replaceAll("%ROLE%", shiftRole.role.name)
     emailContents = emailContents.replaceAll("%SHIFT_START%", shiftRole.shift.startTime.format(EventSlurper.shiftTimeFormatter))
     emailContents = emailContents.replaceAll("%SHIFT_END%", shiftRole.shift.endTime.format(EventSlurper.shiftTimeFormatter))
     emailContents = emailContents.replaceAll("%CONFIRMATION_LINK%", "<a href=\"${config.getString("protocol")}://${config.getString("host")}:${config.getInteger("port").toString()}/${confirmHook.path()}\">Confirmation Link</a>")
-    emailContents = emailContents.replaceAll("%EVENTBRITE_LINK%", "<a href=\"${eventbriteLink}\">eventbrite</a>")
+    emailContents = emailContents.replaceAll("%EVENTBRITE_LINK%", "<a href=\"${event.eventbriteLink}\">eventbrite</a>")
     emailContents = emailContents.replaceAll("%CANCEL_LINK%", "<a href=\"${config.getString("protocol")}://${config.getString("host")}:${config.getInteger("port").toString()}/${cancelHook.path()}\">Cancellation Link</a>")
     return emailContents
 }

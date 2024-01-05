@@ -111,7 +111,7 @@ static def recruitmentEmailTask(Vertx vertx, services, Task task, Event event, c
                                         }
                                 }
 
-                                def emailContents = makeShiftRoleEmail(services, config, volunteer, task, unfilledShiftRoles, event.roles, event.startTime, event.name, event.sheetId, event.eventSlackChannel, event.eventbriteLink, emailTemplate)
+                                def emailContents = makeShiftRoleEmail(services, config, volunteer, task, unfilledShiftRoles, event, emailTemplate)
                                 return new MassEmailEntry(target: volunteer.email, content: emailContents, subject: subject)
 
 
@@ -157,16 +157,16 @@ static def recruitmentEmailTask(Vertx vertx, services, Task task, Event event, c
 }
 
 
-private static String makeShiftRoleEmail(services, config, Volunteer volunteer, Task task, Set<String> unfilledShiftRoles, List<Role> eventRoles, eventStartTime, eventName, eventSheetId, eventSlackChannel, eventbriteLink, emailTemplate){
+private static String makeShiftRoleEmail(services, config, Volunteer volunteer, Task task, Set<String> unfilledShiftRoles, Event event, emailTemplate){
     List<ShiftRole> availableShiftRoles = unfilledShiftRoles.stream()
-            .map(shiftRoleString->getShiftRole(shiftRoleString, eventRoles))
+            .map(shiftRoleString->getShiftRole(shiftRoleString, event.roles))
             .map(shiftRole->{
                 // Generate a personalized webhook for this shiftRole
                 Webhook volunteerWebhook = new Webhook(
                         id: UUID.randomUUID(),
                         eventId: task.eventId,
                         type: HookType.ACCEPT_ROLE_SHIFT,
-                        expiry: eventStartTime.toInstant().toEpochMilli(),
+                        expiry: event.startTime.toInstant().toEpochMilli(),
                         invoked: false,
                         data: new JsonObject()
                                 .put("volunteerName", volunteer.name)
@@ -185,7 +185,7 @@ private static String makeShiftRoleEmail(services, config, Volunteer volunteer, 
             id: UUID.randomUUID(),
             eventId: task.eventId,
             type: HookType.REJECT_VOLUNTEERING_FOR_EVENT,
-            expiry: eventStartTime.toInstant().toEpochMilli(),
+            expiry: event.startTime.toInstant().toEpochMilli(),
             invoked: false,
             data: new JsonObject()
                     .put("volunteerName", volunteer.name)
@@ -198,9 +198,10 @@ private static String makeShiftRoleEmail(services, config, Volunteer volunteer, 
 
     def shiftRoleHTMLTable = buildShiftRoleOptions(availableShiftRoles, config)
     def emailContents = emailTemplate.replaceAll("%AVAILABLE_SHIFT_ROLES%", shiftRoleHTMLTable)
-    emailContents = emailContents.replaceAll("%eventName%", eventName)
+    emailContents = emailContents.replaceAll("%EVENT_NAME%", event.name)
+    emailContents = emailContents.replaceAll("%EVENT_DESCRIPTION%", event.description)
     emailContents = emailContents.replaceAll("%REJECT_LINK%", "<a href=\"${config.getString("protocol")}://${config.getString("host")}:${config.getInteger("port").toString()}/${rejectHook.path()}\">Click me if you aren't able to volunteer for this event.</a>")
-    emailContents = emailContents.replaceAll("%EVENTBRITE_LINK%", "<a href=\"${eventbriteLink}\">eventbrite</a>")
+    emailContents = emailContents.replaceAll("%EVENTBRITE_LINK%", "<a href=\"${event.eventbriteLink}\">eventbrite</a>")
 
     return emailContents
 }

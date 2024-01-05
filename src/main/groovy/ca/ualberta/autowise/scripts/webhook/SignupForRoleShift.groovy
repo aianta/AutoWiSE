@@ -116,7 +116,7 @@ static def acceptShiftRole(services, Webhook webhook, Event event,  config){
                         ).compose{
                             compositeResult->
                                 def emailTemplate = compositeResult.resultAt(1)
-                                def emailContents = makeWaitlistEmail(emailTemplate, shiftRole, event.name)
+                                def emailContents = makeWaitlistEmail(emailTemplate, shiftRole, event)
 
                                 return CompositeFuture.all(
                                         sendEmail(config, services.googleAPI, config.getString("sender_email"), volunteerEmail, "[WiSER] Volunteer Sign-up Waitlist Confirmation for ${event.name}", emailContents),
@@ -143,8 +143,9 @@ static def makeAssignedEmail(template, ShiftRole shiftRole, eventName, eventStar
 }
 
 
-static def makeWaitlistEmail(template, ShiftRole shiftRole, eventName){
-    def emailContents = template.replaceAll("%EVENT_NAME%", eventName)
+static def makeWaitlistEmail(template, ShiftRole shiftRole, Event event){
+    def emailContents = template.replaceAll("%EVENT_NAME%", event.name)
+    emailContents = emailContents.replaceAll("%EVENT_DATE%", event.startTime.format(eventDayFormatter))
     emailContents = emailContents.replaceAll("%ROLE_NAME%", shiftRole.role.name)
     emailContents = emailContents.replaceAll("%SHIFT_START%", shiftRole.shift.startTime.format(EventSlurper.shiftTimeFormatter))
     emailContents = emailContents.replaceAll("%SHIFT_END%", shiftRole.shift.endTime.format(EventSlurper.shiftTimeFormatter))

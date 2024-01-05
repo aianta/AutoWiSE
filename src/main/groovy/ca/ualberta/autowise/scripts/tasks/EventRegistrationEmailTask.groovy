@@ -77,12 +77,13 @@ static Future eventRegistrationEmailTask(services, Task t, Event event, emailTem
                     def followupTemplate = compositeResult.resultAt(7)
                     def unfilledShiftRoles = compositeResult.resultAt(8)
 
-                    def emailContents = emailTemplate.replaceAll("%eventName%", event.name)
-                    emailContents = emailContents.replaceAll("%eventSheetLink%", "<a href=\"${event.weblink}\">${event.weblink}</a>")
-                    emailContents = emailContents.replaceAll("%taskSummary%", taskSummary)
-                    emailContents = emailContents.replaceAll("%cancelLink%", "<a href=\"${config.getString("protocol")}://${config.getString("host")}:${config.getInteger("port").toString()}${campaignCancelHookPath}\">Cancel Campaign</a>" )
-                    emailContents = emailContents.replaceAll("%beginLink%","<a href=\"${config.getString("protocol")}://${config.getString("host")}:${config.getInteger("port").toString()}${campaignBeginHookPath}\">Begin Campaign</a>" )
-                    emailContents = emailContents.replaceAll("%templates%", makeTemplatesPreview(
+                    def emailContents = emailTemplate.replaceAll("%EVENT_NAME%", event.name)
+                    emailContents = emailContents.replaceAll "%EVENT_DESCRIPTION%", event.description
+                    emailContents = emailContents.replaceAll("%EVENT_SHEET_LINK%", "<a href=\"${event.weblink}\">${event.weblink}</a>")
+                    emailContents = emailContents.replaceAll("%TASK_SUMMARY%", taskSummary)
+                    emailContents = emailContents.replaceAll("%CANCEL_LINK%", "<a href=\"${config.getString("protocol")}://${config.getString("host")}:${config.getInteger("port").toString()}${campaignCancelHookPath}\">Cancel Campaign</a>" )
+                    emailContents = emailContents.replaceAll("%BEGIN_LINK%","<a href=\"${config.getString("protocol")}://${config.getString("host")}:${config.getInteger("port").toString()}${campaignBeginHookPath}\">Begin Campaign</a>" )
+                    emailContents = emailContents.replaceAll("%TEMPLATES%", makeTemplatesPreview(
                             initialRecruitmentTemplate,
                             recruitmentTemplate,
                             confirmAssignedTemplate,
@@ -91,10 +92,7 @@ static Future eventRegistrationEmailTask(services, Task t, Event event, emailTem
                             confirmRejectedTemplate,
                             followupTemplate,
                             ((Set<String>)unfilledShiftRoles),
-                            event.roles,
-                            event.name,
-                            event.eventbriteLink,
-                            event.startTime,
+                            event,
                             config
                     ))
 
@@ -116,10 +114,7 @@ private static def makeTemplatesPreview(
         confirmRejectedTemplate,
         followupTemplate,
         unfilledShiftRoles,
-        eventRoles,
-        String eventName,
-        eventbriteLink,
-        eventStartTime,
+        Event event,
         config
 ){
     StringBuilder sb = new StringBuilder();
@@ -130,13 +125,13 @@ private static def makeTemplatesPreview(
             shiftRoleString: '1-Sample Role',
             acceptHook: new Webhook(id:UUID.randomUUID())
     )
-    def initialRecruitmentEmail = makeRecruitmentEmail(initialRecruitmentTemplate, unfilledShiftRoles, eventRoles, eventbriteLink, config)
-    def recruitmentEmail = makeRecruitmentEmail(recruitmentTemplate, unfilledShiftRoles, eventRoles, eventbriteLink, config)
-    def assignedEmail = makeAssignedEmail(confirmAssignedTemplate, sampleShiftRole , eventName, eventStartTime, new Webhook(id:UUID.randomUUID()), config )
-    def waitlistEmail = makeWaitlistEmail(confirmWaitlistTemplate, sampleShiftRole, eventName)
+    def initialRecruitmentEmail = makeRecruitmentEmail(initialRecruitmentTemplate, unfilledShiftRoles, event, config)
+    def recruitmentEmail = makeRecruitmentEmail(recruitmentTemplate, unfilledShiftRoles, event, config)
+    def assignedEmail = makeAssignedEmail(confirmAssignedTemplate, sampleShiftRole , event.name, event.startTime, new Webhook(id:UUID.randomUUID()), config )
+    def waitlistEmail = makeWaitlistEmail(confirmWaitlistTemplate, sampleShiftRole, event)
     def cancelledEmail = confirmCancelledTemplate
-    def rejectEmail = makeRejectedEmail(confirmRejectedTemplate, eventName)
-    def followupEmail = makeConfirmEmail(followupTemplate, sampleShiftRole, "Testy McTest", eventbriteLink, new Webhook(id:UUID.randomUUID()), new Webhook(id:UUID.randomUUID()), config)
+    def rejectEmail = makeRejectedEmail(confirmRejectedTemplate, event.name)
+    def followupEmail = makeConfirmEmail(followupTemplate, sampleShiftRole, "Testy McTest", event, new Webhook(id:UUID.randomUUID()), new Webhook(id:UUID.randomUUID()), config)
 
     sb.append("<br><br>")
     sb.append("-------------------------------------------------------")
@@ -220,11 +215,11 @@ private static def makeTemplatesPreview(
  * @param config
  * @return
  */
-private static def makeRecruitmentEmail(template, Set<String> unfilledShiftRoles, List<Role> eventRoles, eventbriteLink, config){
+private static def makeRecruitmentEmail(template, Set<String> unfilledShiftRoles, Event event, config){
     log.info "Making mock recruitment email"
     def result = template
     List<ShiftRole> availableShiftRoles = unfilledShiftRoles.stream()
-        .map(shiftRoleString->getShiftRole(shiftRoleString,eventRoles))
+        .map(shiftRoleString->getShiftRole(shiftRoleString,event.roles))
         .map(shiftRole->{
             //Mock hook
             Webhook volunteerWebhook = new Webhook(
@@ -239,9 +234,11 @@ private static def makeRecruitmentEmail(template, Set<String> unfilledShiftRoles
     Webhook rejectHook = new Webhook(
             id: UUID.randomUUID())
 
+    result = result.replaceAll("%EVENT_NAME%", event.name)
+    result = result.replaceAll("%EVENT_DESCRIPTION%", event.description)
     result = result.replaceAll("%AVAILABLE_SHIFT_ROLES%", shiftRoleHTMLTable)
     result = result.replaceAll("%REJECT_LINK%", "<a href=\"${config.getString("protocol")}://${config.getString("host")}:${config.getInteger("port").toString()}/${rejectHook.path()}\">Click me if you aren't able to volunteer for this event.</a>")
-    result = result.replaceAll("%EVENTBRITE_LINK%", "<a href=\"${eventbriteLink}\">eventbrite</a>")
+    result = result.replaceAll("%EVENTBRITE_LINK%", "<a href=\"${event.eventbriteLink}\">eventbrite</a>")
 
     return result
 }

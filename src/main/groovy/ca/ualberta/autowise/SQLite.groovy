@@ -217,8 +217,8 @@ class SQLite {
             SET status = ?
             WHERE task_id = ?;
         ''')
-        .execute(Tuple.of(TaskStatus.COMPLETE, taskId.toString()))
-        .onSuccess(rs->promise.complete())
+        .execute(Tuple.from([TaskStatus.COMPLETE, taskId.toString()]))
+        .onSuccess{promise.complete()}
         .onFailure {err->log.error err.getMessage(), err}
         return promise.future()
     }
@@ -1002,20 +1002,30 @@ class SQLite {
         Promise promise = Promise.promise();
 
         pool.preparedQuery('''
-            UPDATE events 
-            SET
-                status = ?
-            WHERE
-                id = ?;
-        ''').execute(Tuple.from([
-                status.toString(), eventId.toString()
-        ]), {
+            SELECT data FROM events WHERE id = ?;
+        ''').execute(Tuple.from([eventId.toString()]), {
             if(it){
-                promise.complete()
-            }else{
-                log.error "Error updating event status"
-                log.error it.cause().getMessage(), it.cause()
-                promise.fail(it.cause())
+                Event event = slurpEventJson(it.result().iterator().next().getString("data"));
+                event.status = status.toString();
+
+                pool.preparedQuery('''
+                    UPDATE events 
+                    SET
+                        data = ?,
+                        status = ?
+                    WHERE
+                        id = ?;
+                ''').execute(Tuple.from([
+                        getEventGenerator().toJson(event), status.toString(), eventId.toString()
+                        ]), {
+                            if(it){
+                                promise.complete()
+                            }else{
+                                log.error "Error updating event status"
+                                log.error it.cause().getMessage(), it.cause()
+                                promise.fail(it.cause())
+                            }
+                        })
             }
         })
 
