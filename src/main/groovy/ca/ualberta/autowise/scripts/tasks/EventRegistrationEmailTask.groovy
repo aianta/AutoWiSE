@@ -8,6 +8,7 @@ import ca.ualberta.autowise.model.ShiftRole
 import ca.ualberta.autowise.model.Task
 import ca.ualberta.autowise.model.Webhook
 import ca.ualberta.autowise.scripts.google.EventSlurper
+import ca.ualberta.autowise.scripts.webhook.SignupForRoleShift
 import groovy.transform.Field
 import io.vertx.core.CompositeFuture
 import io.vertx.core.Future
@@ -15,13 +16,13 @@ import org.apache.commons.codec.binary.Base64
 import org.slf4j.LoggerFactory
 
 import java.time.LocalTime
-import java.time.ZonedDateTime
+
 import java.util.stream.Collectors
 
-import static ca.ualberta.autowise.utils.JsonUtils.slurpRolesJson
+
 import static ca.ualberta.autowise.scripts.BuildShiftRoleOptions.buildShiftRoleOptions
-import static ca.ualberta.autowise.scripts.FindAvailableShiftRoles.findAvailableShiftRoles
-import static ca.ualberta.autowise.scripts.FindAvailableShiftRoles.getShiftRole
+
+import static ca.ualberta.autowise.utils.ShiftRoleUtils.getShiftRole
 import static ca.ualberta.autowise.scripts.google.DocumentSlurper.slurpDocument
 import static ca.ualberta.autowise.scripts.google.SendEmail.sendEmailToGroup
 import static ca.ualberta.autowise.scripts.webhook.SignupForRoleShift.makeAssignedEmail
@@ -236,6 +237,9 @@ private static def makeRecruitmentEmail(template, Set<String> unfilledShiftRoles
 
     result = result.replaceAll("%EVENT_NAME%", event.name)
     result = result.replaceAll("%EVENT_DESCRIPTION%", event.description)
+    result = result.replaceAll("%EVENT_DATE%", event.startTime.format(SignupForRoleShift.eventDayFormatter))
+    result = result.replaceAll("%EVENT_START_TIME%", event.startTime.format(EventSlurper.shiftTimeFormatter))
+    result = result.replaceAll("%EVENT_END_TIME%", event.endTime.format(EventSlurper.shiftTimeFormatter))
     result = result.replaceAll("%AVAILABLE_SHIFT_ROLES%", shiftRoleHTMLTable)
     result = result.replaceAll("%REJECT_LINK%", "<a href=\"${config.getString("protocol")}://${config.getString("host")}:${config.getInteger("port").toString()}/${rejectHook.path()}\">Click me if you aren't able to volunteer for this event.</a>")
     result = result.replaceAll("%EVENTBRITE_LINK%", "<a href=\"${event.eventbriteLink}\">eventbrite</a>")

@@ -1,12 +1,8 @@
 package ca.ualberta.autowise.scripts
 
-import ca.ualberta.autowise.model.Role
+
 import ca.ualberta.autowise.model.ShiftRole
 import ca.ualberta.autowise.scripts.google.EventSlurper
-
-import java.util.stream.Collectors
-
-import static ca.ualberta.autowise.scripts.FindAvailableShiftRoles.*
 
 /**
  *

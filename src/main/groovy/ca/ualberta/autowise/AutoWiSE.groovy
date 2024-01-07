@@ -4,14 +4,14 @@ import ca.ualberta.autowise.model.Event
 import ca.ualberta.autowise.model.EventStatus
 import ca.ualberta.autowise.model.SlackBrowser
 import ca.ualberta.autowise.model.Task
-import ca.ualberta.autowise.model.Volunteer
+
 import ca.ualberta.autowise.scripts.ManageEventStatusTable
 import ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet
 import ca.ualberta.autowise.scripts.ManageVolunteerConfirmationTable
 import ca.ualberta.autowise.scripts.google.EventSlurper
-import com.google.api.client.googleapis.json.GoogleJsonError
+
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
-import com.google.api.services.drive.model.File
+
 import com.google.api.services.sheets.v4.model.ValueRange
 import groovy.transform.Field
 import io.vertx.config.ConfigRetriever
@@ -25,12 +25,11 @@ import io.vertx.core.json.JsonObject
 
 import org.slf4j.LoggerFactory
 
-import java.awt.Composite
+
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
-import static ca.ualberta.autowise.scripts.ProcessAutoWiSEEventSheet.googleAPI
-import static ca.ualberta.autowise.scripts.google.GetFilesInFolder.getFiles
+
 
 import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.*
 import static ca.ualberta.autowise.scripts.tasks.RecruitmentEmailTask.recruitmentEmailTask
@@ -165,20 +164,14 @@ void vertxStart(Promise<Void> startup){
 
                 boltApp.updateValidGDriveIds(); //refresh template options
 
-//                doExternalTick(services, config)
-//                    .onSuccess {
-//                        log.info "External tick complete! {}", ZonedDateTime.now().format(EventSlurper.eventTimeFormatter)
-//                    }
-//                    .onFailure {
-//                        log.error "External tick error! {}", ZonedDateTime.now().format(EventSlurper.eventTimeFormatter)
-//                        log.error it.getMessage(), it
-//                    }
 
 
             })
 
             internalPeriodId = vertx.setPeriodic(config.getLong("internal_tick_rate"), id->{
                 log.info "internal tick - ${ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone).format(EventSlurper.eventTimeFormatter)}"
+
+
 
                 db.getWork().onSuccess(taskList->{
                     taskList.forEach( task-> {
@@ -188,6 +181,7 @@ void vertxStart(Promise<Void> startup){
                         db.getEvent(task.eventId)
                         .onFailure {log.error it.getMessage(), it}
                         .onSuccess {
+
                             executeTask(task, it, vertx, services, config).onSuccess{
                                 log.info "Task ${task.taskId.toString()} executed sucessfully!"
                             }.onFailure{ err->
@@ -300,59 +294,6 @@ static def doExternalTick(services, config) {
     }
 }
 
-//    def server = services.server
-//    def googleApi = services.googleAPI
-//
-//    log.info "external tick - ${ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone).format(EventSlurper.eventTimeFormatter)}"
-//
-//    try{
-//        log.info "Refreshing webhooks"
-//        server.loadWebhooks() //(re)Load webhooks from database.
-//
-//
-//        /**
-//         * On every tick check google drive for new events to process.
-//         */
-//        /**
-//         * Start going through all the google sheets in the autowise folder on google drive.
-//         */
-//        getFiles(googleApi, config.getString("autowise_drive_folder_id"), "application/vnd.google-apps.spreadsheet")
-//                .onSuccess {
-//                    files->
-//                        files.forEach {f->
-//                            log.info "${f.getName()} - ${f.getMimeType()} - ${f.getId()}"
-//                            /**
-//                             * If the sheet name starts with the specified autowise_event_prefix process it
-//                             */
-//                            if (f.getName().startsWith(config.getString("autowise_event_prefix"))){
-//
-//                                // Do processing in separate thread to avoid blocking the main loop.
-//                                vertx.executeBlocking(blocking->{
-//
-//                                    processEventSheet(services, f.getId(), config)
-//                                            .onSuccess {
-//                                                blocking.complete()
-//                                            }.onFailure{err->
-//                                        log.error err.getMessage(), err
-//                                    }
-//                                }, true){
-//                                    log.info "Allegedly done processing"
-//                                }
-//
-//
-//                            }
-//                        }
-//                }
-//                .onFailure { err->
-//                    log.error "Error getting files from google drive!"
-//                    log.error err.getMessage(), err
-//                }
-//
-//
-//    }catch(Exception e){
-//        log.error e.getMessage(), e
-//
-//    }
 
 
 

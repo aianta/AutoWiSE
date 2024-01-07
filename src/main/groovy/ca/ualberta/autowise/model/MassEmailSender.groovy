@@ -7,6 +7,7 @@ import io.vertx.core.Promise
 import io.vertx.core.Vertx
 import org.slf4j.LoggerFactory
 
+import java.time.Instant
 import java.util.function.BiFunction
 import java.util.function.Consumer
 
@@ -49,6 +50,7 @@ class MassEmailSender {
     Vertx vertx
     def services
     def config
+    long emailCounter = 0L
 
     public MassEmailSender(Vertx vertx, services, config, Iterable it){
         this.it = it.iterator()
@@ -58,6 +60,7 @@ class MassEmailSender {
     }
 
     public sendMassEmail(BiFunction<ContactStatus, Future, MassEmailEntry> rowFunction, Consumer<Future> complete){
+        this.emailCounter = 0L;
         Future lastFuture = null
         while (it.hasNext()){
             ContactStatus contactStatus = it.next()
@@ -73,6 +76,8 @@ class MassEmailSender {
                 }else{
                     log.info "Got an email entry to send!"
                     //Otherwise there is an email to send so let's do that.
+                    this.emailCounter++;
+
                     send(services.googleAPI, config, emailEntry.subject, emailEntry.content, emailEntry.target)
                             .onSuccess{
                                 log.info "Email (${emailEntry.subject}) sent to  ${emailEntry.target}"
@@ -107,6 +112,7 @@ class MassEmailSender {
 
     /**
      * NOTE: Be sure this executes inside vertx.blocking...
+     * TODO: if we have issues with sending larger volumes of emails, have to figure out how to stagger these.
      * @param googleAPI
      * @param vertx
      * @param config
@@ -116,11 +122,8 @@ class MassEmailSender {
      * @return
      */
     private Future send(GoogleAPI googleAPI,  config, subject, emailBody, target){
-        Thread.sleep(config.getLong("mass_email_delay"))
-        return sendEmail(config, googleAPI, config.getString("sender_email"), target, subject, emailBody)
 
-
-
+       return sendEmail(config, googleAPI, config.getString("sender_email"), target, subject, emailBody)
     }
 
 }

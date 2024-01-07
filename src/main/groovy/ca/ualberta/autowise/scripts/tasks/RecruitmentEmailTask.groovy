@@ -5,13 +5,12 @@ import ca.ualberta.autowise.model.Event
 import ca.ualberta.autowise.model.HookType
 import ca.ualberta.autowise.model.MassEmailEntry
 import ca.ualberta.autowise.model.MassEmailSender
-import ca.ualberta.autowise.model.Role
 import ca.ualberta.autowise.model.ShiftRole
 import ca.ualberta.autowise.model.Task
 import ca.ualberta.autowise.model.Volunteer
 import ca.ualberta.autowise.model.Webhook
-import ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet
 import ca.ualberta.autowise.scripts.google.EventSlurper
+import ca.ualberta.autowise.scripts.webhook.SignupForRoleShift
 import groovy.transform.Field
 import io.vertx.core.CompositeFuture
 import io.vertx.core.Future
@@ -20,14 +19,14 @@ import io.vertx.core.Vertx
 import io.vertx.core.json.JsonObject
 import org.slf4j.LoggerFactory
 
-import java.time.ZonedDateTime
+
 import java.util.function.Predicate
 import java.util.stream.Collectors
 
-import static ca.ualberta.autowise.utils.JsonUtils.slurpRolesJson
+
 import static ca.ualberta.autowise.scripts.BuildShiftRoleOptions.buildShiftRoleOptions
-import static ca.ualberta.autowise.scripts.FindAvailableShiftRoles.findAvailableShiftRoles
-import static ca.ualberta.autowise.scripts.FindAvailableShiftRoles.getShiftRole
+
+import static ca.ualberta.autowise.utils.ShiftRoleUtils.getShiftRole
 import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.syncEventVolunteerContactSheet
 import static ca.ualberta.autowise.scripts.google.DocumentSlurper.slurpDocument
 import static ca.ualberta.autowise.scripts.google.VolunteerListSlurper.getVolunteerByEmail
@@ -49,9 +48,7 @@ import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.upda
  * 2. Assemble the Shift-Role volunteer options summary for the event.
  * 3. One-by-one for each Volunteer marked 'Not Contacted': generate unique webhooks for each volunteer and send them the recruitment email.
  *    a. After the email is sent, update the 'Volunteer Contact Status' sheet with status 'Waiting for response' and the 'Last Contacted' value
- *    b. Pick one random volunteer whose email will be BCC'd to volunteer coordinators for quality control.
  * 4. Mark our task complete in SQLite
- * 5. If the task has the notify flag turned on, notify slack that the task has been completed.
  *
  */
 
@@ -200,6 +197,9 @@ private static String makeShiftRoleEmail(services, config, Volunteer volunteer, 
     def emailContents = emailTemplate.replaceAll("%AVAILABLE_SHIFT_ROLES%", shiftRoleHTMLTable)
     emailContents = emailContents.replaceAll("%EVENT_NAME%", event.name)
     emailContents = emailContents.replaceAll("%EVENT_DESCRIPTION%", event.description)
+    emailContents = emailContents.replaceAll("%EVENT_DATE%", event.startTime.format(SignupForRoleShift.eventDayFormatter))
+    emailContents = emailContents.replaceAll("%EVENT_START_TIME%", event.startTime.format(EventSlurper.shiftTimeFormatter))
+    emailContents = emailContents.replaceAll("%EVENT_END_TIME%", event.endTime.format(EventSlurper.shiftTimeFormatter))
     emailContents = emailContents.replaceAll("%REJECT_LINK%", "<a href=\"${config.getString("protocol")}://${config.getString("host")}:${config.getInteger("port").toString()}/${rejectHook.path()}\">Click me if you aren't able to volunteer for this event.</a>")
     emailContents = emailContents.replaceAll("%EVENTBRITE_LINK%", "<a href=\"${event.eventbriteLink}\">eventbrite</a>")
 

@@ -5,7 +5,6 @@ import ca.ualberta.autowise.model.Event
 import ca.ualberta.autowise.model.HookType
 import ca.ualberta.autowise.model.MassEmailEntry
 import ca.ualberta.autowise.model.MassEmailSender
-import ca.ualberta.autowise.model.Role
 import ca.ualberta.autowise.model.ShiftRole
 import ca.ualberta.autowise.model.Task
 import ca.ualberta.autowise.model.Webhook
@@ -19,7 +18,7 @@ import io.vertx.core.json.JsonObject
 
 import org.slf4j.LoggerFactory
 
-import static ca.ualberta.autowise.scripts.FindAvailableShiftRoles.getShiftRole
+import static ca.ualberta.autowise.utils.ShiftRoleUtils.getShiftRole
 import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.syncEventVolunteerContactSheet
 import static ca.ualberta.autowise.scripts.google.DocumentSlurper.slurpDocument
 import static ca.ualberta.autowise.scripts.google.VolunteerListSlurper.getVolunteerByEmail

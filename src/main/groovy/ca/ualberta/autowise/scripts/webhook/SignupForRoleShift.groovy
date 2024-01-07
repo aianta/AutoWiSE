@@ -2,7 +2,6 @@ package ca.ualberta.autowise.scripts.webhook
 
 
 import ca.ualberta.autowise.model.HookType
-import ca.ualberta.autowise.model.Role
 import ca.ualberta.autowise.model.ShiftRole
 import ca.ualberta.autowise.model.Webhook
 import ca.ualberta.autowise.model.Event
@@ -15,10 +14,8 @@ import org.slf4j.LoggerFactory
 
 import java.time.format.DateTimeFormatter
 
-
-import static ca.ualberta.autowise.scripts.ManageEventStatusTable.*
 import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.*
-import static ca.ualberta.autowise.scripts.FindAvailableShiftRoles.getShiftRole
+import static ca.ualberta.autowise.utils.ShiftRoleUtils.getShiftRole
 import static ca.ualberta.autowise.scripts.google.DocumentSlurper.*
 import static ca.ualberta.autowise.scripts.google.SendEmail.*
 import static ca.ualberta.autowise.scripts.ManageEventVolunteerContactSheet.*

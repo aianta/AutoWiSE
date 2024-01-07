@@ -16,18 +16,6 @@ import org.slf4j.LoggerFactory
  * @param fileId id of the file to retrieve
  * @return a promise that completes with a {@link com.google.api.services.drive.model.File} object or fails with an exception.
  */
-//static def getFile(GoogleAPI googleAPI, fileId){
-//    Promise promise = Promise.promise()
-//    try{
-//        File target = googleAPI.drive().files().get(fileId).setFields("id,name,kind,mimeType,webViewLink").execute()
-//        promise.complete(target)
-//    }catch(GoogleJsonResponseException e){
-//        GoogleJsonError error = e.getDetails();
-//        log.error e.getMessage(), e
-//        promise.fail(e)
-//    }
-//    return promise.future()
-//}
 
 static def getFile(GoogleAPI googleAPI, fileId){
 

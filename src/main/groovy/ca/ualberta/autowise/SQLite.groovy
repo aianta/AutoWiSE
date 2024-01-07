@@ -247,6 +247,7 @@ class SQLite {
         return promise.future()
     }
 
+
     def fetchAllPendingTasksForEvent(eventId){
         Promise<List<Task>> promise = Promise.promise()
         pool.preparedQuery('''

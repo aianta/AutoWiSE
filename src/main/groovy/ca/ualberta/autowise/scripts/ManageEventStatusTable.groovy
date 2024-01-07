@@ -3,6 +3,7 @@ package ca.ualberta.autowise.scripts
 
 import ca.ualberta.autowise.SQLite
 import ca.ualberta.autowise.model.ShiftAssignment
+import ca.ualberta.autowise.utils.ShiftRoleUtils
 import com.google.api.services.sheets.v4.model.ValueRange
 import io.vertx.core.Future
 
@@ -12,7 +13,7 @@ import static ca.ualberta.autowise.scripts.google.UpdateSheetValue.updateAt
 static def updateEventStatusTable(services, sheetId){
 
     return generateEventStatusTable(services, sheetId).compose {
-        return updateAt(services.googleAPI, sheetId, FindAvailableShiftRoles.EVENT_STATUS_RANGE, it)
+        return updateAt(services.googleAPI, sheetId, ShiftRoleUtils.EVENT_STATUS_RANGE, it)
     }
 
 }
@@ -30,7 +31,7 @@ static def generateEventStatusTable(services, sheetId){
         }
 
         ValueRange valueRange = new ValueRange();
-        valueRange.setRange(FindAvailableShiftRoles.EVENT_STATUS_RANGE)
+        valueRange.setRange(ShiftRoleUtils.EVENT_STATUS_RANGE)
         valueRange.setValues(eventStatusData)
         valueRange.setMajorDimension("ROWS")
 
