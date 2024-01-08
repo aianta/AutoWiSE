@@ -171,9 +171,11 @@ void vertxStart(Promise<Void> startup){
             internalPeriodId = vertx.setPeriodic(config.getLong("internal_tick_rate"), id->{
                 log.info "internal tick - ${ZonedDateTime.now(ca.ualberta.autowise.AutoWiSE.timezone).format(EventSlurper.eventTimeFormatter)}"
 
-
-
-                db.getWork().onSuccess(taskList->{
+                db.doStatusPass().compose {
+                    log.info "status pass complete, getting work"
+                    return db.getWork()
+                }.onFailure {log.error it.getMessage(), it.cause}
+                        .onSuccess(taskList->{
                     taskList.forEach( task-> {
                         task = (Task)task;
                         log.info "Retrieving associated event ({}) for task [{}] {}", task.eventId.toString(), task.taskId.toString(), task.name
@@ -251,47 +253,6 @@ static def updateEventSheet(services, Event event){
 
     }
 
-}
-
-static def doExternalTick(services, config) {
-    log.info "External tick!"
-    SQLite db = services.db
-    return db.getUpcomingEvents().compose {
-
-        log.info "Upcoming events:"
-        it.forEach { event ->
-            log.info "{} - {}", event.id.toString(), event.name
-            if (event.status == EventStatus.IN_PROGRESS.toString() ) {
-
-                //Other parts of the event sheet won't have updates until after recruitment emails are sent.
-                db.isInitialRecruitmentComplete(event.id).compose { initialRecruitmentTaskComplete->
-                    if(initialRecruitmentTaskComplete){
-                        log.info "Updating spreadsheet {} for event {} - {}", event.sheetId, event.id.toString(), event.name
-
-                        List<Future> todoForEvent = [
-                                ManageEventStatusTable.updateEventStatusTable(services, event.sheetId),
-                                ManageEventVolunteerContactSheet.updateVolunteerContactStatusTable(services, event),
-                                ManageVolunteerConfirmationTable.updateVolunteerConfirmationTable(services, event.sheetId)
-                        ]
-
-                        CompositeFuture.all(todoForEvent).onSuccess {
-                            log.info "Spreadsheet {} for event {} - {} updated successfully!", event.sheetId, event.id.toString(), event.name
-                        }
-                    }
-                }
-
-                //Mark events whose end time has elapsed as complete.
-                if (event.endTime.isBefore(ZonedDateTime.now())) {
-                    db.updateEventStatus(event.id, EventStatus.COMPLETE)
-                }
-
-
-            }
-
-        }
-
-        return Future.succeededFuture()
-    }
 }
 
 

@@ -23,6 +23,7 @@ import io.vertx.sqlclient.RowSet
 import io.vertx.sqlclient.Tuple
 import org.slf4j.LoggerFactory
 
+import java.time.Instant
 import java.time.ZoneOffset
 import java.time.ZonedDateTime
 import java.util.logging.Handler
@@ -189,7 +190,9 @@ class SQLite {
             err->log.error err.getMessage(), err
                 cancelTasks.fail(err)
         }
-        return CompositeFuture.all(cancelWebhooks.future(), cancelTasks.future())
+
+
+        return CompositeFuture.all(cancelWebhooks.future(), cancelTasks.future(), updateEventStatus(eventId, EventStatus.CANCELLED))
     }
 
     def cancelTaskById(taskId){
@@ -284,6 +287,66 @@ class SQLite {
         })
 
         return promise.future()
+    }
+
+    /**
+     * Update the statuses of events and tasks. If the current time is past the event start time, mark the event as complete.
+     * If the event associated with a scheduled task is already complete, mark it as expired.
+     *
+     *
+     * @return
+     */
+    def doStatusPass(){
+
+        def promise = Promise.promise()
+
+        //Mark events whose start time has passed as complete.
+        def nowTime = Instant.now().toEpochMilli();
+        pool.preparedQuery('''
+            SELECT data from events 
+            WHERE status != 'COMPLETE' AND status != 'CANCELLED';
+        ''').execute( {
+            if (it){
+                List<Event> eventList = new ArrayList<>()
+                it.result().forEach {
+                    Event e = slurpEventJson(it.getString("data"))
+                    if(e.endTime.toInstant().toEpochMilli() < nowTime){
+                        eventList.add(e)
+                    }
+                }
+                log.info "updating {} event statuses", eventList.size()
+                CompositeFuture.all(eventList.stream().map {
+                    updateEventStatus(it.id, EventStatus.COMPLETE)
+                }
+                .collect(Collectors.toList()))
+                .onSuccess {
+                    log.info "Updating task statuses."
+                    //Mark incomplete/scheduled tasks for those events as expired.
+                    pool.preparedQuery(''' 
+                        WITH completeEvents AS (
+                            SELECT id FROM events WHERE status = 'COMPLETE') 
+                            UPDATE tasks 
+                                SET status = 'EXPIRED'
+                                WHERE event_id in (SELECT id from completeEvents) AND status != 'COMPLETE'
+                        ; 
+                        ''').execute({
+                        if (it){
+                            promise.complete()
+                        }else{
+                            promise.fail(it.cause())
+                        }
+                    })
+                }
+
+
+            }else{
+                promise.fail(it.cause())
+            }
+
+        })
+
+        return promise.future()
+
     }
 
     /**
