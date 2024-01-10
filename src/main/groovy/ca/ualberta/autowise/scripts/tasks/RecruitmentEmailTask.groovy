@@ -93,7 +93,7 @@ static def recruitmentEmailTask(Vertx vertx, services, Task task, Event event, c
                                 def volunteer = getVolunteerByEmail(contactStatus.volunteerEmail, volunteers)
                                 if(volunteer == null){
                                     log.warn "Volunteer with email ${contactStatus.volunteerEmail} does not appear in WiSER volunteer pool, skipping recruitment email"
-                                    sendSlackMessage(services.slackAPI, event.eventSlackChannel, "${contactStatus.volunteerEmail} appears on the ${event.name}' volunteer contact status' sheet but does not appear in the WiSER general volunteer list. No email will be sent to ${contactStatus.volunteerEmail}.")
+                                    //sendSlackMessage(services.slackAPI, event.eventSlackChannel, "${contactStatus.volunteerEmail} appears on the ${event.name}' volunteer contact status' sheet but does not appear in the WiSER general volunteer list. No email will be sent to ${contactStatus.volunteerEmail}.")
                                     return null //Return a null email entry to skip this row as we don't recognize the volunteer
                                 }
 
