@@ -232,9 +232,11 @@ class AutoWiSEServer {
                                     break
                                 case HookType.BEGIN_CAMPAIGN:
                                     finishResponse(rc, "The campaign tasks will be scheduled according to plan imminently.")
-                                    db.beginCampaign(webhook.eventId).compose{return db.updateEventStatus(webhook.eventId, EventStatus.IN_PROGRESS)}.onSuccess{
+                                    db.beginCampaign(webhook.eventId).compose{return db.updateEventStatus(webhook.eventId, EventStatus.IN_PROGRESS)}
+                                            .compose {return queueEventSheetUpdate(vertx, services, event,config)}
+                                            .onSuccess{
                                         log.info "Campagin for eventId ${webhook.eventId.toString()} has begun!"
-                                        updateSingleValueAt(services.googleAPI, webhook.data.getString("eventSheetId"), "Event!A3", TaskStatus.IN_PROGRESS.toString())
+//                                        updateSingleValueAt(services.googleAPI, webhook.data.getString("eventSheetId"), "Event!A3", TaskStatus.IN_PROGRESS.toString())
                                                 .onFailure {err->webhookFailureHandler(config, services, err, webhook)}
                                     }.onFailure{
                                         err-> log.error "Error starting campaign for event id: ${webhook.eventId.toString()}"
