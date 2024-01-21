@@ -52,6 +52,7 @@
   * Next tasks
   * Last executed tasks
   * Last invoked webhooks
+* Create a slack command to force an event spreadsheet update
 
 # Building Docker image
 
