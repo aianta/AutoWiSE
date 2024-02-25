@@ -1,5 +1,12 @@
 # AutoWiSE
 [![Build Status](https://dev.azure.com/UAlberta-SSRG/WiSER%20Automation/_apis/build/status%2Faianta.AutoWiSE?branchName=main)](https://dev.azure.com/UAlberta-SSRG/WiSER%20Automation/_build/latest?definitionId=1&branchName=main)
+
+AutoWiSE is a custom automation tool built for the (Women in Science, Engineering & Research) WiSER 
+group at the University of Alberta. 
+
+At the time of writing it facilitates the automatic recruitment of volunteers for WiSER events. 
+
+
 # TODO
 * ~~Futurize operations~~
   * ~~Error handling, especially with API calls.~~
@@ -19,7 +26,6 @@
   * ~~Concat all email templates~~
   * ~~Add a pending/approved stage to all campaigns.~~
 * Add a thank you stage post-event.
-* **Finish Readme**
 * Creating events using JSON.
 * ~~Creating events via slack.~~
 * ~~Log web requests~~
