@@ -1104,6 +1104,10 @@ class SQLite {
         ''').execute(Tuple.from([eventId.toString()]),
                 {
                     if(it){
+                        if(it.result().size() == 0){
+                            log.error("Could not find event with id {}", eventId.toString())
+                            promise.fail("Could not find event with id " + eventId.toString());
+                        }
                         Row eventRow = it.result().iterator().next()
                         promise.complete(slurpEventJson(eventRow.getString("data")))
                     }else{

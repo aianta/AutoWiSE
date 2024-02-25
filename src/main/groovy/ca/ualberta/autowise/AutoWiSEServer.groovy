@@ -236,8 +236,6 @@ class AutoWiSEServer {
                                             .compose {return queueEventSheetUpdate(vertx, services, event,config)}
                                             .onSuccess{
                                         log.info "Campagin for eventId ${webhook.eventId.toString()} has begun!"
-//                                        updateSingleValueAt(services.googleAPI, webhook.data.getString("eventSheetId"), "Event!A3", TaskStatus.IN_PROGRESS.toString())
-                                                .onFailure {err->webhookFailureHandler(config, services, err, webhook)}
                                     }.onFailure{
                                         err-> log.error "Error starting campaign for event id: ${webhook.eventId.toString()}"
                                             log.error err.getMessage(), err

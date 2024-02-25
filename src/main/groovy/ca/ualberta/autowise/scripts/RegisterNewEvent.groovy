@@ -138,13 +138,6 @@ static def registerNewEvent(services, event, config){
     }
 
 
-
-
-
-private static def produceRoleShiftSet(Event event){
-    return produceRoleShiftList(event).stream().collect(Collectors.toSet())
-}
-
 /**
  * For an event produces an expanded list of all volunteer slots as defined
  * by the number of roles and shifts.
@@ -210,7 +203,7 @@ private static def makeCampaignPlan(Event event){
      * to send out based on event.resolicitFrequency
      */
 
-    //Stop sending reminder emails 1 day before the event, even if the resolicit frequency says we should.
+    //Stop sending reminder emails 1 day before the event, even if the re-solicit frequency says we should.
     def reminderEmailsCutoffTime = event.startTime.minus(1, ChronoUnit.DAYS)
     def firstEmailsTime = initialRecruitmentEmail.taskExecutionTime
     def resolicitTime = firstEmailsTime.plus(event.resolicitFrequency, ChronoUnit.MILLIS)

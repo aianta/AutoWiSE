@@ -33,10 +33,10 @@
 * ~~Slack Campaign Creation Test (Target: Last week of September 2023)~~
 * ~~Add instructions for SSL certificate renewal/creation~~
 * ~~Campaign created modal view~~
-* **Automatically add AutoWiSE to the event channel during creation process.**
+* ~~Give AutoWiSE permissions to post to any public channel.~~
 * ~~Register campaign on creation completion.~~ 
 * ~~Include link to spreadsheet in registration email.~~
-* **Do not allow Recruitment emails after the follow-up confirmation email.**
+* **Do not allow Recruitment emails after the follow-up confirmation email.** 
 * ~~Fix the class cast exception that happens on webhook invokes.~~ 
 * ~~Notify on Slack channel when a volunteer confirms their shift role.~~
 * **Improve Slack Campaign creation with back/forward buttons and a confirmation phase.**
