@@ -1,7 +1,9 @@
 package ca.ualberta.autowise.scripts.webhook
 
+import ca.ualberta.autowise.SQLite
 import ca.ualberta.autowise.model.Event
 import ca.ualberta.autowise.model.Webhook
+import static ca.ualberta.autowise.scripts.slack.SendSlackMessage.sendSlackMessage;
 
 import groovy.transform.Field
 import io.vertx.core.Future
@@ -30,7 +32,10 @@ static def confirmShiftRole(services, Webhook webhook, Event event){
             def volunteerName = webhook.data.getString("volunteerName")
             def shiftRoleString = webhook.data.getString("shiftRoleString")
 
-            return services.db.confirmVolunteerShiftRole(event.sheetId, webhook.eventId, volunteerName, volunteerEmail, shiftRoleString )
+            return ((SQLite)services.db).confirmVolunteerShiftRole(event.sheetId, webhook.eventId, volunteerName, volunteerEmail, shiftRoleString )
+                .compose {
+                    return sendSlackMessage(services.slackAPI, event.getEventSlackChannel(), "${volunteerName} (${volunteerEmail}) has confirmed they will be there for their role/shift (${shiftRoleString}) on ${event.startTime.format(SignupForRoleShift.eventDayFormatter)}!"  )
+                }
 
     }
 

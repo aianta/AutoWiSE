@@ -38,7 +38,7 @@
 * ~~Include link to spreadsheet in registration email.~~
 * **Do not allow Recruitment emails after the follow-up confirmation email.**
 * ~~Fix the class cast exception that happens on webhook invokes.~~ 
-* **Notify on Slack channel when a volunteer confirms their shift role.**
+* ~~Notify on Slack channel when a volunteer confirms their shift role.~~
 * **Improve Slack Campaign creation with back/forward buttons and a confirmation phase.**
 * Refactor new campaign validation logic to remove duplicate code.
 * Slack Control API 
