@@ -229,6 +229,8 @@ static def queueEventSheetUpdate(Vertx vertx, services, Event event, config){
         }
     })
 
+    return Future.succeededFuture();
+
 }
 
 

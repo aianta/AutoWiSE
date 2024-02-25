@@ -2,10 +2,10 @@
 [![Build Status](https://dev.azure.com/UAlberta-SSRG/WiSER%20Automation/_apis/build/status%2Faianta.AutoWiSE?branchName=main)](https://dev.azure.com/UAlberta-SSRG/WiSER%20Automation/_build/latest?definitionId=1&branchName=main)
 # TODO
 * ~~Futurize operations~~
-  * Error handling, especially with API calls.
+  * ~~Error handling, especially with API calls.~~
     * ~~Handle GoogleAPI 401 - unauthenticated using slack.~~
     * ~~Add an autowise technical channel, and send errors there~~
-    * Ideally fail safe
+    * ~~Ideally fail safe~~
   * ~~Futurize operations done on tick, a tick should complete a future.~~
 * ~~Canary Slack Message~~
 * ~~Switch to MDT/MST for all timestamps~~
@@ -19,8 +19,7 @@
   * ~~Concat all email templates~~
   * ~~Add a pending/approved stage to all campaigns.~~
 * Add a thank you stage post-event.
-* Finish Readme
-  * Include instructions for setting up an event through Google Sheets
+* **Finish Readme**
 * Creating events using JSON.
 * ~~Creating events via slack.~~
 * ~~Log web requests~~
@@ -30,13 +29,17 @@
 * ~~Don't create events that happen in the past.~~ 
 * ~~Use static variables in slack modal construction.~~
 * ~~New Campaign Validation~~
-* Integrate Events into database model
-* Slack Campaign Creation Test (Target: Last week of September 2023)
-* Add instructions for SSL certificate renewal/creation
+* ~~Integrate Events into database model~~
+* ~~Slack Campaign Creation Test (Target: Last week of September 2023)~~
+* ~~Add instructions for SSL certificate renewal/creation~~
 * ~~Campaign created modal view~~
-* Automatically add AutoWiSE to the event channel during creation process.
+* **Automatically add AutoWiSE to the event channel during creation process.**
 * ~~Register campaign on creation completion.~~ 
 * ~~Include link to spreadsheet in registration email.~~
+* **Do not allow Recruitment emails after the follow-up confirmation email.**
+* ~~Fix the class cast exception that happens on webhook invokes.~~ 
+* **Notify on Slack channel when a volunteer confirms their shift role.**
+* **Improve Slack Campaign creation with back/forward buttons and a confirmation phase.**
 * Refactor new campaign validation logic to remove duplicate code.
 * Slack Control API 
   * List active campaigns
