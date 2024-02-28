@@ -34,7 +34,7 @@ unsure how to access this slack workspace reach out to the executive volunteer c
 > After typing in just `/n`, `/new_vol_recruit_campaign` should appear as an auto complete option.
 3. A new modal will appear prompting you to enter the required information for the recruitment campaign. Fill in all the required fields, then click submit.
 
-<img src="/docs/new-campaign-modal.png" alt="the create campaign modal" width="600">
+<img src="/docs/new-campaign-modal.png" alt="the create campaign modal" width="300">
 
 >[!NOTE]
 > For a detailed breakdown of the information required see: [Configuring Recruitment Campaigns](#configuring-recruitment-campaigns)
