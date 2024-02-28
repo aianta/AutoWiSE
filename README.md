@@ -8,7 +8,7 @@ group at the University of Alberta.
 
 Larger events such as the WiSER summer BBQ, industry mixers, and anniversary galas require many helping hands to
 go smoothly. Additionally, volunteering at these events provides an excellent opportunity for interested individuals
-to learn more about WiSER, get involved and even join the executive committee. To this end WiSER maintains a pool of 
+to learn more about WiSER and get involved. To this end WiSER maintains a pool of 
 individuals who have indicated that they are interested in helping out with the logistics of WiSER events. This 
 software automates the recruitment of volunteers from this pool for upcoming WiSER events.
 
@@ -27,7 +27,8 @@ Autowise integrates with Slack to allow the simple creation of volunteer recruit
 >If you are
 unsure how to access this slack workspace reach out to the executive volunteer coordinators. 
 2. In any public channel of the workspace type in `/new_vol_recruit_campaign` in the message box and hit enter.
-![](/docs/slack-command.gif)
+
+<img src="/docs/slack-command.gif" alt="animation showing the invocation of the create new volunteer recruitment campaign slack command" width="200">
 
 >[!TIP]
 > After typing in just `/n`, `/new_vol_recruit_campaign` should appear as an auto complete option.
