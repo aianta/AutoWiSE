@@ -28,12 +28,13 @@ Autowise integrates with Slack to allow the simple creation of volunteer recruit
 unsure how to access this slack workspace reach out to the executive volunteer coordinators. 
 2. In any public channel of the workspace type in `/new_vol_recruit_campaign` in the message box and hit enter.
 
-<img src="/docs/slack-command.gif" alt="animation showing the invocation of the create new volunteer recruitment campaign slack command" width="200">
+<img src="/docs/slack-command.gif" alt="animation showing the invocation of the create new volunteer recruitment campaign slack command" width="600">
 
 >[!TIP]
 > After typing in just `/n`, `/new_vol_recruit_campaign` should appear as an auto complete option.
 3. A new modal will appear prompting you to enter the required information for the recruitment campaign. Fill in all the required fields, then click submit.
-![](/docs/new-campaign-modal.png)
+
+<img src="/docs/new-campaign-modal.png" alt="the create campaign modal" width="600">
 
 >[!NOTE]
 > For a detailed breakdown of the information required see: [Configuring Recruitment Campaigns](#configuring-recruitment-campaigns)
