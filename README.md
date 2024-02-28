@@ -2,9 +2,96 @@
 [![Build Status](https://dev.azure.com/UAlberta-SSRG/WiSER%20Automation/_apis/build/status%2Faianta.AutoWiSE?branchName=main)](https://dev.azure.com/UAlberta-SSRG/WiSER%20Automation/_build/latest?definitionId=1&branchName=main)
 
 AutoWiSE is a custom automation tool built for the (Women in Science, Engineering & Research) WiSER 
-group at the University of Alberta. 
+group at the University of Alberta.
 
-At the time of writing it facilitates the automatic recruitment of volunteers for WiSER events. 
+# Automated Volunteer Recruitment 
+
+Larger events such as the WiSER summer BBQ, industry mixers, and anniversary galas require many helping hands to
+go smoothly. Additionally, volunteering at these events provides an excellent opportunity for interested individuals
+to learn more about WiSER, get involved and even join the executive committee. To this end WiSER maintains a pool of 
+individuals who have indicated that they are interested in helping out with the logistics of WiSER events. This 
+software automates the recruitment of volunteers from this pool for upcoming WiSER events.
+
+# Usage 
+
+To use Autowise one must:
+
+1. Create a new volunteer recruitment campaign.
+2. Begin the created campaign.
+3. Monitor Slack and the generated campaign spreadsheet for progress updates.
+
+## Creating New Recruitment Campaigns
+
+Autowise integrates with Slack to allow the simple creation of volunteer recruitment campaigns.
+
+1. To create a new campaign, open the slack workspace into which Autowise has been integrated. 
+>If you are
+unsure how to access this slack workspace reach out to the executive volunteer coordinators. 
+2. In any public channel of the workspace type in `/new_vol_recruit_campaign` in the message box and hit enter.
+![](/docs/slack-command.gif)
+
+> After typing in just `/n`, `/new_vol_recruit_campaign` should appear as an auto complete option.
+3. A new modal will appear prompting you to enter the required information for the recruitment campaign.
+![](/docs/new-campaign-modal.png)
+
+>[!NOTE]
+> For a detailed breakdown of the information required see: [Configuring Recruitment Campaigns](#configuring-recruitment-campaigns)
+
+
+
+# Configuring Recruitment Campaigns
+
+# Configuration
+
+```yaml
+---
+# General
+external_tick_rate: 10800000 # How often does AutoWiSE execute its external loop (the one that checks for new email templates on GDrive)
+internal_tick_rate: 30000 # How often does AutoWiSE execute its internal loop (the one that dispatches planned tasks from SQLite)
+mass_email_delay: 1000 # Time in ms between emails in a mass send task. Need to keep below 2 emails/second.
+sheet_update_delay: 15000 # Time in ms to wait after task/webhook before updating event spreadsheet values.
+
+# SQLite Config
+db_connection_string: 'jdbc:sqlite:data/autowise.db'
+
+# Web Server Config
+host: localhost
+port: 8001
+jks_path: conf/autowise-local.jks # path to the keystore
+jks_password: autowise # keystore password
+protocol: https
+
+# Google API Configs
+application_name: AutoWiSE
+credentials_path: conf/credentials.json
+auth_tokens_directory_path: conf/tokens
+auth_server_host: localhost
+auth_server_receiver_port: 8002
+
+# Gmail Config
+sender_email: <email address to appear as sender> # Needs to be set properly to avoid triggering spam filters
+
+# Google Drive Configs
+autowise_event_prefix: "[AutoWiSE][Event]"
+autowise_drive_folder_id: 14kqs83NGNJYOtzhx6iG2sJoR9MTi6f4N # Root autowise folder id on google drive
+autowise_volunteer_pool_id: 1V-f7hhY2_nsoSOGgPKDmUCpScjFACo1TWNaGY6hQBIs # Drive id of the sheet containing the volunteer list
+autowise_volunteer_table_range: Sheet1!A:B
+autowise_new_recruitment_campaign_email_template: 1HhYJ2HX0aZ2IFbowzQXF7k1uUSIAT-ASazliGog9mjc #Google Doc id of the template to use when a new recruitment campaign is created.
+autowise_event_template_sheet: 1yhB6ynS2b769oy7dQ--0lsJ_xhZaDr1VBolxb4Ci8UQ
+
+# Sheet clearing ranges, these are the ranges that are cleared when a new campaign is registered. They do not include headers.
+volunteer_contact_status_clearing_range: "'Volunteer Contact Status'!A2:H"
+event_status_clearing_range: "'Event Status'!A5:E"
+confirmation_status_clearing_range: "'Volunteer Confirmations'!A2:D"
+max_roles_per_event: 12
+
+# Slack Config
+slack_token: <from OAuth & Permissions section of app control panel>
+slack_signing_secret: <from basic information part of app control panel>
+technical_channel: "#autowise-technical"
+socket_mode_token: <from App-Level tokens part of app control panel>
+...
+```
 
 
 # TODO
