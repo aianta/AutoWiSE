@@ -12,9 +12,7 @@ to learn more about WiSER, get involved and even join the executive committee. T
 individuals who have indicated that they are interested in helping out with the logistics of WiSER events. This 
 software automates the recruitment of volunteers from this pool for upcoming WiSER events.
 
-# Usage 
-
-To use Autowise one must:
+# Usage
 
 1. Create a new volunteer recruitment campaign.
 2. Begin the created campaign.
@@ -24,22 +22,77 @@ To use Autowise one must:
 
 Autowise integrates with Slack to allow the simple creation of volunteer recruitment campaigns.
 
-1. To create a new campaign, open the slack workspace into which Autowise has been integrated. 
+1. To create a new campaign, open the slack workspace into which Autowise has been integrated.
+>[!IMPORTANT]
 >If you are
 unsure how to access this slack workspace reach out to the executive volunteer coordinators. 
 2. In any public channel of the workspace type in `/new_vol_recruit_campaign` in the message box and hit enter.
 ![](/docs/slack-command.gif)
 
+>[!TIP]
 > After typing in just `/n`, `/new_vol_recruit_campaign` should appear as an auto complete option.
-3. A new modal will appear prompting you to enter the required information for the recruitment campaign.
+3. A new modal will appear prompting you to enter the required information for the recruitment campaign. Fill in all the required fields, then click submit.
 ![](/docs/new-campaign-modal.png)
 
 >[!NOTE]
 > For a detailed breakdown of the information required see: [Configuring Recruitment Campaigns](#configuring-recruitment-campaigns)
 
+>[!CAUTION]
+> Double-check all information that you enter on each screen as you **will not** be able to go back and change anything. If you realize
+> you've made a mistake you will have to create a new campaign. 
 
+That's it! Once you've submitted all the required campaign information the volunteer coordinators and event leads listed for the campaign
+will receive an email with all the campaign details. They will need to begin the campaign for anything else to happen. 
+
+## Beginning a created Campaign
+Once a campaign has been created, the volunteer coordinators and event leads listed during the campaign creation process will receive an email
+with the campaign details. At this stage a campaign should be considered *planned* but not *approved* or *active*. 
+
+This email will contain:
+
+* A break-down the automated recruitment plan Autowise has generated.
+* Samples of all emails that volunteers might receive during the campaign.
+* A link to the generated **campaign spreadsheet** where progress updates will be made.
+* A link to actually begin the execution of the campaign as described in the email. 
+* A link to cancel the campagin at any time. 
+* Links to cancel any automated task planned for the campaign.
+* Links to immediately execute any automated task planned for the campaign. 
+
+For more details on the contents and functionality of the email see: [Understanding the Automated Campaign Plan Email](#understanding-the-automated-campaign-plan-email)
+
+>[!IMPORTANT]
+> This is the last opportunity to prevent typos/erroneous/out-of-date information from being sent out to the full WiSER general volunteer pool. 
+
+Check the campaign details *carefully* for any errors or out of date information. 
+
+>Do the eventbrite links work correctly?
+
+If everything looks good. Click the `Begin Campaign` link at the bottom of the email. 
+
+>[!NOTE]
+> A recruitment campaign will **not** be executed if an event lead or volunteer coordinator has not clicked the `Begin Campaign` link. 
+
+>[!WARNING]
+> `Begin Campaign` links expire 72 hours after the creation of the campaign. 
+> 
+>The campaign will have to be recreated for a new link to be generated.
+
+## Monitoring Campaign Progress
+After the campaign has been created, and an event lead or volunteer coordinator has begun the campaign (see: [Beginning a created Campaign](#beginning-a-created-campaign)),
+AutoWiSE will execute the planned campaign tasks and manage responses from volunteers. 
+
+As it does so, it will update the [campaign spreadsheet](#understanding-the-generated-campaign-spreadsheet) on Google Drive, as well as send progress updates to the campaign Slack channel. 
+
+![](/docs/slack-progress-updates.png)
+
+>![NOTE]
+>The campaign spreadsheet is linked in the [Automated Campaign Plan](#understanding-the-automated-campaign-plan-email) email. 
 
 # Configuring Recruitment Campaigns
+
+# Understanding the Automated Campaign Plan Email
+
+# Understanding the generated Campaign Spreadsheet
 
 # Configuration
 
