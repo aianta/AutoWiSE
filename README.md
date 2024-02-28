@@ -12,6 +12,25 @@ to learn more about WiSER and get involved. To this end WiSER maintains a pool o
 individuals who have indicated that they are interested in helping out with the logistics of WiSER events. This 
 software automates the recruitment of volunteers from this pool for upcoming WiSER events.
 
+This document is broken into two sections.
+
+The first is targeted towards users of the AutoWiSE system, this includes WiSER executive committee members, 
+event leads, and volunteer coordinators. It includes 'how-to' style information on how to use AutoWiSE for volunteer recruitment.
+
+The second is targeted towards administrators of the AutoWiSE system. It is more technically oriented and  contains information on installing, configuring, deploying, 
+and managing the AutoWiSE system. 
+
+To jump to the administrator section click [here](#administrators-guide). 
+
+# User Guide
+1. [Usage](#usage)
+   1. [Creating New Recruitment Campaigns](#creating-new-recruitment-campaigns)
+   2. [Beginning a Created Campaign](#beginning-a-created-campaign)
+   3. [Monitoring Campaign Progress](#monitoring-campaign-progress)
+2. [Configuring Recruitment Campaigns](#configuring-recruitment-campaigns)
+3. [Understanding the Automated Campaign Plan Email](#understanding-the-automated-campaign-plan-email)
+4. [Understanding the Generated Campaign Spreadsheet](#understanding-the-generated-campaign-spreadsheet)
+5. [Email Templates](#email-templates)
 # Usage
 
 1. Create a new volunteer recruitment campaign.
@@ -98,6 +117,10 @@ As it does so, it will update the [campaign spreadsheet](#understanding-the-gene
 # Understanding the Automated Campaign Plan Email
 
 # Understanding the generated Campaign Spreadsheet
+
+# Email Templates
+
+# Administrator's Guide
 
 # Configuration
 
