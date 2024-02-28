@@ -61,7 +61,7 @@ This email will contain:
 For more details on the contents and functionality of the email see: [Understanding the Automated Campaign Plan Email](#understanding-the-automated-campaign-plan-email)
 
 >[!IMPORTANT]
-> This is the last opportunity to prevent typos/erroneous/out-of-date information from being sent out to the full WiSER general volunteer pool. 
+> This is the **last** opportunity to prevent typos/erroneous/out-of-date information from being sent out to the full WiSER general volunteer pool. 
 
 Check the campaign details *carefully* for any errors or out of date information. 
 
@@ -79,11 +79,14 @@ If everything looks good. Click the `Begin Campaign` link at the bottom of the e
 
 ## Monitoring Campaign Progress
 After the campaign has been created, and an event lead or volunteer coordinator has begun the campaign (see: [Beginning a created Campaign](#beginning-a-created-campaign)),
-AutoWiSE will execute the planned campaign tasks and manage responses from volunteers. 
+AutoWiSE will execute the planned campaign tasks and manage responses from volunteers.
+
+![](/docs/slack-progress-updates.png)
 
 As it does so, it will update the [campaign spreadsheet](#understanding-the-generated-campaign-spreadsheet) on Google Drive, as well as send progress updates to the campaign Slack channel. 
 
-![](/docs/slack-progress-updates.png)
+
+
 
 >![NOTE]
 >The campaign spreadsheet is linked in the [Automated Campaign Plan](#understanding-the-automated-campaign-plan-email) email. 
