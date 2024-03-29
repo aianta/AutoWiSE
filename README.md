@@ -203,12 +203,45 @@ Once you've filled in all role information, you will be prompted to fill in shif
 
 **Number of Volunteers for this shift** - This is the quota for this role-shift, the number of volunteers you'd like recruited for this job. So say you want 2 volunteers for this shift. If a third volunteer attempts to sign up, they will be placed on a waitlist. Should one of the volunteers who were assigned for this shift role cancel, AutoWiSE will automatically swap someone from the waitlist into their slot, and notify all relevant parties.
 
-That's it, once you fill in this information for all the shifts and roles you configured the recruitment campagin will be created. As part of this process AutoWise will create a spreadsheet where the state of the recruitment campaign can be tracked (see [this section for more details](#understanding-the-generated-campaign-spreadsheet)). 
+That's it, once you fill in this information for all the shifts and roles you configured the recruitment campaign will be created. As part of this process AutoWise will create a spreadsheet where the state of the recruitment campaign can be tracked (see [this section for more details](#understanding-the-generated-campaign-spreadsheet)). 
 
 >[!IMPORTANT] 
 > Your campaign is **NOT** active at this stage. AutoWiSE will **NOT** send any recruitment emails or perform any campaign tasks until an event organizer or volunteer coordinator clicks the `Begin Campaign` link in the [Automated Campaign Plan Email](#understanding-the-automated-campaign-plan-email).  
 
 # Understanding the Automated Campaign Plan Email
+
+After a new recruitment campaign plan is configured and submitted through slack. The people identified as volunteer coordinators and event organizers for the event will receive a detailed campaign plan email.
+An example of this campaign plan email is shown below. 
+
+The purpose of this email is to confirm that the campaign details that have been entered are correct, and that the campaign should be executed as described.
+
+>[!IMPORTANT] 
+> This is the last point at which incorrect information can be caught before volunteers are notified. 
+
+<img src="/docs/email-sample.png" alt="example of the automated campaign plan email" height="300">
+
+Starting from the top of the email, you will find: 
+* The event name (in this case `Industry Mixer 2024`).
+* The event description (immediately below the event name).
+* The link to the campaign spreadsheet in google docs. 
+* A list of automated tasks that will be executed for this campaign along with links that will allow you to cancel any individual tasks or execute them ahead of time. 
+* The `Cancel Campaign` link which prevents any further tasks from being executed for this campaign. 
+* A sample of every kind of email that will be sent as part of this recruitment campaign. This is what volunteers will receive. 
+* The `Begin Campaign` link, which will be located at the very bottom of the email (not pictured). Clicking it will change the status of the campaign from pending to in-progress and the planned tasks will be executed at the times specified in the task table located higher up in the email. 
+
+>[!NOTE] 
+> You do not need to cancel recruitment emails once all shift-roles have been filled for an event. AutoWiSE will automatically avoid sending recruitment emails if all shift-roles are filled.
+
+
+This email also provides volunteer coordinators and event organizers with the ability to execute or cancel any individual campaign action (such as the sending a wave of recruitment emails). Or to cancel the entire campagin. 
+
+>[!IMPORTANT]
+> Event organizers and volunteer coordinators can cancel an in-progress recruitment campaign with the `Cancel Campaign` link in this email.
+
+>[!WARNING] A campagin will not be executed unless the `Begin Campaign` link is clicked by a volunteer coordinator or event organizer. 
+
+>[!WARNING] There is no mechanism to determine who has clicked any link in this email. Whoever receives or is forwarded this email will be able to execute any of the actions described.
+
 
 # Understanding the generated Campaign Spreadsheet
 
