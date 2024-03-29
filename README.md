@@ -25,7 +25,7 @@ To jump to the administrator section click [here](#administrators-guide).
 # User Guide
 1. [Usage](#usage)
    1. [Creating New Recruitment Campaigns](#creating-new-recruitment-campaigns)
-   2. [Beginning a Created Campaign](#beginning-a-created-campaign)
+   2. [Starting a Created Campaign](#starting-a-created-campaign)
    3. [Monitoring Campaign Progress](#monitoring-campaign-progress)
 2. [Configuring Recruitment Campaigns](#configuring-recruitment-campaigns)
 3. [Understanding the Automated Campaign Plan Email](#understanding-the-automated-campaign-plan-email)
@@ -65,7 +65,7 @@ unsure how to access this slack workspace reach out to the executive volunteer c
 That's it! Once you've submitted all the required campaign information the volunteer coordinators and event leads listed for the campaign
 will receive an email with all the campaign details. They will need to begin the campaign for anything else to happen. 
 
-## Beginning a created Campaign
+## Starting a created Campaign
 Once a campaign has been created, the volunteer coordinators and event leads listed during the campaign creation process will receive an email
 with the campaign details. At this stage a campaign should be considered *planned* but not *approved* or *active*. 
 
