@@ -254,17 +254,17 @@ from the bottom left.
 > A link to the spreadsheet generated for an automated campaign can be found in the [Automated Campaign Plan Email](#understanding-the-automated-campaign-plan-email).
 
 ## Event
-<img src="/docs/spreadsheet-event.png" alt="example of the event sheet" height="300">
+<img src="/docs/spreadsheet-event.png" alt="example of the event sheet" height="500">
 
 The event sheet lists the recruitment campaign configuration as it was entered through the slack campaign creation process. 
 
 ## Event Status
-<img src="/docs/spreadsheet-event-status.png" alt="example of the event status sheet" height="500">
+<img src="/docs/spreadsheet-event-status.png" alt="example of the event status sheet" height="300">
 
 The event status sheet shows all the shift-roles for the event and which volunteer has been assigned to each shift-role. As the recruitment campaign continues this will be populated with volunteers who register for shift roles.
 
 ## Volunteer Contact Status
-<img src="/docs/spreadsheet-volunteer-contact-status.png" alt="example of the volunteer contact status sheet" height="200">
+<img src="/docs/spreadsheet-volunteer-contact-status.png" alt="example of the volunteer contact status sheet" height="150">
 
 The volunteer contact status sheet shows the interactions between AutoWiSE and every volunteer. Here you can see if a volunteer has been contacted for this campaign, if they have accepted, rejected, or canceled on a shift-role, as well as the timestamps associated with these actions. You are also able to see which volunteers are currently waitlisted for a shift role, and what date-time they were wait listed on. 
 
