@@ -248,27 +248,27 @@ This email also provides volunteer coordinators and event organizers with the ab
 # Understanding the generated Campaign Spreadsheet
 
 A recruitment campaign spreadsheet has 4 sheets, each described below. You can access these sheets by selecting them 
-from the bottom left. 
+from the bottom left once you have the spreadsheet open. 
 
 >[!TIP] 
-> A link to the spreadsheet generated for an automated campaign can be found in the [Automated Campaign Plan Email](#understanding-the-automated-campaign-plan-email).
+> A link to the spreadsheet generated for a campaign can be found in the [Automated Campaign Plan Email](#understanding-the-automated-campaign-plan-email).
 
-## Event
+## Event Sheet
 <img src="/docs/spreadsheet-event.png" alt="example of the event sheet" height="500">
 
 The event sheet lists the recruitment campaign configuration as it was entered through the slack campaign creation process. 
 
-## Event Status
+## Event Status Sheet
 <img src="/docs/spreadsheet-event-status.png" alt="example of the event status sheet" height="300">
 
 The event status sheet shows all the shift-roles for the event and which volunteer has been assigned to each shift-role. As the recruitment campaign continues this will be populated with volunteers who register for shift roles.
 
-## Volunteer Contact Status
+## Volunteer Contact Status Sheet
 <img src="/docs/spreadsheet-volunteer-contact-status.png" alt="example of the volunteer contact status sheet" height="150">
 
 The volunteer contact status sheet shows the interactions between AutoWiSE and every volunteer. Here you can see if a volunteer has been contacted for this campaign, if they have accepted, rejected, or canceled on a shift-role, as well as the timestamps associated with these actions. You are also able to see which volunteers are currently waitlisted for a shift role, and what date-time they were wait listed on. 
 
-## Volunteer Confirmations
+## Volunteer Confirmations Sheet
 <img src="/docs/spreadsheet-volunteer-confirmations.png" alt="example of the volunteer confirmation sheet" height="300">
 
 The volunteer confirmations sheet keeps track of all volunteers who have confirmed their availability to volunteer for the event. This is different from having registered to volunteer. Confirmations on this sheet will only start appearing once the 'Follow-up Confirmation Email' has been sent. See [Configuring Recruitment Campaigns](#configuring-recruitment-campaigns) field #11 for more details. 
