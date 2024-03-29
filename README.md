@@ -109,7 +109,7 @@ As it does so, it will update the [campaign spreadsheet](#understanding-the-gene
 
 
 
->![NOTE]
+>[!NOTE]
 >The campaign spreadsheet is linked in the [Automated Campaign Plan](#understanding-the-automated-campaign-plan-email) email. 
 
 # Configuring Recruitment Campaigns
@@ -122,18 +122,18 @@ The following fields are required to create a recruitment campaign. You will be 
 2. **Description** - This description will appear in the body of the recruitment emails.
 3. **Event Organizers** - The organizers of the event. 
 
->![IMPORTANT] 
+>[!IMPORTANT] 
 >Event organizers must be part of the slack workspace in which AutoWise operates in order to be selected.
 
 4. **Volunteer Coordinators** - The volunteer coordinators for the event.
 
->![IMPORTANT] 
+>[!IMPORTANT] 
 >Volunteer coorginatoes must be part of the slack workspace in which AutoWise operates in order to be selected.
 
 5. **Start Time** - The date and time that the event starts. This will be interpreted as mountain time. 
 6. **End Time** - The date and time that the event ends. This will be interpreted as mountain time. 
 
->![NOTE] 
+>[!NOTE] 
 > AutoWise was **NOT** designed to accommodate multi-day events, it may break or behave unusually if such use is attempted.
 
 7. **Eventbrite Link** - This should be the url to the eventbrite page for the event, usually starts with `https://www.eventbrite.ca/e/`.
@@ -144,13 +144,13 @@ The following fields are required to create a recruitment campaign. You will be 
 9. **Start Volunteer Recruitment Campaign on** - This is the date and time at which the first volunteer recruitment email will be sent for this campagin. 
 10. **Send periodic reminder recruitment emails every X days** - Here you specify a value for X, if you choose 3 for example, AutoWise will send the initial recruitment campaign email, then 3 days later it will send another recruitment email, 3 days after that it will do so again, and so on until the day of the event.
 
->![NOTE] 
+>[!NOTE] 
 > Autowise dynamically adjusts follow-up recruitment emails in 2 important ways:
 > 1. It will not send follow-up recruitment emails to volunteers who have already signed up, or already indicated they cannot volunteer for the event. 
 > 2. It will not include registration links for shifts/roles that have already met their recruitment quota. 
 
 11. **Follow-up with registed volunteers on** - This is the date and time at which AutoWise will send a follow-up email specifically to volunteers who have registered for a shift/role for the event. They will be prompted to confirm their availability for their chosen shift/role.
->![NOTE] 
+>[!NOTE] 
 > This date is commonly set pretty close to the event start time. Recruitment campaigns can sometimes start 2 weeks or more before the event. Some volunteers may therefore register and forget they've done so. 
 > This followup-confirmation process reminds registered volunteers of their commitment and gives AutoWise and volunteer coordinators an opportunity to find replacements if circumstances have changed and they can no longer make their shfit.
 
@@ -162,7 +162,7 @@ For convenience the default values for each setting is noted with each descripti
 12. **Initial Recruitment Email Template** (Default: `[AutoWiSE] Recruitment Email Template`) - This is the email template that will be used to send the **first** recruitment email of the campaign. It will be sent at the date and time configured in field 9.
 13. **Recruitment Email Template** (Default: `[AutoWiSE] Recruitment Email Template`) - This is the email template that will be used in subsequent recruitment emails for the campaign. It will be sent periodically every X number of days until the start date of the event. X is configured in field 10.
 
->![NOTE] 
+>[!NOTE] 
 > The initial recruitment email template and recruitment email template are separate settings to allow the use of different wording for these kinds of emails. For example making subsequent recruitment emails start with `Hi Folks, we are still looking for volunteers...` while leaving the initial recruitment email unchanged. By default however the same email template is used for both.
 
 14. **Follow-up Email Template** (Default `[AutoWiSE] Follow-up Template`) - This is the email template that is used to prompt volunteers who have registered for a shift role to confirm their commitment to volunteering a few days prior to the event. See the description for field 11. 
@@ -185,7 +185,7 @@ After field 19, you will be prompted to fill in details for each role. So if you
 
 **`#` of shifts for this role** - This is the number of shifts for this role. For example, let's say you're running the Summer BBQ, and the event lasts for 4 hours, you've configured a role for `Grill Master` but want to create 2 shifts for the role one from `10:00am` to `12:00pm` and one from `12:00pm` to `2:00pm`. So that volunteers don't have to commit to the full 4 hours. In this case you'd set this value to 2. 
 
->![NOTE] 
+>[!NOTE] 
 > Each role has at minimum 1 shift.
 
 ### Shifts
@@ -195,17 +195,17 @@ Once you've filled in all role information, you will be prompted to fill in shif
 
 **End Time** - What time does this shift end. 
 
->![NOTE] 
+>[!NOTE] 
 > You can set start times and end times before and after the start and end times of the event. 
 
->![IMPORTANT] 
+>[!IMPORTANT] 
 > However, all shift times will be interpreted as on the day of the event. AutoWiSE does not support multi-day events, or volunteer shifts before or after the day of the event.
 
 **Number of Volunteers for this shift** - This is the quota for this role-shift, the number of volunteers you'd like recruited for this job. So say you want 2 volunteers for this shift. If a third volunteer attempts to sign up, they will be placed on a waitlist. Should one of the volunteers who were assigned for this shift role cancel, AutoWiSE will automatically swap someone from the waitlist into their slot, and notify all relevant parties.
 
 That's it, once you fill in this information for all the shifts and roles you configured the recruitment campagin will be created. As part of this process AutoWise will create a spreadsheet where the state of the recruitment campaign can be tracked (see [this section for more details](#understanding-the-generated-campaign-spreadsheet)). 
 
->![IMPORTANT] 
+>[!IMPORTANT] 
 > Your campaign is **NOT** active at this stage. AutoWiSE will **NOT** send any recruitment emails or perform any campaign tasks until an event organizer or volunteer coordinator clicks the `Begin Campaign` link in the [Automated Campaign Plan Email](#understanding-the-automated-campaign-plan-email).  
 
 # Understanding the Automated Campaign Plan Email
