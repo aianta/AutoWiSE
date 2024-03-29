@@ -238,9 +238,11 @@ This email also provides volunteer coordinators and event organizers with the ab
 >[!IMPORTANT]
 > Event organizers and volunteer coordinators can cancel an in-progress recruitment campaign with the `Cancel Campaign` link in this email.
 
->[!WARNING] A campagin will not be executed unless the `Begin Campaign` link is clicked by a volunteer coordinator or event organizer. 
+>[!WARNING] 
+> A campagin will not be executed unless the `Begin Campaign` link is clicked by a volunteer coordinator or event organizer. 
 
->[!WARNING] There is no mechanism to determine who has clicked any link in this email. Whoever receives or is forwarded this email will be able to execute any of the actions described.
+>[!WARNING] 
+> There is no mechanism to determine who has clicked any link in this email. Whoever receives or is forwarded this email will be able to execute any of the actions described.
 
 
 # Understanding the generated Campaign Spreadsheet
