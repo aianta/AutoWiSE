@@ -264,20 +264,106 @@ The event sheet lists the recruitment campaign configuration as it was entered t
 The event status sheet shows all the shift-roles for the event and which volunteer has been assigned to each shift-role. As the recruitment campaign continues this will be populated with volunteers who register for shift roles.
 
 ## Volunteer Contact Status Sheet
-<img src="/docs/spreadsheet-volunteer-contact-status.png" alt="example of the volunteer contact status sheet" height="150">
+<img src="/docs/spreadsheet-volunteer-contact-status.png" alt="example of the volunteer contact status sheet" height="100">
 
 The volunteer contact status sheet shows the interactions between AutoWiSE and every volunteer. Here you can see if a volunteer has been contacted for this campaign, if they have accepted, rejected, or canceled on a shift-role, as well as the timestamps associated with these actions. You are also able to see which volunteers are currently waitlisted for a shift role, and what date-time they were wait listed on. 
 
 ## Volunteer Confirmations Sheet
-<img src="/docs/spreadsheet-volunteer-confirmations.png" alt="example of the volunteer confirmation sheet" height="300">
+<img src="/docs/spreadsheet-volunteer-confirmations.png" alt="example of the volunteer confirmation sheet" height="150">
 
 The volunteer confirmations sheet keeps track of all volunteers who have confirmed their availability to volunteer for the event. This is different from having registered to volunteer. Confirmations on this sheet will only start appearing once the 'Follow-up Confirmation Email' has been sent. See [Configuring Recruitment Campaigns](#configuring-recruitment-campaigns) field #11 for more details. 
 
 # Email Templates
 
+AutoWiSE uses a very simple wildcard replacement templating system. 
+
+## Recruitment Email Template
+
+| Wildcard            | Replacement                                                                                                                                                                      | Example                                                                                                                                                                                                                                                                                                                                                                                                                    |
+|---------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| %EVENT_NAME%        | The name of the event.                                                                                                                                                           | Industry Mixer 2024                                                                                                                                                                                                                                                                                                                                                                                                        | 
+| %EVENT_DATE%        | The day of the event                                                                                                                                                             | 2/10/2024                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| %EVENT_START_TIME%  | The start time of the event.                                                                                                                                                     | 17:30                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| %EVENT_END_TIME%    | The end time of the event.                                                                                                                                                       | 20:00                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| %EVENT_DESCRIPTION% | The description of the event.                                                                                                                                                    | WiSER is excited to host its annual Industry Mixer on Saturday, February 10th, 2024, from 5:30 pm to 8:00 pm MST. Join us for an evening of networking with STEM professionals from industry and government. Organizations attending include Applied Pharmaceutical Innovation, ATCO, CN, Levven, PCL Construction, Thurber Engineering, and more! This event is free and open to students and early-career professionals. |
+| %EVENTBRITE_LINK%   | The link to the eventbrite page for the event.                                                                                                                                   | [eventbrite]()                                                                                                                                                                                                                                                                                                                                                                                                             |
+|%AVAILABLE_SHIFT_ROLES% | A table presenting the volunteer shift-roles for this event including: The role name, shift start time, shift end time, a description of the role, and a sign-up volunteer link. | <img src="/docs/available-shift-roles.png" alt="An example of the available shift roles table." height="100">                                                                                                                                                                                                                                                                                                              |
+| %ROLE%              | The name of the role the volunteer has registered for.                                                                                                                           | Setup Crew                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| %SHIFT_START%       | The start time of the shift the volunteer has registered for.                                                                                                                    | 19:16                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| %SHIFT_END%         | The end time of the shift the volunteer has registered for .                                                                                                                     | 20:16                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| %CONFIRMATION_LINK% | The confirmation link for the volunteer to click, confirming their availability for their shift-role.                                                                            | [Confirmation Link](https://autowise.services:8001/MmUxNTM3ZDUtY2M5Mi00ZTBjLThlOWQtMDBmNDQ3YjI2MTVk)                                                                                                                                                                                                                                                                                                                       |
+| %CANCEL_LINK%       | The cancellation link for the volunteer to click if they can no longer volunteer for their registered shift-role.                                                                | [Cancellation Link]()                                                                                                                                                                                                                                                                                                                                                                                                      |
+
+
+## Follow-up Email Template
+
+| Wildcard        | Replacement                                                     | Example                                                                                              |
+|-----------------|-----------------------------------------------------------------|------------------------------------------------------------------------------------------------------|
+| %VOLUNEER_NAME% | The volunteer's name as it appears in the volunteer pool sheet. | Testy McTest                                                                                         
+| %EVENT_NAME%    | The name of the event. | Industry Mixer 2024                                                                                  | 
+| %EVENT_DATE%    | The day of the event | 2/10/2024                                                                                            |
+| %ROLE%          | The name of the role the volunteer has registered for. | Setup Crew                                                                                           |
+| %SHIFT_START%   | The start time of the shift the volunteer has registered for. | 19:16                                                                                                |
+| %SHIFT_END%   |The end time of the shift the volunteer has registered for . | 20:16                                                                                                |
+|%CONFIRMATION_LINK% | The confirmation link for the volunteer to click, confirming their availability for their shift-role. | [Confirmation Link](https://autowise.services:8001/MmUxNTM3ZDUtY2M5Mi00ZTBjLThlOWQtMDBmNDQ3YjI2MTVk) |
+|%CANCEL_LINK% | The cancellation link for the volunteer to click if they can no longer volunteer for their registered shift-role. | [Cancellation Link]() |
+
+
+## Confirm Assigned Email Template
+
+| Wildcard      | Replacement                                                                                                       | Example               |
+|---------------|-------------------------------------------------------------------------------------------------------------------|-----------------------|
+| %EVENT_NAME%  | The name of the event.                                                                                            | Industry Mixer 2024   | 
+| %EVENT_DATE%  | The day of the event                                                                                              | 2/10/2024             |
+| %ROLE_NAME%   | The name of the role the volunteer has registered for.                                                            | Setup Crew            |
+| %SHIFT_START% | The start time of the shift the volunteer has registered for.                                                     | 19:16                 |
+| %SHIFT_END%   | The end time of the shift the volunteer has registered for .                                                      | 20:16                 |
+| %SHIFT_INDEX% | The shift number. For example if there are 3 shifts, you have shift 1, shift 2 and shift 3.                       | 1                     |
+| %CANCEL_LINK% | The cancellation link for the volunteer to click if they can no longer volunteer for their registered shift-role. | [Cancellation Link]() |
+
+
+## Confirm Waitlist Email Template
+
+| Wildcard      | Replacement                                                                                                       | Example               |
+|---------------|-------------------------------------------------------------------------------------------------------------------|-----------------------|
+| %EVENT_NAME%  | The name of the event.                                                                                            | Industry Mixer 2024   | 
+| %EVENT_DATE%  | The day of the event                                                                                              | 2/10/2024             |
+| %ROLE_NAME%   | The name of the role the volunteer has registered for.                                                            | Setup Crew            |
+| %SHIFT_START% | The start time of the shift the volunteer has registered for.                                                     | 19:16                 |
+| %SHIFT_END%   | The end time of the shift the volunteer has registered for .                                                      | 20:16                 |
+
+
+## Confirm Cancel Email Template
+
+The confirm cancel email template has no wildcards. 
+
+## Confirm Reject Email Template
+
+| Wildcard      | Replacement                                                                                                       | Example               |
+|---------------|-------------------------------------------------------------------------------------------------------------------|-----------------------|
+| %EVENT_NAME%  | The name of the event.                                                                                            | Industry Mixer 2024   | 
+
+
+## New Recruitment Campaign Email Template
+
+This email template is used to generate the [Automated Campaign Plan Email](#understanding-the-automated-campaign-plan-email). 
+
+| Wildcard      | Replacement                                                                                                                                                                                 | Example                                                                                                                                                                                                                                                                                                                                                                                                                   |
+|---------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| %EVENT_NAME%  | The name of the event.                                                                                                                                                                      | Industry Mixer 2024                                                                                                                                                                                                                                                                                                                                                                                                       |
+| %EVENT_DESCRIPTION% | The description of the event.                                                                                                                                                               | WiSER is excited to host its annual Industry Mixer on Saturday, February 10th, 2024, from 5:30 pm to 8:00 pm MST. Join us for an evening of networking with STEM professionals from industry and government. Organizations attending include Applied Pharmaceutical Innovation, ATCO, CN, Levven, PCL Construction, Thurber Engineering, and more! This event is free and open to students and early-career professionals. |
+| %EVENT_SHEET_LINK% | A link to the google spreadsheet for this recruitment campaign.                                                                                                                             | https://docs.google.com/spreadsheets/d/1jwHGhD7UhJk6gOp6NdCGvRdAQioD-SmZdb1RYGaEl7c/edit?usp=drivesdk                                                                                                                                                                                                                                                                                                                     |
+| %TASK_SUMMARY% | A table listing the automated tasks planned for this recruitment campaign, the date and times the tasks will automatically be executed, as well as controls to execute or cancel each task. | <img src="/docs/task-list.png" alt="An example of the automated task list" height="100">                                                                                                                                                                                                                                                                                                                                  |
+| %CANCEL_LINK% | An administrative link allowing event organizors and volunteer coordinators to cancel the entire campaign.                                                                                  | [Cancel Campaign]()                                                                                                                                                                                                                                                                                                                                                                                                       |
+| %TEMPLATES% | Inserts a preview of every template into the message. This allows volunteer coordinators and event organizors to see what the emails for a campaign would look like.                        | -                                                                                                                                                                                                                                                                                                                                                                                                                         |
+|%BEGIN_LINK% | A link that actually acitvates the planned campaign as described.                                                                                                                           | [Begin Campaign]()                                                                                                                                                                                                                                                                                                                                                                                                        |
+
+
 # Administrator's Guide
 
 ## Setting up the Volunteer Pool Sheet
+
+## AutoWiSE Heartbeats
 
 # Configuration
 
