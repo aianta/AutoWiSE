@@ -301,7 +301,7 @@ AutoWiSE uses a very simple wildcard replacement templating system.
 | %ROLE%          | The name of the role the volunteer has registered for. | Setup Crew                                                                                           |
 | %SHIFT_START%   | The start time of the shift the volunteer has registered for. | 19:16                                                                                                |
 | %SHIFT_END%   |The end time of the shift the volunteer has registered for . | 20:16                                                                                                |
-|%CONFIRMATION_LINK% | The confirmation link for the volunteer to click, confirming their availability for their shift-role. | [Confirmation Link](https://autowise.services:8001/MmUxNTM3ZDUtY2M5Mi00ZTBjLThlOWQtMDBmNDQ3YjI2MTVk) |
+|%CONFIRMATION_LINK% | The confirmation link for the volunteer to click, confirming their availability for their shift-role. | [Confirmation Link](https://autowise.wiseredmonton.com:8001/MmUxNTM3ZDUtY2M5Mi00ZTBjLThlOWQtMDBmNDQ3YjI2MTVk) |
 |%CANCEL_LINK% | The cancellation link for the volunteer to click if they can no longer volunteer for their registered shift-role. | [Cancellation Link]() |
 
 
@@ -472,7 +472,7 @@ socket_mode_token: <from App-Level tokens part of app control panel>
 
 # Building Docker image
 
-`docker build . -t aianta/autowise`
+`docker build . -t <dockerhub_username>/autowise`
 
 # Running with Docker
 ## Locally on a windows machine
@@ -481,10 +481,6 @@ socket_mode_token: <from App-Level tokens part of app control panel>
 
 ## On Linux server (Prod)
 `docker run -p 8001:8001 -p 8002:8002 -v <absolute-path>:/home/autowise/conf -v <absolute-path>:/home/autowise/data aianta/autowise`
-
-## On Hypathia with aianta user
-
-`docker run -p 8001:8001 -p 8002:8002 --rm -v /home/aianta/autowise/conf/:/home/autowise/conf -v /home/aianta/autowise/data/:/home/autowise/data -d --name autowise aianta/autowise`
 
 
 # SSL Setup 
@@ -495,8 +491,8 @@ To achieve this for free we request SSL certificates from Let's Encrypt via cert
 at that interval.
 
 ## Certificate Creation/Renewal via DNS challenge
-At the time of writing the autowise service is using a domain registered through GoDaddy. The simplest way to get a certificate for free
-is using certbot with the DNS challege mode. At a highlevel the idea will be to log into to the GoDaddy domain control panel and add in a TXT
+At the time of writing the autowise service is using a domain registered through Wordpress. The simplest way to get a certificate for free
+is using certbot with the DNS challege mode. At a highlevel the idea will be to log into to the Wordpress domain control panel and add in a TXT
 record to the DNS table. The TXT record will contain a value given to us by certbot. Then Certbot will independently verify the DNS record and
 if the value matches the one it gave us it will generate a certificate for us for that domain.
 
@@ -504,18 +500,18 @@ if the value matches the one it gave us it will generate a certificate for us fo
 > Relevant certbot [documentation](https://eff-certbot.readthedocs.io/en/stable/using.html#managing-certificates). Tip: `ctrl+f` for `--manual`
 1. Install certbot ([Instructions](https://certbot.eff.org/instructions?ws=other&os=windows))
 2. In a shell terminal with admin privileges run the following command
-> Note: `autowise.services` is the registered production domain for Autowise at the time of writing.
+> Note: `autowise.wiseredmonton.com` is the registered production domain for Autowise at the time of writing.
 
-`certbot certonly --manual --preferred-challenges dns --debug-challenges -d autowise.services`
+`certbot certonly --manual --preferred-challenges dns --debug-challenges -d autowise.wiseredmonton.com`
 
 You should get output that looks something like this in the terminal window:
 ```
-Renewing an existing certificate for autowise.services
+Renewing an existing certificate for autowise.wiseredmonton.com
 
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 Please deploy a DNS TXT record under the name:
 
-_acme-challenge.autowise.services.
+_acme-challenge.autowise.wiseredmonton.com.
 
 with the following value:
 
@@ -524,12 +520,12 @@ WlyC9zUxUbaQ7MsI_kOeA-Z8jx4AYzgCqXYH7Gyf-k8
 Before continuing, verify the TXT record has been deployed. Depending on the DNS
 provider, this may take some time, from a few seconds to multiple minutes. You can
 check if it has finished deploying with aid of online tools, such as the Google
-Admin Toolbox: https://toolbox.googleapps.com/apps/dig/#TXT/_acme-challenge.autowise.services.
+Admin Toolbox: https://toolbox.googleapps.com/apps/dig/#TXT/_acme-challenge.autowise.wiseredmonton.com.
 Look for one or more bolded line(s) below the line ';ANSWER'. It should show the
 value(s) you've just added.
 ```
 
->Note: On the GoDaddy DNS control panel the `key` for the TXT value should actually be `_acme-challenge` **NOT** `_acme-challenge.autowise.services.` as the above instructions suggest.
+>Note: On the GoDaddy DNS control panel the `key` for the TXT value should actually be `_acme-challenge` **NOT** `_acme-challenge.autowise.wiseredmonton.com.` as the above instructions suggest.
 
 Follow the given instructions to set an appropriate TXT DNS record for the domain where Autowise will be deployed.
 
@@ -537,8 +533,8 @@ Follow the given instructions to set an appropriate TXT DNS record for the domai
 
 ```
 Successfully received certificate.
-Certificate is saved at: <path-to-cert>\autowise.services\fullchain.pem
-Key is saved at:         <path-to-key>\autowise.services\privkey.pem
+Certificate is saved at: <path-to-cert>\autowise.wiseredmonton.com\fullchain.pem
+Key is saved at:         <path-to-key>\autowise.wiseredmonton.com\privkey.pem
 This certificate expires on 2024-01-27.
 These files will be updated when the certificate renews.
 
@@ -558,6 +554,9 @@ If you like Certbot, please consider supporting our work by:
 
 
 https://stackoverflow.com/questions/16062072/how-to-add-certificate-chain-to-keystore
+
+>[!WARNING]
+> Change the passwords in the commands below for production use! 
 
 ```
 cat cert.pem chain.pem fullchain.pem >all.pem
